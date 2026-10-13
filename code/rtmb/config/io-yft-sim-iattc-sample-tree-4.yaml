@@ -181,6 +181,17 @@ selectivity:
   free_par:
     "1": [1, 2]
     "2": [1, 2, 3, 4]
+  # Variant C2 only: parameters held at their seeded values instead of
+  # estimated (fishery: par_sel columns). In fit C these nine settled at the
+  # mean of opal's N(0, 2) par_sel prior, i.e. the length data do not inform
+  # them: plateau (2) and descending width (4) of the asymptotic fisheries 4,
+  # 5, 7 and 13, and fishery 9's descending width.
+  fix_prior_dominated:
+    "4": [2, 4]
+    "5": [2, 4]
+    "7": [2, 4]
+    "9": [4]
+    "13": [2, 4]
 
 # --- Size-frequency (SS3 generalized size comp, method 1) --------------------
 # The original script split each coarse SS3 size-frequency bin evenly across

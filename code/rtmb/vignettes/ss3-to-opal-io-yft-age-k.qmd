@@ -48,11 +48,12 @@ truth_traj = truth$total[, .(ts, ssb, static_dep)]
 lab = c(A1      = "opal A1: endgrowth biology, SS3 selectivity",
         A2      = "opal A2: control biology, SS3 selectivity",
         C       = "opal C: endgrowth biology, opal selectivity",
+        C2      = "opal C2: as C, prior-dominated parameters fixed",
         schnute = "opal, Schnute growth (earlier vignette)",
         ss3     = "SS3",
         truth   = "Simulated truth")
-col = setNames(c("#C0392B", "#2471A3", "#1E8449", "#A6ACAF", "grey20", "#D4AC0D"), lab)
-lty = setNames(c("solid", "dashed", "solid", "dotted", "solid", "solid"), lab)
+col = setNames(c("#C0392B", "#2471A3", "#1E8449", "#8E44AD", "#A6ACAF", "grey20", "#D4AC0D"), lab)
+lty = setNames(c("solid", "dashed", "solid", "dashed", "dotted", "solid", "solid"), lab)
 scale_series = list(scale_colour_manual(values = col, name = NULL),
                     scale_linetype_manual(values = lty, name = NULL))
 theme_set(theme_bw(base_size = 11) +
@@ -123,7 +124,12 @@ estimate its own selectivity.
   `r S[id == "C", n_par_sel]` selectivity parameters SS3 estimated. B0 is
   `r fmt(S[id == "C", B0_fit] / ss3$ssb0, 2)` × SS3's and terminal depletion
   `r fmt(term(tr[id == "C"], "static_dep"), 3)`. Opal check:
-  `r if (S[id == "C", check_passes]) "passed" else "**failed**"`.
+  `r if (S[id == "C", check_passes]) "passed" else "**failed**"`. Nine of
+  those parameters are set by opal's selectivity prior rather than the data.
+* **C2** fixes those nine at their seeded values and estimates the other
+  `r S[id == "C2", n_par_sel]`: B0 `r fmt(S[id == "C2", B0_fit] / ss3$ssb0, 2)` ×
+  SS3's, terminal depletion `r fmt(term(tr[id == "C2"], "static_dep"), 3)`.
+  Opal check: `r if (S[id == "C2", check_passes]) "passed" else "**failed**"`.
 * Against the simulated truth (terminal depletion
   `r fmt(term(truth_traj, "static_dep"), 3)`), see section 8.
 
@@ -194,8 +200,9 @@ SS3's `SD_Beg`. With growth exact, opal's probability-of-length-at-age matrix
 | **A1** | endgrowth (SS3 age vectors) | SS3 selectivity-at-age, fixed | log B0, 256 rec devs, 4 q |
 | **A2** | control file, through the PLA | SS3 selectivity-at-age, fixed | as A1 |
 | **C** | endgrowth | opal length-based curves | as A1, plus `r S[id == "C", n_par_sel]` selectivity parameters |
+| **C2** | endgrowth | as C | as A1, plus `r S[id == "C2", n_par_sel]` selectivity parameters (nine of C's held at seeded values) |
 
-All three fix growth at SS3's values, and steepness and σ_R at SS3's. They
+All four fix growth at SS3's values, and steepness and σ_R at SS3's. They
 start from the converted SS3 optimum. The length compositions enter as
 multinomials with SS3's `mult_by_lencomp_N` variance adjustments.
 
@@ -264,10 +271,10 @@ seeded selectivity curves.
 #| label: timing
 tm = dcast(cache$timing, stage ~ id, value.var = "seconds")
 tm = tm[match(unique(cache$timing$stage), stage)]
-tm = rbind(tm, tm[, lapply(.SD, sum, na.rm = TRUE), .SDcols = c("A1", "A2", "C")][, stage := "total"],
+tm = rbind(tm, tm[, lapply(.SD, sum, na.rm = TRUE), .SDcols = c("A1", "A2", "C", "C2")][, stage := "total"],
            fill = TRUE)
-knitr::kable(tm[, .(stage, A1, A2, C)], digits = 1,
-             col.names = c("Stage", "A1 (s)", "A2 (s)", "C (s)"))
+knitr::kable(tm[, .(stage, A1, A2, C, C2)], digits = 1,
+             col.names = c("Stage", "A1 (s)", "A2 (s)", "C (s)", "C2 (s)"))
 ```
 
 ```{r}
@@ -334,7 +341,7 @@ agg = lf[, .(obs = sum(obs * n), pred = sum(pred * n), ss3_pred = sum(ss3_pred *
          by = .(id, fishery, bin)]
 agg[, `:=`(obs = obs / sum(obs), pred = pred / sum(pred), ss3_pred = ss3_pred / sum(ss3_pred)),
     by = .(id, fishery)]
-agg_pred = rbind(agg[id %in% c("A1", "C"), .(fishery, bin, value = pred, series = lab[id])],
+agg_pred = rbind(agg[id %in% c("A1", "C", "C2"), .(fishery, bin, value = pred, series = lab[id])],
                  agg[id == "A1", .(fishery, bin, value = ss3_pred, series = lab["ss3"])])
 ggplot() +
     geom_col(data = agg[id == "A1"], aes(bin + 2.5, obs), fill = "grey80", width = 5) +
@@ -363,17 +370,18 @@ keeps its normalising constant.
 ```{r}
 #| label: sel-age
 #| fig-height: 9
-#| fig-cap: "Selectivity-at-age: SS3 (A1 and A2 use it unchanged), fit C's starting curves (seeded), and fit C's estimates."
+#| fig-cap: "Selectivity-at-age: SS3 (A1 and A2 use it unchanged), the seeded starting curves shared by C and C2, and the C and C2 estimates."
 sa = rbind(ss3$sel_age[, .(fishery, age, sel, series = "SS3")],
            cache$sel_age[id == "C" & state == "start", .(fishery, age, sel, series = "opal C, seeded start")],
-           cache$sel_age[id == "C" & state == "fitted", .(fishery, age, sel, series = "opal C, estimated")])
+           cache$sel_age[id == "C" & state == "fitted", .(fishery, age, sel, series = "opal C, estimated")],
+           cache$sel_age[id == "C2" & state == "fitted", .(fishery, age, sel, series = "opal C2, estimated")])
 ggplot(sa[fishery <= 17], aes(age, sel, colour = series, linetype = series)) +
     geom_line(linewidth = 0.7) +
     facet_wrap(~ fishery, ncol = 4, labeller = as_labeller(fleet_name)) +
     scale_colour_manual(values = c("SS3" = "grey20", "opal C, seeded start" = "#A6ACAF",
-                                   "opal C, estimated" = "#1E8449"), name = NULL) +
+                                   "opal C, estimated" = "#1E8449", "opal C2, estimated" = "#8E44AD"), name = NULL) +
     scale_linetype_manual(values = c("SS3" = "solid", "opal C, seeded start" = "dotted",
-                                     "opal C, estimated" = "solid"), name = NULL) +
+                                     "opal C, estimated" = "solid", "opal C2, estimated" = "dashed"), name = NULL) +
     labs(x = "Age (quarters)", y = "Selectivity")
 ```
 
@@ -433,18 +441,65 @@ difference in total. Without them, C's composition NLL is
 `r fmt(S[id == "A1", lp_lf] - S[id == "C", lp_lf], 1)` lower than A1's, with
 the index and recruitment terms almost unchanged.
 
-Fixing these parameters, for example at their seeded values, would change
-the configuration away from "the parameters SS3 estimated". That is a
-modelling choice and is not made here. The survey logistic (fishery 17) also
-barely moved from its seeded start, since opal's only information on it is
-the index itself.
+The survey logistic (fishery 17) also barely moved from its seeded start,
+since opal's only information on it is the index itself.
+
+## Fit C2: the prior-dominated parameters fixed
+
+Fit C2 repeats C with those nine parameters held at their seeded values,
+the opal curves fitted to SS3's selectivity, and estimates the other
+`r S[id == "C2", n_par_sel]`.
+
+```{r}
+#| label: c2
+c2_sel = dcast(cache$sel_age[id %in% c("C", "C2") & state == "fitted"], fishery + age ~ id,
+               value.var = "sel")
+c2_pars = merge(cache$par_sel[id == "C2" & estimated == TRUE, .(fishery, col, fit_C2 = fit)],
+                cache$par_sel[id == "C", .(fishery, col, fit_C = fit)], by = c("fishery", "col"))
+fixed_prior = cache$par_sel[id == "C2" & estimated == FALSE][
+    flag[, .(fishery, col)], on = c("fishery", "col")][, sum((fit / 2)^2 / 2)]
+knitr::kable(data.table(
+    quantity = c("Objective", "NLL length comps", "NLL index", "Recruitment penalty", "Priors",
+                 "B0 (t)", "Terminal SSB/B0"),
+    C  = c(S[id == "C",  objective_fit], S[id == "C",  lp_lf], S[id == "C",  lp_cpue],
+           S[id == "C",  lp_rec], S[id == "C",  lp_prior], S[id == "C",  B0_fit],
+           term(tr[id == "C"], "static_dep")),
+    C2 = c(S[id == "C2", objective_fit], S[id == "C2", lp_lf], S[id == "C2", lp_cpue],
+           S[id == "C2", lp_rec], S[id == "C2", lp_prior], S[id == "C2", B0_fit],
+           term(tr[id == "C2"], "static_dep"))),
+    digits = 3, format.args = list(big.mark = ","), col.names = c("Quantity", "C", "C2"))
+```
+
+**C2 is the same fit as C.** The likelihood components agree to the third
+decimal, B0 differs by
+`r fmt(100 * abs(S[id == "C2", B0_fit] / S[id == "C", B0_fit] - 1), 3)`%, and the
+other estimated selectivity parameters move by at most
+`r fmt(max(abs(c2_pars$fit_C2 - c2_pars$fit_C)), 3)`. The selectivity curves
+differ by at most `r fmt(max(abs(c2_sel$C2 - c2_sel$C)), 3)` (fishery
+`r c2_sel[which.max(abs(C2 - C)), fishery]` at age
+`r c2_sel[which.max(abs(C2 - C)), age]`, the plus group) and by under 1e-4
+everywhere else. The only difference in the objective is the prior: opal's
+N(0, 2) prior still applies to the fixed values, which adds a constant
+`r fmt(fixed_prior, 2)` units, exactly the
+`r fmt(S[id == "C2", lp_prior] - S[id == "C", lp_prior], 2)` difference in the
+prior term.
+
+This confirms that those nine parameters are unidentified by the data. The
+likelihood is flat in them, so it makes no difference whether the prior or a
+fixed value sets them. It also shows that C's lower stock size (B0
+`r fmt(S[id == "C", B0_fit] / ss3$ssb0, 2)` × SS3's, against A1's
+`r fmt(S[id == "A1", B0_fit] / ss3$ssb0, 2)` ×) comes from the selectivity
+parameters the length compositions *do* inform, not from the prior. Fixing
+the unidentified parameters is the cleaner configuration: the selectivity
+parameters in C2 are all informed by the data, and the result does not
+depend on the prior.
 
 # Biomass and depletion
 
 ```{r}
 #| label: biomass
 #| fig-height: 7
-#| fig-cap: "Spawning biomass (top) and static depletion SSB/B0 (bottom): simulated truth, SS3, the three opal fits, and the earlier opal fit with Schnute growth."
+#| fig-cap: "Spawning biomass (top) and static depletion SSB/B0 (bottom): simulated truth, SS3, the four opal fits, and the earlier opal fit with Schnute growth."
 p1 = ggplot(all_traj, aes(ts, ssb / 1e6, colour = series, linetype = series)) +
     geom_line(linewidth = 0.7) + scale_series +
     labs(x = NULL, y = "Spawning biomass (millions t)")
@@ -472,9 +527,10 @@ ggplot(rd, aes(ss3, rdev_fit, colour = lab[id])) +
 
 ```{r}
 #| label: comparison-table
-models = list(A1 = tr[id == "A1"], A2 = tr[id == "A2"], C = tr[id == "C"],
+models = list(A1 = tr[id == "A1"], A2 = tr[id == "A2"], C = tr[id == "C"], C2 = tr[id == "C2"],
               schnute = sch, ss3 = ss3$trajectory)
 b0 = c(A1 = S[id == "A1", B0_fit], A2 = S[id == "A2", B0_fit], C = S[id == "C", B0_fit],
+       C2 = S[id == "C2", B0_fit],
        schnute = cache$schnute$summary[route == "endgrowth", B0_fit], ss3 = ss3$ssb0)
 cmp = rbindlist(lapply(names(models), function(k) {
     a = if (k == "ss3") NULL else vs(models[[k]], ss3$trajectory)
@@ -509,7 +565,7 @@ and SS3 are the ones measured in the first vignette:
   (λ = 0.51) are not converted.
 * **Plus-group equilibrium.** SS3 iterates it to 3 × Nages; opal uses the
   geometric tail. This makes a difference of about 5e-5 in SPR0.
-* **Selectivity (fit C only).** opal's curves are length-based and map to age
+* **Selectivity (fits C and C2).** opal's curves are length-based and map to age
   through the PLA; SS3's are age-based. Both use the same growth here, so the
   difference is in curve shape, not in the age-length key.
 

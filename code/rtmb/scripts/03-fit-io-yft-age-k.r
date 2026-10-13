@@ -13,6 +13,9 @@
 #       The opal equivalents of exactly the selectivity parameters SS3
 #       estimated are freed (cfg$selectivity: estimate / mirror / free_par),
 #       starting from curves seeded against SS3's selectivity.
+#   C2  as C, but the nine parameters that C left at the mean of opal's
+#       par_sel prior (cfg$selectivity$fix_prior_dominated) are held at their
+#       seeded values instead of estimated.
 #
 # A1 and A2 estimate log_B0, the recruitment deviations and the quarterly
 # catchabilities (opal's default map); C adds the 58 selectivity parameters.
@@ -115,6 +118,18 @@
         t_build$value, "C", cv$converted,
         setup_seconds = c("seed selectivity" = t_seed$seconds,
                           "build opal objects" = t_build$seconds))
+
+#_____________________________________________________________________________
+# C2: as C, with the prior-dominated selectivity parameters fixed at their
+# seeded values
+    t_build2 = ss3_elapsed(build(cv) %>%
+                               ss3_use_estimated_selectivity(t_seed$value$par_sel, cv$cfg,
+                                                             fix = cv$cfg$selectivity$fix_prior_dominated) %>%
+                               opal_build())
+    fits[["C2"]] = ss3_fit_extract(
+        t_build2$value, "C2", cv$converted,
+        setup_seconds = c("seed selectivity" = t_seed$seconds,
+                          "build opal objects" = t_build2$seconds))
 
 #_____________________________________________________________________________
 # Reference quantities

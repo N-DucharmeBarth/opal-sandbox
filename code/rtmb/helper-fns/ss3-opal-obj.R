@@ -457,8 +457,11 @@ ss3_use_external_length_at_age = function(x, mu_a, sd_a) {
 #' @param par_sel \code{[n_fishery, n_par]} starting values, typically
 #'   \code{ss3_seed_par_sel(...)$par_sel}.
 #' @param cfg converter configuration list.
+#' @param fix optional named list, \code{fishery = par_sel columns}, of
+#'   parameters to hold at their \code{par_sel} values even though
+#'   \code{free_par} would estimate them. Mirrors of a fishery follow it.
 #' @return an updated \code{opal_obj} with \code{sel_fa_external} removed.
-ss3_use_estimated_selectivity = function(x, par_sel, cfg) {
+ss3_use_estimated_selectivity = function(x, par_sel, cfg, fix = NULL) {
 
     sel      = cfg$selectivity
     type_f   = x$data$sel_type_f
@@ -481,6 +484,7 @@ ss3_use_estimated_selectivity = function(x, par_sel, cfg) {
     level = 0L
     for (f in estimate) {
         cols = as.integer(free_par[[as.character(type_f[f])]] %||% integer())
+        cols = setdiff(cols, as.integer(fix[[as.character(f)]] %||% integer()))
         if (!length(cols)) next
         map_sel[f, cols] = level + seq_along(cols)
         level = level + length(cols)

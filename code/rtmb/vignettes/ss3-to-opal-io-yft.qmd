@@ -1,6 +1,6 @@
 ---
 title: "SS3 to opal: IO yellowfin"
-subtitle: "Converting and fitting the IATTC sample_tree/4 operating model on both biology routes"
+subtitle: "Converting and fitting the IATTC team's SS3 model of the simulated data on both biology routes"
 author: "Nicholas Ducharme-Barth"
 date: today
 format:
@@ -91,6 +91,10 @@ This vignette documents the conversion of the IO yellowfin simulated SS3 model
 `opal_obj`, and compares opal fits on both biology routes against the SS3
 solution.
 
+The SS3 model is the baseline throughout. It was built by the IATTC analyst team for the Spatial Stock Assessment Simulation Experiment: Mark N. Maunder, Haikun Xu and Carolina Minte-Vera (Inter-American Tropical Tuna Commission), who are
+co-authors of the experiment's evaluation of the yellowfin assessments
+(Goethel et al. 2024; see section 1.1).
+
 **Key results.**
 
 * The conversion is exact or reconciled for catch, the index, length
@@ -144,6 +148,9 @@ There are 16 extraction fleets with catch in numbers and one longline CPUE
 index. Following the original prep script, the index is split into four
 quarterly series, each with its own catchability (opal fisheries 17 to 20).
 SS3 ages 1 to 28 are carried, so the opal age index equals the SS3 age.
+
+**Credit.** The SS3 model was developed by the IATTC analyst team for the Spatial Stock Assessment Simulation Experiment: Mark N. Maunder, Haikun Xu and Carolina Minte-Vera (Inter-American Tropical Tuna Commission). The yellowfin assessments from that
+experiment, including theirs, are evaluated in Goethel, D.R., et al. (2024). 'Drivin' with your eyes closed': Results from an international, blinded simulation experiment to evaluate spatial stock assessments. *Fish and Fisheries* 25(3): 471–490. <https://doi.org/10.1111/faf.12819>
 
 The data were simulated from replicate 4 of the Indian Ocean yellowfin
 operating model of the

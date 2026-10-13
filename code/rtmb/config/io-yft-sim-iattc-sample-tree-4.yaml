@@ -1,5 +1,7 @@
-# Converter configuration: IO yellowfin simulated data from the IATTC
-# sample_tree/4 model -> opal.
+# Converter configuration: the IATTC team's SS3 model of the IO yellowfin
+# simulated data (Spatial Stock Assessment Simulation Experiment, replicate 4)
+# -> opal. SS3 model by Mark N. Maunder, Haikun Xu and Carolina Minte-Vera
+# (IATTC); see model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4/README.md.
 #
 # Everything here is a decision that CANNOT be read out of the SS3 files.
 # If a value can be derived from data.ss / control.ss, it is not in this file.
@@ -16,7 +18,8 @@ metadata:
   species:     Yellowfin tuna
   region:      Indian Ocean
   data_type:   simulated
-  note:        IATTC sample_tree/4 operating model
+  note:        SS3 estimation model by the IATTC team (M.N. Maunder, H. Xu, C. Minte-Vera) for the Spatial Stock Assessment Simulation Experiment, fitted to replicate 4
+  reference:   "Goethel et al. (2024) Fish and Fisheries 25(3): 471-490, doi:10.1111/faf.12819"
 
 files:
   dat:         data.ss_new

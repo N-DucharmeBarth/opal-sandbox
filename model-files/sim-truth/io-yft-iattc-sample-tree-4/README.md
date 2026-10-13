@@ -5,8 +5,9 @@ operating model of the Spatial Stock Assessment Simulation Experiment, run
 for the Spatial Stock Assessment Methods Workshop
 (<https://aaronmberger-nwfsc.github.io/Spatial-Assessment-Modeling-Workshop/>;
 repository <https://github.com/aaronmberger-nwfsc/Spatial-Assessment-Modeling-Workshop>).
-The SS3 model in `model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4` is fitted
-to data simulated from this replicate.
+The SS3 model in `model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4`, built by
+the IATTC analyst team (Mark N. Maunder, Haikun Xu and Carolina Minte-Vera),
+is fitted to data simulated from this replicate; see that folder's README.
 
 The operating model is a spatial population model (SPM) with 4 regions, ages
 1–28 (plus group) and 256 years of 3 time steps each, i.e. one model year per

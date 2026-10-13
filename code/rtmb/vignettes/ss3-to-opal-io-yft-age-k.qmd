@@ -90,7 +90,10 @@ vs = function(x, ref) {
 
 This vignette follows
 [*SS3 to opal: IO yellowfin*](ss3-to-opal-io-yft.html), which converted the
-Indian Ocean yellowfin SS3 model into opal and compared fits. That comparison
+Indian Ocean yellowfin SS3 model into opal and compared fits. The SS3 model,
+the baseline here, was built by the IATTC analyst team (Mark N. Maunder,
+Haikun Xu and Carolina Minte-Vera) for the Spatial Stock Assessment
+Simulation Experiment; see **Credit**. That comparison
 found that fitted opal models diverged from SS3 because of growth. SS3 uses
 `GrowthModel 3`, with age-specific K, and opal's single-k Schnute curve
 could not represent it. It was 5 to 16 cm too long at ages 4–8, which shifted
@@ -570,6 +573,10 @@ and SS3 are the ones measured in the first vignette:
   difference is in curve shape, not in the age-length key.
 
 # Credit
+
+The baseline SS3 model (`model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4`)
+was developed by the IATTC analyst team for the Spatial Stock Assessment Simulation Experiment: Mark N. Maunder, Haikun Xu and Carolina Minte-Vera (Inter-American Tropical Tuna Commission). The yellowfin assessments from the experiment,
+including theirs, are evaluated in Goethel, D.R., et al. (2024). 'Drivin' with your eyes closed': Results from an international, blinded simulation experiment to evaluate spatial stock assessments. *Fish and Fisheries* 25(3): 471–490. <https://doi.org/10.1111/faf.12819>
 
 The age-specific K growth model is Stock Synthesis' `GrowthModel 3` (Methot,
 R.D. Jr., and Wetzel, C.R. 2013. Stock synthesis: A biological and statistical

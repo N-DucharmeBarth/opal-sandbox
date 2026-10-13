@@ -32,19 +32,26 @@ route_lab = c(endgrowth             = "opal, endgrowth biology",
               control               = "opal, control biology",
               endgrowth_no_lf       = "opal, endgrowth, no length comps",
               endgrowth_free_growth = "opal, endgrowth, growth estimated",
+              endgrowth_laa_beg     = "opal, endgrowth, SS3 length-at-age (start)",
+              endgrowth_laa_mid     = "opal, endgrowth, SS3 length-at-age (mid)",
               ss3                   = "SS3")
 route_col = c("opal, endgrowth biology"           = "#C0392B",
               "opal, control biology"             = "#2471A3",
               "opal, endgrowth, no length comps"  = "#7D3C98",
               "opal, endgrowth, growth estimated" = "#CA6F1E",
+              "opal, endgrowth, SS3 length-at-age (start)" = "#1E8449",
+              "opal, endgrowth, SS3 length-at-age (mid)"   = "#76D7C4",
               "SS3"                               = "grey20")
 route_lty = c("opal, endgrowth biology"           = "solid",
               "opal, control biology"             = "dashed",
               "opal, endgrowth, no length comps"  = "dotdash",
               "opal, endgrowth, growth estimated" = "longdash",
+              "opal, endgrowth, SS3 length-at-age (start)" = "solid",
+              "opal, endgrowth, SS3 length-at-age (mid)"   = "dashed",
               "SS3"                               = "solid")
 main  = c("endgrowth", "control")
 diag_routes = c("endgrowth_no_lf", "endgrowth_free_growth")
+laa_routes  = c("endgrowth_laa_beg", "endgrowth_laa_mid")
 theme_set(theme_bw(base_size = 11) +
           theme(legend.position = "bottom", panel.grid.minor = element_blank()))
 
@@ -81,6 +88,14 @@ solution.
 * Diagnostic fits trace that gap to the length compositions as predicted
   through opal's single-k growth curve, which cannot represent SS3's
   age-specific K. Fitted to the index alone, opal reproduces SS3's depletion.
+* A test with a local opal patch confirms it. Give opal SS3's own
+  start-of-timestep length-at-age and fit with the length compositions on:
+  terminal SSB is then within
+  `r fmt(abs(100 * (cache$trajectory[route == "endgrowth_laa_beg" & state == "fitted" & ts == max(ts), ssb] / ss3$trajectory[ts == max(ts), ssb] - 1)), 0)`%
+  of SS3, and terminal depletion is
+  `r fmt(cache$trajectory[route == "endgrowth_laa_beg" & state == "fitted" & ts == max(ts), static_dep], 3)`
+  against SS3's `r fmt(ss3$trajectory[ts == max(ts), static_dep], 3)`
+  (section 8.1).
 
 The workflow has three steps. Only the first two touch SS3 or run an
 optimiser; this document reads a cache and rebuilds in seconds.
@@ -217,7 +232,10 @@ The diagnostic fits in section 8 took
 `r fmt(cache$timing[route == "endgrowth_no_lf", sum(seconds)], 0)` s (no length
 compositions) and
 `r fmt(cache$timing[route == "endgrowth_free_growth", sum(seconds)], 0)` s (growth
-estimated) end to end.
+estimated) end to end. The SS3 length-at-age tests took
+`r fmt(cache$timing[route == "endgrowth_laa_beg", sum(seconds)], 0)` s (start of
+timestep) and `r fmt(cache$timing[route == "endgrowth_laa_mid", sum(seconds)], 0)` s
+(mid-timestep).
 
 For reference, the SS3 Report.sso header records a run time of
 `r fmt(ss3$run_seconds / 60, 1)` minutes for `r ss3$n_par` active parameters
@@ -225,7 +243,11 @@ For reference, the SS3 Report.sso header records a run time of
 started from SS3's own initial values, and the header does not say whether a
 Hessian was included or on what hardware, so it is context, not a benchmark.
 The opal timings are from a `r cache$session$cpu` machine with
-`r cache$session$cores` cores.
+`r cache$session$cores` cores. Treat them as indicative. The same script,
+rerun on this cloud container after it was restarted, took 1.5 to 2 times as
+long at every stage, including reading the SS3 files, with identical
+iteration and evaluation counts. The iteration counts above are the
+reproducible measure of optimisation effort.
 
 # Index fits
 
@@ -473,7 +495,7 @@ dg = dg[, .(max_abs_pct = max(abs(100 * (ssb / s3 - 1))),
             terminal_pct = 100 * (ssb[ts == max(ts)] / s3[ts == max(ts)] - 1),
             terminal_depletion = static_dep[ts == max(ts)]), by = route]
 dg = merge(dg, S_all[, .(route, B0 = B0_fit, R0 = R0_fit, lp_cpue, lp_lf)], by = "route")
-dg = dg[match(c(main, diag_routes), route)]
+dg = dg[match(c(main, diag_routes, laa_routes), route)]
 dg[, route := route_lab[route]]
 knitr::kable(rbind(dg, data.table(route = "SS3", terminal_depletion = ss3$trajectory[ts == max(ts), static_dep],
                                   B0 = ss3$ssb0, R0 = ss3$r0), fill = TRUE),
@@ -519,18 +541,121 @@ A single-k curve fitted to the compositions is still not SS3's growth, so
 this is not a fix. It shows how much leverage the compositions have over scale
 when growth is misspecified.
 
+## Test: opal with SS3's length-at-age
+
+If growth is the cause, giving opal SS3's own mean and SD of length-at-age
+should bring the fitted model back to SS3, with the length compositions still
+in the likelihood. opal has no option for this, so the test uses a **local
+patch**. `ss3_patch_opal_external_laa()` (in `ss3-opal-obj.R`) inserts one
+statement into opal's `opal_model()` for the current R session, after it
+computes length-at-age:
+
+```r
+if (exists("laa_mu_external", inherits = FALSE)) {
+    mu_a <- laa_mu_external
+    sd_a <- laa_sd_external
+}
+```
+
+The installed opal is not changed. The patch does nothing for a model without
+those two data vectors, and objects built under it carry a different model
+signature from stock opal. Everything else matches the endgrowth fit:
+biology, SS3's selectivity, the same starting point and the same estimated
+parameters. Two versions of SS3's length-at-age are tried. `Len_Beg`/`SD_Beg`
+are lengths at the start of the timestep, which is when opal removes the
+catch. `Len_Mid`/`SD_Mid` are lengths at mid-timestep, which SS3 uses for its
+own catch compositions.
+
+```{r}
+#| label: laa-test
+#| fig-height: 7
+#| fig-cap: "Spawning biomass (top) and static depletion (bottom): SS3, the stock endgrowth fit, and the endgrowth fit with SS3's length-at-age."
+tl = cache$trajectory[state == "fitted" & route %in% c("endgrowth", laa_routes)]
+dl = rbind(tl[, .(ts, ssb, dep = static_dep, series = route_lab[route])],
+           ss3$trajectory[, .(ts, ssb, dep = static_dep, series = "SS3")])
+l1 = ggplot(dl, aes(ts, ssb / 1e6, colour = series, linetype = series)) +
+    geom_line(linewidth = 0.7) +
+    scale_colour_manual(values = route_col, name = NULL) +
+    scale_linetype_manual(values = route_lty, name = NULL) +
+    labs(x = NULL, y = "Spawning biomass (millions)")
+l2 = ggplot(dl, aes(ts, dep, colour = series, linetype = series)) +
+    geom_line(linewidth = 0.7) +
+    scale_colour_manual(values = route_col, name = NULL) +
+    scale_linetype_manual(values = route_lty, name = NULL) +
+    coord_cartesian(ylim = c(0, NA)) +
+    labs(x = "Timestep (quarter)", y = "SSB / B0")
+patchwork::wrap_plots(l1, l2, ncol = 1, guides = "collect") &
+    theme(legend.position = "bottom") & guides(colour = guide_legend(ncol = 2))
+```
+
+```{r}
+#| label: laa-comps
+#| fig-height: 9
+#| fig-cap: "Aggregated length compositions: the stock endgrowth fit against the fit with SS3's start-of-timestep length-at-age, and SS3's own expectation."
+lfl = merge(cache$lf[route %in% c("endgrowth", "endgrowth_laa_beg")], ss3$lf,
+            by = c("ts", "fishery", "bin"), all.x = TRUE)
+agl = lfl[, .(obs = sum(obs * n), pred = sum(pred * n), ss3_pred = sum(ss3_pred * n)),
+          by = .(route, fishery, bin)]
+agl[, `:=`(obs = obs / sum(obs), pred = pred / sum(pred), ss3_pred = ss3_pred / sum(ss3_pred)),
+    by = .(route, fishery)]
+agl_pred = rbind(agl[, .(fishery, bin, value = pred, series = route_lab[route])],
+                 agl[route == "endgrowth", .(fishery, bin, value = ss3_pred, series = "SS3")])
+ggplot() +
+    geom_col(data = agl[route == "endgrowth"], aes(bin + 2.5, obs), fill = "grey80", width = 5) +
+    geom_line(data = agl_pred, aes(bin + 2.5, value, colour = series, linetype = series), linewidth = 0.7) +
+    facet_wrap(~ fishery, ncol = 4, scales = "free_y", labeller = as_labeller(fleet_name)) +
+    scale_colour_manual(values = route_col, name = NULL) +
+    scale_linetype_manual(values = route_lty, name = NULL) +
+    labs(x = "Length (cm)", y = "Proportion")
+```
+
+With SS3's start-of-timestep length-at-age, the predicted compositions sit on
+SS3's, and the fitted model returns to SS3. B0 is
+`r fmt(S_all[route == "endgrowth_laa_beg", B0_fit] / ss3$ssb0, 2)` × SS3's.
+Mean and maximum SSB differences are
+`r fmt(dg[route == route_lab["endgrowth_laa_beg"], mean_abs_pct], 1)`% and
+`r fmt(dg[route == route_lab["endgrowth_laa_beg"], max_abs_pct], 1)`%,
+comparable to the catch-timing effect measured in the bridging check (up to
+10% at SS3's parameter values). The
+composition NLL falls from
+`r fmt(S_all[route == "endgrowth", lp_lf], 0)` to
+`r fmt(S_all[route == "endgrowth_laa_beg", lp_lf], 0)`, lower than the
+growth-estimated fit reaches
+(`r fmt(S_all[route == "endgrowth_free_growth", lp_lf], 0)`). **The growth
+explanation holds: with SS3's growth, opal fits the compositions better than
+the growth-estimated single-k fit does, and lands on SS3's stock size.**
+
+The mid-timestep version lands
+`r fmt(abs(dg[route == route_lab["endgrowth_laa_mid"], terminal_pct]), 0)`%
+below SS3 at the end of the series, with B0 at
+`r fmt(S_all[route == "endgrowth_laa_mid", B0_fit] / ss3$ssb0, 2)` × SS3's,
+yet its composition NLL
+(`r fmt(S_all[route == "endgrowth_laa_mid", lp_lf], 0)`) is almost the same as
+the start-of-timestep fit's. Half a quarter of growth moves the estimated
+scale by about 20% without changing the fit to the compositions. Two lessons
+follow:
+
+* The start-of-timestep lengths are the consistent choice for opal, because
+  opal removes the catch at the start of the timestep. SS3 uses mid-season
+  lengths because its catch is spread through the season.
+* Scale information from these compositions is weak. Small, defensible
+  choices in how lengths are assigned to the catch move B0 a long way. That
+  is worth remembering whenever opal's growth is estimated or approximated.
+
 The practical conclusions:
 
-* For a bridging comparison against SS3, the converted model is right. At SS3
-  parameter values, and when fitted to the index alone, it reproduces SS3.
-* The fitted comparison is limited by opal's growth form, not by the
-  conversion. Matching SS3 with the compositions included needs either a
-  growth form in opal that can represent age-specific K, or an external
-  age-length key in place of the Schnute PLA. That would be the PLA analogue
-  of `sel_fa_external`; opal does not offer it at the moment.
-* Short of that, the converter's Schnute fit could weight ages by
-  catch-at-age rather than equally, which would put the approximation error
-  where it matters least. It is not done here.
+* For a bridging comparison against SS3, the converted model is right. It
+  reproduces SS3 at SS3's parameter values, when fitted to the index alone,
+  and, with SS3's length-at-age, when fitted to everything.
+* The fitted comparison in stock opal is limited by opal's growth form, not
+  by the conversion. A data option for external length-at-age, the analogue
+  of `sel_fa_external`, would let opal bridge to SS3 without the patch. It is
+  a small change to `opal_model()` (one statement, as above) and the most
+  direct fix. Age-specific k multipliers would be the route if growth is to be
+  estimated.
+* Until then, the converter's Schnute fit could weight ages by catch-at-age
+  rather than equally, which would put the approximation error where it
+  matters least. It is not done here.
 
 The composition likelihood values are not comparable across models. opal's
 multinomial keeps the normalising constant, while SS3's omits it.
@@ -544,7 +669,7 @@ the comparisons above.
 
 | Difference | SS3 (this model) | opal | Effect | Route |
 |---|---|---|---|---|
-| Growth and the age-length key | GrowthModel 3, age-specific K; SS3's own ALK | Single-k Schnute, which builds the PLA | Predicted length compositions shift right. Through the composition likelihood this dominates the fitted difference (see above). On the control route it also sets weight and spawning potential | both; biology on control |
+| Growth and the age-length key | GrowthModel 3, age-specific K; SS3's own ALK at mid-season | Single-k Schnute, which builds the PLA, applied at the start of the step | Predicted length compositions shift right. Through the composition likelihood this dominates the fitted difference; replacing it with SS3's length-at-age (local patch) removes it (section 8.1). On the control route it also sets weight and spawning potential | both; biology on control |
 | Biology | Age-based, exact | endgrowth: SS3's age vectors; control: length-based through the PLA | Control-route R0 is `r fmt(100 * (S[route == "control", R0_start] / ss3$r0 - 1), 0)`% from SS3 even at SS3's B0 | control |
 | Catch timing | Hybrid F, Baranov: F and M act together through the step (`F_Method = 3`) | Catch removed instantaneously at the start of the step, then M | opal ends each step with more fish under heavy catch, and drifts up to 10% above SS3 at SS3's parameters | both |
 | Spawner-recruit timing | Age-0 recruits from SSB at t | Age-1 recruits at t + 1 from SSB at t + 1 (SS3 age 0 is not carried) | One-step lag in the stock-recruit link. Minor, because SSB changes slowly | both |

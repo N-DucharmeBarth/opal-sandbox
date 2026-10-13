@@ -373,3 +373,66 @@ ss3_sel_starts = function(target, len_mid, sel_type) {
     }
     out
 }
+
+#_____________________________________________________________________________
+#' LOCAL TEST PATCH: let opal_model() take length-at-age as data
+#'
+#' opal always builds its probability-of-length-at-age matrix (PLA) from the
+#' Schnute growth curve. For a model like this one, where SS3's growth
+#' (GrowthModel 3, age-specific K) cannot be represented by a single k, that
+#' curve misplaces the predicted length compositions even when biology and
+#' selectivity are taken from SS3 exactly.
+#'
+#' This inserts one statement into opal's namespace copy of opal_model(),
+#' directly after it computes mean and SD of length-at-age:
+#'
+#'   if (exists("laa_mu_external", inherits = FALSE)) {
+#'       mu_a <- laa_mu_external; sd_a <- laa_sd_external
+#'   }
+#'
+#' It is inert unless the data list carries both vectors, so other fits in the
+#' same session are unaffected. It lasts only for the R session, and the
+#' installed opal is not modified. Objects built while it is active record a
+#' different model signature from stock opal, which flags them as patched.
+#' This is a test of the growth explanation, not a supported opal feature; the
+#' supported version would be an opal data option analogous to sel_fa_external.
+#'
+#' @return \code{TRUE}, invisibly. Safe to call more than once.
+ss3_patch_opal_external_laa = function() {
+    f = utils::getFromNamespace("opal_model", "opal")
+    b = as.list(body(f))
+    if (any(vapply(b, function(e) any(grepl("laa_mu_external", deparse(e))), logical(1L)))) {
+        return(invisible(TRUE))
+    }
+    i = which(vapply(b, function(e) any(grepl("get_sd_at_age", deparse(e))), logical(1L)))
+    if (length(i) != 1L) {
+        stop("Could not find the sd_a <- get_sd_at_age(...) statement in opal_model(); ",
+             "the patch does not match this opal version.", call. = FALSE)
+    }
+    ins = quote(if (exists("laa_mu_external", inherits = FALSE)) {
+        mu_a <- laa_mu_external
+        sd_a <- laa_sd_external
+    })
+    body(f) = as.call(append(b, list(ins), after = i))
+    utils::assignInNamespace("opal_model", f, "opal")
+    invisible(TRUE)
+}
+
+#' Supply SS3's length-at-age to a patched opal model
+#'
+#' Requires \code{ss3_patch_opal_external_laa()} in the session. The growth
+#' parameters then affect nothing and stay fixed (they are in the default map).
+#'
+#' @param x an \code{opal_obj}.
+#' @param mu_a,sd_a \code{numeric} mean and SD of length at each opal age,
+#'   e.g. from \code{ss3_endgrowth_table(rep, dims, basis = "Beg")}.
+#' @return an updated \code{opal_obj}.
+ss3_use_external_length_at_age = function(x, mu_a, sd_a) {
+    stopifnot("mu_a and sd_a must have one value per opal age" =
+                  length(mu_a) == x$data$n_age && length(sd_a) == x$data$n_age)
+    data = x$data
+    data$laa_mu_external = as.numeric(mu_a)
+    data$laa_sd_external = as.numeric(sd_a)
+    opal::opal_update(x, data = data,
+                      metadata = list(length_at_age = "ss3_external (local opal patch)"))
+}

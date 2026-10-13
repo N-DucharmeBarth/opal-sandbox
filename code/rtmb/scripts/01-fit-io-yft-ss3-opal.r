@@ -15,6 +15,13 @@
 # likelihood switched off, and one with the growth parameters (and so the PLA
 # that maps catch-at-age to predicted length compositions) estimated.
 #
+# Two further endgrowth variants test the growth explanation directly: opal's
+# PLA is built from SS3's own length-at-age (start-of-timestep Len_Beg/SD_Beg,
+# and mid-timestep Len_Mid/SD_Mid) instead of the Schnute curve. opal has no
+# option for this, so these use a LOCAL TEST PATCH to opal_model(), applied in
+# this R session only by ss3_patch_opal_external_laa() (ss3-opal-obj.R). They
+# run last; the patch is inert for any model without the external vectors.
+#
 # The vignette (code/rtmb/vignettes/ss3-to-opal-io-yft.qmd) only reads the
 # cache written here, so it rebuilds in seconds. Rerun this script when the
 # converter, the config or the SS3 files change.
@@ -90,11 +97,14 @@
 
 #_____________________________________________________________________________
 # Fit one biology route
-    fit_route = function(route, variant = c("base", "no_lf", "free_growth")) {
+    fit_route = function(route, variant = c("base", "no_lf", "free_growth",
+                                            "laa_beg", "laa_mid")) {
 
         variant = match.arg(variant)
         id = switch(variant, base = route, no_lf = paste0(route, "_no_lf"),
-                    free_growth = paste0(route, "_free_growth"))
+                    free_growth = paste0(route, "_free_growth"),
+                    laa_beg = paste0(route, "_laa_beg"),
+                    laa_mid = paste0(route, "_laa_mid"))
         cat(sprintf("\n==== %s ====\n", id))
         cfg = ss3_read_config(cfg_path)
         cfg$bio$source = route
@@ -132,6 +142,13 @@
             map = bridge$map
             for (p in c("log_L1", "log_L2", "log_k", "log_CV1", "log_CV2")) map[[p]] = NULL
             bridge = opal_build(opal_update(bridge, map = map))
+        }
+        laa = NULL
+        if (variant %in% c("laa_beg", "laa_mid")) {
+            ss3_patch_opal_external_laa()
+            laa = ss3_endgrowth_table(converted$ss3$rep, converted$meta$dims,
+                                      basis = if (variant == "laa_beg") "Beg" else "Mid")
+            bridge = opal_build(ss3_use_external_length_at_age(bridge, laa$length, laa$sd))
         }
         start_object = opal_rtmb(bridge, fresh = TRUE)
         start_par    = start_object$par
@@ -183,6 +200,7 @@
         mu_a = with(pl, exp(log_L1) + (exp(log_L2) - exp(log_L1)) *
                         (1 - exp(-exp(log_k) * (d$age_a - d$A1))) /
                         (1 - exp(-exp(log_k) * (d$A2 - d$A1))))
+        if (!is.null(laa)) mu_a = as.numeric(laa$length)
 
         list(
             route      = route,
@@ -246,7 +264,10 @@
         endgrowth             = fit_route("endgrowth"),
         control               = fit_route("control"),
         endgrowth_no_lf       = fit_route("endgrowth", "no_lf"),
-        endgrowth_free_growth = fit_route("endgrowth", "free_growth")
+        endgrowth_free_growth = fit_route("endgrowth", "free_growth"),
+        # Local opal patch from here on; see the header.
+        endgrowth_laa_beg     = fit_route("endgrowth", "laa_beg"),
+        endgrowth_laa_mid     = fit_route("endgrowth", "laa_mid")
     )
 
 #_____________________________________________________________________________

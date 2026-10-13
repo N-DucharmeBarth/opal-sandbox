@@ -146,8 +146,8 @@ quarterly series, each with its own catchability (opal fisheries 17 to 20).
 SS3 ages 1 to 28 are carried, so the opal age index equals the SS3 age.
 
 The data were simulated from replicate 4 of the Indian Ocean yellowfin
-operating model used in the
-[CAPAM spatial assessment modelling workshop](`r truth$url`): a spatial
+operating model of the
+[Spatial Stock Assessment Simulation Experiment](`r truth$url`): a spatial
 population model with `r truth$n_region` regions, also run in quarterly
 "years" 1–256. Its spawning biomass is mature biomass at the start of each
 year, before fishing, in tonnes. That is the same timing and units as SS3's,

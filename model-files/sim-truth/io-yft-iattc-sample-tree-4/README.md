@@ -1,8 +1,10 @@
 # Simulated truth: IO yellowfin, replicate 4
 
 Operating-model output for replicate 4 of the Indian Ocean yellowfin
-simulation used in the CAPAM spatial assessment modelling workshop
-(<https://aaronmberger-nwfsc.github.io/Spatial-Assessment-Modeling-Workshop/>).
+operating model of the Spatial Stock Assessment Simulation Experiment, run
+for the Spatial Stock Assessment Methods Workshop
+(<https://aaronmberger-nwfsc.github.io/Spatial-Assessment-Modeling-Workshop/>;
+repository <https://github.com/aaronmberger-nwfsc/Spatial-Assessment-Modeling-Workshop>).
 The SS3 model in `model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4` is fitted
 to data simulated from this replicate.
 

@@ -442,9 +442,20 @@ ss3_bio_to_opal = function(ss3, cfg, dims) {
                         "Run the SS3 model to produce Report.sso, or set ",
                         "cfg$bio$source to 'control'."), call. = FALSE)
         }
-        return(ss3_bio_from_endgrowth(ss3, cfg, dims))
+        bio = ss3_bio_from_endgrowth(ss3, cfg, dims)
+    } else {
+        bio = ss3_bio_from_control(ss3, cfg, dims)
     }
-    ss3_bio_from_control(ss3, cfg, dims)
+
+    # Growth form: opal's single-k Schnute curve (fitted or from the control
+    # file, per route), or SS3's own age-specific K read from the SS3 files.
+    growth_model = cfg$growth$model %||% "schnute"
+    if (!growth_model %in% c("schnute", "ss3_age_k")) {
+        stop(sprintf("cfg$growth$model must be 'schnute' or 'ss3_age_k', not '%s'.",
+                     growth_model), call. = FALSE)
+    }
+    if (identical(growth_model, "ss3_age_k")) bio = ss3_apply_age_k_growth(bio, ss3, cfg, dims)
+    bio
 }
 
 #_____________________________________________________________________________
@@ -632,7 +643,7 @@ ss3_pars_to_opal = function(ss3, cfg, dims, fish, bio) {
 
     n_index = fish$n_index
 
-    list(
+    pars = list(
         log_B0         = log_B0,
         log_h          = log(steep),
         log_sigma_r    = log(sigma_r),
@@ -652,6 +663,10 @@ ss3_pars_to_opal = function(ss3, cfg, dims, fish, bio) {
         log_CV1        = log(bio$CV1),
         log_CV2        = log(bio$CV2)
     )
+    # Age-specific K multipliers, cfg$growth$model = "ss3_age_k" only.
+    # Assigning NULL adds nothing, so the Schnute path is unchanged.
+    pars$log_k_mult = bio$log_k_mult
+    pars
 }
 
 #' Recruitment deviations from the SS3 par file, with their years
@@ -772,6 +787,11 @@ ss3_to_opal = function(cfg, dir_root = getwd()) {
 
         A1             = bio$A1,
         A2             = bio$A2,
+
+        # Age-specific K growth (cfg$growth$model = "ss3_age_k"); NULL and
+        # stripped below otherwise.
+        k_mult_ages              = bio$k_mult_ages,
+        growth_plus_group_adjust = bio$plus_group_adjust,
 
         sel_type_f     = sel$sel_type_f,
 

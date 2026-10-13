@@ -60,6 +60,14 @@ growth:
   A1:      1
   A2:      28
   fit_cv:  true
+  # model: schnute    opal's single-k Schnute curve, fitted to SS3's
+  #                   length-at-age (endgrowth route) or taken from the
+  #                   control file (control route), as described above.
+  # model: ss3_age_k  SS3's own GrowthModel 3 (age-specific K), read from the
+  #                   SS3 files; needs opal >= 0.1.1. opal's length-at-age then
+  #                   equals SS3's Len_Beg, on either biology route.
+  model:   schnute
+  plus_group_adjust: true   # ss3_age_k only: SS3's plus-group length approximation
 
 # --- Biology -----------------------------------------------------------------
 # source: endgrowth  take length, SD, weight, maturity, Mat*Fecund and M at age
@@ -139,11 +147,40 @@ selectivity:
   report_factor:  Asel2      # Report.sso ageselex Factor to read
   reference_year: null       # null -> terminal year in the ageselex table
   n_par:          6
+  # Curve family for the estimated (opal-native) selectivity, matching SS3:
+  # fisheries 1-16 are age double-normal (pattern 20) in SS3, the survey is
+  # logistic (pattern 12).
   opal_type_f:
     # fisheries 1-16: SS3 age double-normal -> opal double-normal
     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
     # index fisheries 17-20: SS3 age logistic -> opal logistic
      1, 1, 1, 1]
+  # Estimated-selectivity fits only. Estimate the opal equivalents of the
+  # selectivity parameters SS3 estimated (PHASE > 0 in control.ss_new):
+  #   fleets 1-14, pattern 20: P1-P4 (peak, plateau, ascending and descending
+  #     width) estimated; P5 (initial) fixed at -6 and P6 (final) at -999.
+  #     opal's double-normal parameters are in the same order, so columns 1-4
+  #     are estimated and 5-6 stay at their seeded values. (opal's double
+  #     normal has no equivalent of SS3's -999 "no final adjustment"; the
+  #     seeded final value stands in for it.)
+  #   fleets 15, 16: pattern 15, mirror fleet 14.
+  #   survey (fleet 17): pattern 12, both parameters estimated. Its four
+  #     quarterly opal series share one curve, as SS3 has one survey fleet.
+  #     SS3 also had the survey's generalised size-composition data, which
+  #     opal omits, so these two are the least informed.
+  #   estimate  opal fisheries whose curves are estimated.
+  #   mirror    fishery: source, sharing the source's parameters.
+  #   free_par  which par_sel columns are estimated, by opal curve family.
+  estimate: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 17]
+  mirror:
+    "15": 14
+    "16": 14
+    "18": 17
+    "19": 17
+    "20": 17
+  free_par:
+    "1": [1, 2]
+    "2": [1, 2, 3, 4]
 
 # --- Size-frequency (SS3 generalized size comp, method 1) --------------------
 # The original script split each coarse SS3 size-frequency bin evenly across

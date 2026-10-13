@@ -477,3 +477,107 @@ ss3_bias_adj = function(rep, dims) {
     if (anyNA(hit)) return(NULL)
     as.numeric(rc$biasadjuster[hit])
 }
+
+#_____________________________________________________________________________
+#' Replace opal's Schnute growth with SS3's age-specific K (GrowthModel 3)
+#'
+#' Requires opal >= 0.1.1, where get_growth() implements Stock Synthesis
+#' GrowthModel 3: cumulative K multipliers from given ages, Linf derived from
+#' the oldest-age K, and SS3's plus-group length approximation (Methot and
+#' Wetzel 2013). Everything is read from the SS3 files, nothing is fitted:
+#'
+#'   L1, L2      L_at_Amin / L_at_Amax, at Growth_Age_for_L1 / _L2
+#'   log_k       log(VonBert_K / divisor); SS3's K is annual and applied over
+#'               the season duration, like M (see ss3_m_rate_divisor())
+#'   log_k_mult  log of the Age_K multipliers (par file values when read)
+#'   k_mult_ages the control file's K-multiplier ages
+#'   CV1, CV2    CV_young / CV_old
+#'
+#' Applies to either biology route. With it, opal's length-at-age equals SS3's
+#' Len_Beg to Report.sso print precision, so the PLA (and through it the
+#' predicted length compositions, and on the control route weight and
+#' spawning potential) no longer carries a growth approximation.
+#'
+#' @param bio output of \code{ss3_bio_from_endgrowth()} or
+#'   \code{ss3_bio_from_control()}.
+#' @inheritParams ss3_bio_to_opal
+#' @return \code{bio} with growth elements replaced and \code{k_mult_ages},
+#'   \code{log_k_mult} and \code{plus_group_adjust} added.
+ss3_apply_age_k_growth = function(bio, ss3, cfg, dims) {
+
+    if (utils::packageVersion("opal") < "0.1.1") {
+        stop("cfg$growth$model = 'ss3_age_k' needs opal >= 0.1.1 (age-specific K in get_growth()).",
+             call. = FALSE)
+    }
+    ctl = ss3$ctl
+    if (!isTRUE(as.integer(ss3_pick(ctl, c("GrowthModel"), default = NA)) == 3L)) {
+        stop("cfg$growth$model = 'ss3_age_k' requires an SS3 model with GrowthModel 3.",
+             call. = FALSE)
+    }
+
+    # Parameter values: the par file holds the run's values; the control file
+    # only the INIT values the run started from.
+    mg = ss3_pick(ss3$par %||% list(), c("MG_parms"), default = NULL) %||%
+        ss3_pick(ctl, c("MG_parms"), what = "MG_parms")
+    mg = as.data.frame(mg)
+
+    age_L1 = as.integer(ss3_pick(ctl, c("Growth_Age_for_L1"), what = "Growth_Age_for_L1"))
+    age_L2 = as.integer(ss3_pick(ctl, c("Growth_Age_for_L2"), what = "Growth_Age_for_L2"))
+    if (age_L2 >= 999L) {
+        stop("Growth_Age_for_L2 = 999 (L2 as Linf) is not supported by opal's get_growth().",
+             call. = FALSE)
+    }
+    # opal age index = min_age + position; convert SS3 ages to opal ages.
+    to_opal_age = function(a) dims$age_a[match(a, dims$.ss3_ages)]
+    A1 = to_opal_age(age_L1)
+    A2 = to_opal_age(age_L2)
+    if (anyNA(c(A1, A2))) {
+        stop("SS3 growth reference ages fall outside cfg$age$keep_ss3_ages.", call. = FALSE)
+    }
+
+    k_ages_ss3 = as.integer(ss3_pick(ctl, c("Age_K_points"), what = "Age_K_points"))
+    k_mult     = unname(ss3_parm_value(mg, "^Age_K", n_expected = length(k_ages_ss3)))
+    k_ages     = to_opal_age(k_ages_ss3)
+    if (anyNA(k_ages)) {
+        stop("SS3 K-multiplier ages fall outside cfg$age$keep_ss3_ages.", call. = FALSE)
+    }
+
+    L1  = unname(ss3_parm_value(mg, "^L_at_Amin", n_expected = 1L))
+    L2  = unname(ss3_parm_value(mg, "^L_at_Amax", n_expected = 1L))
+    k   = unname(ss3_parm_value(mg, "^VonBert_K", n_expected = 1L)) / ss3_m_rate_divisor(cfg, dims)
+    CV1 = unname(ss3_parm_value(mg, "^CV_young", n_expected = 1L))
+    CV2 = unname(ss3_parm_value(mg, "^CV_old",   n_expected = 1L))
+    plus_adjust = isTRUE(cfg$growth$plus_group_adjust %||% TRUE)
+
+    mu = opal::get_growth(dims$n_age, A1, A2, L1, L2, log(k), min_age = dims$min_age,
+                          log_k_mult = log(k_mult), k_mult_ages = k_ages,
+                          plus_group_adjust = plus_adjust)
+
+    growth_fit = list(k = k, CV1 = CV1, CV2 = CV2,
+                      rmse = NA_real_, max_abs_error = NA_real_, sd_rmse = NA_real_,
+                      source = "ss3_age_k", laa_ss3 = NULL, laa_opal = mu,
+                      sd_ss3 = NULL, sd_opal = NULL,
+                      k_mult = k_mult, k_mult_ages = k_ages)
+    if (!is.null(ss3$rep)) {
+        eg = tryCatch(ss3_endgrowth_table(ss3$rep, dims, basis = "Beg"), error = function(e) NULL)
+        if (!is.null(eg)) {
+            growth_fit$laa_ss3       = eg$length
+            growth_fit$rmse          = sqrt(mean((mu - eg$length)^2))
+            growth_fit$max_abs_error = max(abs(mu - eg$length))
+            growth_fit$max_rel_error = max(abs(mu / eg$length - 1))
+        }
+    }
+
+    bio$A1 = A1
+    bio$A2 = A2
+    bio$L1 = L1
+    bio$L2 = L2
+    bio$k  = k
+    bio$CV1 = CV1
+    bio$CV2 = CV2
+    bio$log_k_mult = log(k_mult)
+    bio$k_mult_ages = k_ages
+    bio$plus_group_adjust = plus_adjust
+    bio$growth_fit = growth_fit
+    bio
+}

@@ -253,7 +253,21 @@ ss3_reconcile = function(x, tol = 1e-6, spr0_tol = 1e-4) {
 
     # ---- Biology: quantities that can only be approximated -----------------
     gf = x$meta$growth_fit
-    if (!is.null(gf) && is.finite(gf$rmse %||% NA_real_)) {
+    if (identical(gf$source, "ss3_age_k") && is.finite(gf$max_rel_error %||% NA_real_)) {
+        # SS3's own growth form in opal: an exact comparison, limited only by
+        # Report.sso printing Len_Beg to six significant figures.
+        laa_tol = 5e-5
+        rows[[length(rows) + 1L]] = data.table::data.table(
+            quantity = "mean length-at-age, SS3 age-specific K (max relative error)",
+            ss3      = NA_real_,
+            opal     = NA_real_,
+            rel_diff = gf$max_rel_error,
+            tol      = laa_tol,
+            pass     = gf$max_rel_error <= laa_tol,
+            note     = sprintf("opal get_growth() vs SS3 Len_Beg; max |error| %.1e cm",
+                               gf$max_abs_error)
+        )
+    } else if (!is.null(gf) && is.finite(gf$rmse %||% NA_real_)) {
         # Whether this residual matters depends on what growth is still used
         # for. On the endgrowth route it affects only the PLA for selectivity;
         # on the control route it propagates into spawning biomass.
@@ -323,7 +337,9 @@ ss3_conversion_report = function(x, checks = NULL, recon = NULL,
                 exp(x$parameters$log_k), exp(x$parameters$log_CV1),
                 exp(x$parameters$log_CV2), m$growth_fit$source))
     if (is.finite(m$growth_fit$rmse %||% NA_real_)) {
-        cat(sprintf("                Schnute fit to SS3 length-at-age: RMSE %.3f cm, max %.3f cm\n",
+        cat(sprintf("                %s vs SS3 length-at-age: RMSE %.2g cm, max %.2g cm\n",
+                    if (identical(m$growth_fit$source, "ss3_age_k"))
+                        "SS3 age-specific K growth" else "Schnute fit",
                     m$growth_fit$rmse, m$growth_fit$max_abs_error))
     }
     if (length(m$lf_zero_lambda_fleets)) {

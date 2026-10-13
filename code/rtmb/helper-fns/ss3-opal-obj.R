@@ -273,10 +273,13 @@ ss3_use_opal_selectivity = function(x, par_sel = NULL, free = integer(),
 #' @param sel_type_f \code{integer} opal selectivity codes per fishery.
 #' @param n_par \code{integer} number of par_sel columns.
 #' @param start optional \code{[n_fishery, n_par]} matrix of starting values.
+#' @param lower,upper box constraints on every parameter. The defaults are
+#'   opal's own \code{get_bounds()} limits for \code{par_sel}, so seeded values
+#'   are valid starting values for an opal fit.
 #' @return a \code{list} with \code{par_sel}, \code{n_par_f} and a per-fishery
 #'   \code{rmse} vector.
 ss3_seed_par_sel = function(sel_target_fl, len_mid, sel_type_f, n_par = 6L,
-                            start = NULL) {
+                            start = NULL, lower = -7, upper = 7) {
 
     sel_fn = list(
         `1` = list(fn = opal::sel_logistic,      n = 2L),
@@ -317,8 +320,10 @@ ss3_seed_par_sel = function(sel_target_fl, len_mid, sel_type_f, n_par = 6L,
                    ss3_sel_starts(target, len_mid, sel_type_f[f]))
         best = NULL
         for (s0 in starts) {
-            o = tryCatch(stats::optim(par = s0, fn = objective, method = "BFGS",
-                                      control = list(maxit = 2000, reltol = 1e-12)),
+            s0 = pmin(pmax(s0, lower + 1e-6), upper - 1e-6)
+            o = tryCatch(stats::optim(par = s0, fn = objective, method = "L-BFGS-B",
+                                      lower = lower, upper = upper,
+                                      control = list(maxit = 5000, factr = 1e3)),
                          error = function(e) NULL)
             if (!is.null(o) && is.finite(o$value) &&
                 (is.null(best) || o$value < best$value)) best = o
@@ -435,4 +440,61 @@ ss3_use_external_length_at_age = function(x, mu_a, sd_a) {
     data$laa_sd_external = as.numeric(sd_a)
     opal::opal_update(x, data = data,
                       metadata = list(length_at_age = "ss3_external (local opal patch)"))
+}
+
+#_____________________________________________________________________________
+#' Switch an assessment onto estimated opal selectivity, SS3-style
+#'
+#' Sets up the opal-native selectivity configuration described by
+#' \code{cfg$selectivity}: starting values from \code{ss3_seed_par_sel()},
+#' the curve columns estimated per opal family (\code{free_par}), the
+#' fisheries estimated (\code{estimate}), and mirrored fisheries sharing their
+#' source's parameters (\code{mirror}). The defaults in the IO yellowfin config
+#' estimate the opal equivalents of exactly the selectivity parameters SS3
+#' estimated.
+#'
+#' @param x an \code{opal_obj}.
+#' @param par_sel \code{[n_fishery, n_par]} starting values, typically
+#'   \code{ss3_seed_par_sel(...)$par_sel}.
+#' @param cfg converter configuration list.
+#' @return an updated \code{opal_obj} with \code{sel_fa_external} removed.
+ss3_use_estimated_selectivity = function(x, par_sel, cfg) {
+
+    sel      = cfg$selectivity
+    type_f   = x$data$sel_type_f
+    n_f      = nrow(par_sel)
+    estimate = as.integer(sel$estimate %||% integer())
+    mirror   = sel$mirror %||% list()
+    free_par = sel$free_par %||% list()
+
+    # Mirrored fisheries start from, and stay equal to, their source.
+    for (f in names(mirror)) {
+        src = as.integer(mirror[[f]])
+        if (type_f[as.integer(f)] != type_f[src]) {
+            stop(sprintf("Fishery %s mirrors %d but has a different curve family.", f, src),
+                 call. = FALSE)
+        }
+        par_sel[as.integer(f), ] = par_sel[src, ]
+    }
+
+    map_sel = matrix(NA_integer_, n_f, ncol(par_sel))
+    level = 0L
+    for (f in estimate) {
+        cols = as.integer(free_par[[as.character(type_f[f])]] %||% integer())
+        if (!length(cols)) next
+        map_sel[f, cols] = level + seq_along(cols)
+        level = level + length(cols)
+    }
+    for (f in names(mirror)) map_sel[as.integer(f), ] = map_sel[as.integer(mirror[[f]]), ]
+
+    data = x$data
+    data$sel_fa_external = NULL
+    parameters = x$parameters
+    parameters$par_sel = par_sel
+    map = x$map
+    if (is.null(map)) map = opal::get_map(x$parameters)
+    map$par_sel = factor(as.vector(map_sel))
+
+    opal::opal_update(x, data = data, parameters = parameters, map = map,
+                      metadata = list(selectivity_route = "opal_estimated"))
 }

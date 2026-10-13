@@ -81,7 +81,7 @@
 # Cache
     truth = list(
         created    = format(Sys.time(), tz = "UTC", usetz = TRUE),
-        source     = "IO yellowfin operating model (SPM), replicate 4; CAPAM spatial assessment workshop",
+        source     = "IO yellowfin operating model (SPM), replicate 4; Spatial Stock Assessment Simulation Experiment",
         url        = "https://aaronmberger-nwfsc.github.io/Spatial-Assessment-Modeling-Workshop/",
         files_md5  = tools::md5sum(list.files(dir_truth, full.names = TRUE)) |>
                          stats::setNames(list.files(dir_truth)),

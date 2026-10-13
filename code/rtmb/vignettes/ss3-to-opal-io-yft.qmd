@@ -13,6 +13,16 @@ format:
     fig-height: 5
     code-fold: true
     code-summary: "Code"
+  typst:
+    toc: true
+    toc-depth: 2
+    section-numbering: "1.1"
+    fig-width: 8
+    fig-height: 5
+    papersize: a4
+    margin:
+      x: 2cm
+      y: 2cm
 execute:
   echo: true
   warning: false
@@ -22,11 +32,16 @@ execute:
 ```{r}
 #| label: setup
 #| code-summary: "Setup: read the cache"
+#| echo: !expr knitr::is_html_output()
+# Code is shown (folded) in the HTML version and hidden in the PDF.
+knitr::opts_chunk$set(echo = knitr::is_html_output())
 library(data.table)
 library(ggplot2)
 
 cache = readRDS(file.path("data", "io-yft-ss3-opal-cache.rds"))
 ss3   = cache$ss3
+truth = readRDS(file.path("data", "io-yft-sim-truth-cache.rds"))
+truth_traj = truth$total[, .(ts, ssb, static_dep)]
 
 route_lab = c(endgrowth             = "opal, endgrowth biology",
               control               = "opal, control biology",
@@ -34,21 +49,24 @@ route_lab = c(endgrowth             = "opal, endgrowth biology",
               endgrowth_free_growth = "opal, endgrowth, growth estimated",
               endgrowth_laa_beg     = "opal, endgrowth, SS3 length-at-age (start)",
               endgrowth_laa_mid     = "opal, endgrowth, SS3 length-at-age (mid)",
-              ss3                   = "SS3")
+              ss3                   = "SS3",
+              truth                 = "Simulated truth")
 route_col = c("opal, endgrowth biology"           = "#C0392B",
               "opal, control biology"             = "#2471A3",
               "opal, endgrowth, no length comps"  = "#7D3C98",
               "opal, endgrowth, growth estimated" = "#CA6F1E",
               "opal, endgrowth, SS3 length-at-age (start)" = "#1E8449",
               "opal, endgrowth, SS3 length-at-age (mid)"   = "#76D7C4",
-              "SS3"                               = "grey20")
+              "SS3"                               = "grey20",
+              "Simulated truth"                   = "#D4AC0D")
 route_lty = c("opal, endgrowth biology"           = "solid",
               "opal, control biology"             = "dashed",
               "opal, endgrowth, no length comps"  = "dotdash",
               "opal, endgrowth, growth estimated" = "longdash",
               "opal, endgrowth, SS3 length-at-age (start)" = "solid",
               "opal, endgrowth, SS3 length-at-age (mid)"   = "dashed",
-              "SS3"                               = "solid")
+              "SS3"                               = "solid",
+              "Simulated truth"                   = "solid")
 main  = c("endgrowth", "control")
 diag_routes = c("endgrowth_no_lf", "endgrowth_free_growth")
 laa_routes  = c("endgrowth_laa_beg", "endgrowth_laa_mid")
@@ -88,6 +106,12 @@ solution.
 * Diagnostic fits trace that gap to the length compositions as predicted
   through opal's single-k growth curve, which cannot represent SS3's
   age-specific K. Fitted to the index alone, opal reproduces SS3's depletion.
+* Against the simulated truth (the operating model the data were simulated
+  from), SS3 itself overestimates B0 by
+  `r fmt(100 * (ss3$ssb0 / truth$b0 - 1), 0)`% and ends at a depletion of
+  `r fmt(ss3$trajectory[ts == max(ts), static_dep], 3)`, against a true
+  `r fmt(truth$total[ts == max(ts), static_dep], 3)`. The opal fits are
+  compared with the truth in section 6.1.
 * A test with a local opal patch confirms it. Give opal SS3's own
   start-of-timestep length-at-age and fit with the length compositions on:
   terminal SSB is then within
@@ -104,10 +128,11 @@ optimiser; this document reads a cache and rebuilds in seconds.
 |---|---|---|
 | 1 | `code/rtmb/scripts/00-prep-io-yft-sim-data-for-rtmb.r` | Convert, validate, reconcile, build and save the unfitted `opal_obj` |
 | 2 | `code/rtmb/scripts/01-fit-io-yft-ss3-opal.r` | Fit both biology routes, time them, write `vignettes/data/io-yft-ss3-opal-cache.rds` |
-| 3 | `code/rtmb/vignettes/ss3-to-opal-io-yft.qmd` | This document; reads only the cache |
+| 3 | `code/rtmb/scripts/02-extract-io-yft-sim-truth.r` | Sum the operating model's truth over regions, write `vignettes/data/io-yft-sim-truth-cache.rds` |
+| 4 | `code/rtmb/vignettes/ss3-to-opal-io-yft.qmd` | This document; reads only the two caches |
 
 To rebuild after a change to the converter, the config or the SS3 files, rerun
-step 2 and then `quarto render code/rtmb/vignettes/ss3-to-opal-io-yft.qmd`.
+step 2 (step 3 only if the truth files change) and then `quarto render code/rtmb/vignettes/ss3-to-opal-io-yft.qmd`.
 The cache here was written `r cache$created` with R `r cache$session$r`,
 opal `r cache$session$opal` and r4ss `r cache$session$r4ss`.
 
@@ -119,6 +144,17 @@ There are 16 extraction fleets with catch in numbers and one longline CPUE
 index. Following the original prep script, the index is split into four
 quarterly series, each with its own catchability (opal fisheries 17 to 20).
 SS3 ages 1 to 28 are carried, so the opal age index equals the SS3 age.
+
+The data were simulated from replicate 4 of the Indian Ocean yellowfin
+operating model used in the
+[CAPAM spatial assessment modelling workshop](`r truth$url`): a spatial
+population model with `r truth$n_region` regions, also run in quarterly
+"years" 1–256. Its spawning biomass is mature biomass at the start of each
+year, before fishing, in tonnes. That is the same timing and units as SS3's,
+so the two can share an axis once the truth is summed over regions. True B0
+is the operating model's unfished equilibrium SSB,
+`r fmt(truth$b0, 0)` t. Definitions and file provenance are in
+`model-files/sim-truth/io-yft-iattc-sample-tree-4/README.md`.
 
 ## The two biology routes
 
@@ -215,7 +251,10 @@ knitr::kable(op[, .(route, pass, objective_start = round(objective_start, 2),
 knitr::kable(S[, .(route, n_par, newton_steps,
                    max_grad_nlminb = sci(max_gradient_nlminb),
                    max_grad_final  = sci(max_gradient),
-                   opal_check = check_passes, estimability)])
+                   opal_check = ifelse(check_passes, "passed", "failed"),
+                   estimable = ifelse(grepl("^All", estimability), "all", estimability))],
+             col.names = c("Route", "Parameters", "Newton steps", "Max |grad|, nlminb",
+                           "Max |grad|, final", "opal check", "Estimable"))
 ```
 
 Taping dominates the wall time. opal's objective is built by RTMB over 256
@@ -367,10 +406,11 @@ ggplot() +
 ```{r}
 #| label: biomass
 #| fig-height: 7
-#| fig-cap: "Spawning biomass. Top: SS3 and the fitted opal models. Bottom: difference from SS3, fitted (solid) and at the SS3 parameter values before fitting (dotted)."
+#| fig-cap: "Spawning biomass. Top: the simulated truth, SS3 and the fitted opal models. Bottom: difference from SS3, fitted (solid) and at the SS3 parameter values before fitting (dotted)."
 tr = cache$trajectory[route %in% main]
 sb = rbind(tr[state == "fitted", .(ts, ssb, series = route_lab[route])],
-           ss3$trajectory[, .(ts, ssb, series = "SS3")])
+           ss3$trajectory[, .(ts, ssb, series = "SS3")],
+           truth_traj[, .(ts, ssb, series = "Simulated truth")])
 p1 = ggplot(sb, aes(ts, ssb / 1e6, colour = series, linetype = series)) +
     geom_line(linewidth = 0.7) +
     scale_colour_manual(values = route_col, name = NULL) +
@@ -402,6 +442,48 @@ knitr::kable(S[, .(route, B0_start = fmt(B0_start, 0), B0_fit = fmt(B0_fit, 0),
 SS3's unfished spawning biomass is `r fmt(ss3$ssb0, 0)` and its R0 is
 `r fmt(ss3$r0, 0)`.
 
+## Comparison with the simulated truth
+
+Every model is compared here with the operating model, including the
+diagnostic fits from section 8. Terminal values are for the last quarter,
+256.
+
+```{r}
+#| label: truth-table
+tt = merge(cache$trajectory[state == "fitted", .(route, ts, ssb, static_dep)],
+           truth_traj[, .(ts, ssb_true = ssb, dep_true = static_dep)], by = "ts")
+tt = rbind(tt, merge(ss3$trajectory[, .(route = "ss3", ts, ssb, static_dep)],
+                     truth_traj[, .(ts, ssb_true = ssb, dep_true = static_dep)], by = "ts"))
+tsum = tt[, .(mean_abs_pct_ssb = mean(abs(100 * (ssb / ssb_true - 1))),
+              terminal_pct_ssb = 100 * (ssb[ts == max(ts)] / ssb_true[ts == max(ts)] - 1),
+              terminal_dep     = static_dep[ts == max(ts)],
+              max_abs_dep_err  = max(abs(static_dep - dep_true))), by = route]
+b0s = rbind(S_all[, .(route, B0 = B0_fit)], data.table(route = "ss3", B0 = ss3$ssb0))
+tsum = merge(tsum, b0s, by = "route")
+tsum[, B0_vs_truth := B0 / truth$b0]
+tsum = tsum[match(c("ss3", main, diag_routes, laa_routes), route)]
+tsum[, route := route_lab[route]]
+tsum = rbind(tsum, data.table(route = "Simulated truth", B0 = truth$b0, B0_vs_truth = 1,
+                              terminal_dep = truth$total[ts == max(ts), static_dep]), fill = TRUE)
+knitr::kable(tsum[, .(route, B0 = B0 / 1e6, B0_vs_truth, mean_abs_pct_ssb, terminal_pct_ssb,
+                      terminal_dep, max_abs_dep_err)],
+             digits = c(0, 2, 2, 1, 1, 3, 3),
+             col.names = c("Model", "B0 (Mt)", "B0 / true B0", "SSB mean |% diff|",
+                           "SSB terminal % diff", "Terminal SSB/B0", "Max |depletion error|"))
+```
+
+SS3 is not the truth either. Its terminal SSB is within
+`r fmt(abs(tsum[route == "SS3", terminal_pct_ssb]), 0)`% of the truth, but its
+B0 is `r fmt(ss3$ssb0 / truth$b0, 2)` × the operating model's, so it ends
+more depleted (`r fmt(ss3$trajectory[ts == max(ts), static_dep], 3)` against
+`r fmt(truth$total[ts == max(ts), static_dep], 3)`). Its depletion error comes
+from the unfished reference point, not the current stock size. Part of the difference is
+structural: the truth has `r truth$n_region` regions with movement and
+maturity as a process, while SS3 is a single-region model with an age-based
+maturity ogive. So "matches SS3" and "matches the truth" are separate
+questions. The bridging work in this vignette answers the first. The table
+answers the second, for SS3 and for each opal configuration.
+
 ```{r}
 #| label: recruitment
 #| fig-height: 4
@@ -424,10 +506,11 @@ with SS3.
 ```{r}
 #| label: depletion
 #| fig-height: 6
-#| fig-cap: "Static depletion (SSB / B0) for SS3 and both fitted opal routes, with opal's dynamic depletion (lighter)."
+#| fig-cap: "Static depletion (SSB / B0) for the simulated truth, SS3 and both fitted opal routes, with opal's dynamic depletion (lighter)."
 dp = rbind(tr[state == "fitted", .(ts, value = static_dep, series = route_lab[route], type = "static")],
            tr[state == "fitted", .(ts, value = dynamic_dep, series = route_lab[route], type = "dynamic")],
-           ss3$trajectory[, .(ts, value = static_dep, series = "SS3", type = "static")])
+           ss3$trajectory[, .(ts, value = static_dep, series = "SS3", type = "static")],
+           truth_traj[, .(ts, value = static_dep, series = "Simulated truth", type = "static")])
 ggplot(dp, aes(ts, value, colour = series, linetype = series, alpha = type)) +
     geom_line(linewidth = 0.7) +
     scale_alpha_manual(values = c(static = 1, dynamic = 0.35), name = NULL) +
@@ -441,9 +524,14 @@ ggplot(dp, aes(ts, value, colour = series, linetype = series, alpha = type)) +
 #| label: depletion-table
 dt = merge(tr[state == "fitted", .(route, ts, static_dep)],
            ss3$trajectory[, .(ts, ss3 = static_dep)], by = "ts")
+dt = merge(dt, truth_traj[, .(ts, true = static_dep)], by = "ts")
 knitr::kable(dt[, .(terminal_opal = static_dep[ts == max(ts)], terminal_ss3 = ss3[ts == max(ts)],
-                    max_abs_diff = max(abs(static_dep - ss3))), by = .(model = route_lab[route])],
-             digits = 3)
+                    terminal_truth = true[ts == max(ts)],
+                    max_abs_diff_ss3 = max(abs(static_dep - ss3)),
+                    max_abs_diff_truth = max(abs(static_dep - true))), by = .(model = route_lab[route])],
+             digits = 3,
+             col.names = c("Model", "terminal opal", "terminal SS3", "terminal truth",
+                           "max |diff| from SS3", "max |diff| from truth"))
 ```
 
 # Why the fitted opal models differ from SS3
@@ -468,10 +556,11 @@ sitting on it. Two diagnostic fits on the endgrowth route locate the cause:
 ```{r}
 #| label: diagnostics
 #| fig-height: 7
-#| fig-cap: "Spawning biomass (top) and static depletion (bottom) for SS3, the endgrowth fit and the two diagnostic fits."
+#| fig-cap: "Spawning biomass (top) and static depletion (bottom) for the simulated truth, SS3, the endgrowth fit and the two diagnostic fits."
 trd = cache$trajectory[state == "fitted" & route %in% c("endgrowth", diag_routes)]
 dd = rbind(trd[, .(ts, ssb, dep = static_dep, series = route_lab[route])],
-           ss3$trajectory[, .(ts, ssb, dep = static_dep, series = "SS3")])
+           ss3$trajectory[, .(ts, ssb, dep = static_dep, series = "SS3")],
+           truth_traj[, .(ts, ssb, dep = static_dep, series = "Simulated truth")])
 q1 = ggplot(dd, aes(ts, ssb / 1e6, colour = series, linetype = series)) +
     geom_line(linewidth = 0.7) +
     scale_colour_manual(values = route_col, name = NULL) +
@@ -569,10 +658,11 @@ own catch compositions.
 ```{r}
 #| label: laa-test
 #| fig-height: 7
-#| fig-cap: "Spawning biomass (top) and static depletion (bottom): SS3, the stock endgrowth fit, and the endgrowth fit with SS3's length-at-age."
+#| fig-cap: "Spawning biomass (top) and static depletion (bottom): the simulated truth, SS3, the stock endgrowth fit, and the endgrowth fit with SS3's length-at-age."
 tl = cache$trajectory[state == "fitted" & route %in% c("endgrowth", laa_routes)]
 dl = rbind(tl[, .(ts, ssb, dep = static_dep, series = route_lab[route])],
-           ss3$trajectory[, .(ts, ssb, dep = static_dep, series = "SS3")])
+           ss3$trajectory[, .(ts, ssb, dep = static_dep, series = "SS3")],
+           truth_traj[, .(ts, ssb, dep = static_dep, series = "Simulated truth")])
 l1 = ggplot(dl, aes(ts, ssb / 1e6, colour = series, linetype = series)) +
     geom_line(linewidth = 0.7) +
     scale_colour_manual(values = route_col, name = NULL) +

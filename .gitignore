@@ -69,4 +69,6 @@ plotInfoTable_*.csv
 /.quarto/
 _site/*
 !*.yaml
-!*.yml
+!*.yml# generated opal driver outputs (rebuilt by code/rtmb/scripts/00-prep-io-yft-sim-data-for-rtmb.r)
+/opal_data/
+.quarto/

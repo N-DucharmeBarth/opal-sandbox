@@ -15,9 +15,9 @@ series scaled to mean one; \code{lf} (\code{fishery}, \code{bin}, \code{expected
 expected length compositions aggregated per fishery weighted by sample
 size; \code{sel_age} (\code{fishery}, \code{age}, \code{sel}); and \code{length_at_age}
 (\code{age}, \code{length}, start of the time step).}
-\item{truth}{The operating model, summed over its four regions: \code{b0},
-unfished equilibrium spawning biomass (t), and \code{trajectory} (\code{ts},
-\code{ssb}, \code{static_dep}).}
+\item{truth}{The operating model (SPM, 159 cells on a 5 degree grid),
+summed over the whole domain: \code{b0}, unfished equilibrium spawning
+biomass (t), and \code{trajectory} (\code{ts}, \code{ssb}, \code{static_dep}).}
 \item{schnute_length_at_age}{Length-at-age (\code{age}, \code{length}) of the
 single-k Schnute curve used before opal supported age-specific K.}
 \item{history}{B0 and terminal depletion of three opal fits: Schnute

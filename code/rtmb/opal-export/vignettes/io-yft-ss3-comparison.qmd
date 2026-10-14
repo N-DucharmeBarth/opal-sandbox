@@ -57,19 +57,48 @@ summary tables from SS3 and from the operating model.
 
 ## The data and the SS3 model
 
-The data are replicate 4 of the Indian Ocean yellowfin operating model from
-the [Spatial Stock Assessment Simulation Experiment](https://aaronmberger-nwfsc.github.io/Spatial-Assessment-Modeling-Workshop/).
-The operating model is a four-region spatial population model, run in
-quarterly time steps. Because the data are simulated, the true spawning
-biomass and unfished spawning biomass (B0) are known; here they are summed
-over regions.
+The data are replicate 4 of the Indian Ocean yellowfin operating model (OM)
+of the
+[Spatial Stock Assessment Simulation Experiment](https://aaronmberger-nwfsc.github.io/Spatial-Assessment-Modeling-Workshop/articles/OM_description_YFT.html).
+The OM was built in the Spatial Population Model software (SPM; Dunn,
+Rasmussen and Mormede 2015) and conditioned on Indian Ocean Tuna Commission
+(IOTC) fishery data (Dunn, Hoyle and Datta 2020). It is spatially explicit:
+
+* **Space and time.** The population lives on a 5° × 5° grid of 159 ocean
+  cells, in quarterly time steps from 1952 to 2015 (256 quarters), with ages
+  1–28 quarters (28 is a plus group).
+* **Recruitment.** One stock with one Beverton–Holt stock–recruitment
+  relationship (steepness 0.8) on the total spawning biomass. Quarterly
+  recruitment strength varies (lognormal, SD 0.6), and each quarter's
+  recruits are spread across cells by a spatial apportionment layer with its
+  own random variation.
+* **Movement.** Fish move between cells every quarter according to habitat
+  preferences for sea surface temperature, chlorophyll-a and distance,
+  separately for immature and mature fish. Maturation moves fish from the
+  immature to the mature state.
+* **Fishing.** Seven gear-type fisheries remove their observed catches
+  exactly, cell by cell, using exploitation rates.
+* **Data.** Catch (without error), longline CPUE, length frequencies and tag
+  recaptures are simulated cell by cell.
+
+For the experiment, the simulated data were aggregated to the four regions of
+the IOTC yellowfin assessment and to a single area. Because the data are
+simulated, the true spawning biomass and unfished spawning biomass (B0) are
+known. The truth files report them by assessment region; here they are summed
+over the whole domain. Spawning biomass is mature biomass at the start of the
+quarter, before fishing, in tonnes, the same definition as SS3's.
 
 The SS3 model (SS3 v`r ref$ss3$version`) is the IATTC analyst team's
 single-region estimation model for that experiment, built by Mark N.
 Maunder, Haikun Xu and Carolina Minte-Vera. It treats each quarter as a
 model "year", so it runs `r n_ts` time steps. opal takes the same time steps
 (`n_year = ` `r n_ts`, `n_season = 1`) and SS3's ages 1–`r d$n_age`, so the
-opal age index equals the SS3 age.
+opal age index equals the SS3 age. Although the SS3 model is
+single-region, it keeps the four-region structure in its fleets: its 16
+extraction fisheries are gear × region combinations from the four-region
+data (for example, `fishing_ll_1` to `fishing_ll_4` are longline in regions
+1–4). SS3's mean length-at-age is the OM's own (Fu et al. 2018, after Fonteneau and Gascuel 2008), so growth is
+known exactly.
 
 ```{r}
 #| label: dimensions
@@ -423,8 +452,8 @@ knitr::kable(tab, digits = c(0, 2, 2, 1, 1, 3, 3),
   SS3's closely for most of the series and drops below it late on.
 * Neither model is the truth. SS3 overestimates B0 by
   `r fmt(100 * (ref$ss3$ssb0 / ref$truth$b0 - 1), 0)`%; the operating model
-  has four regions with movement, which neither single-region model
-  represents. Matching SS3 and matching the truth are separate questions.
+  has movement among 159 cells and spatially varying recruitment, which
+  neither single-region model represents. Matching SS3 and matching the truth are separate questions.
 
 # Credit and references
 
@@ -447,7 +476,20 @@ The age-specific K growth model is Stock Synthesis' `GrowthModel 3`:
 
 The data and the simulated truth are from replicate 4 of the Indian Ocean
 yellowfin operating model
-(<https://github.com/aaronmberger-nwfsc/Spatial-Assessment-Modeling-Workshop>).
+(<https://github.com/aaronmberger-nwfsc/Spatial-Assessment-Modeling-Workshop>):
+
+* Dunn, A., Rasmussen, S. and Mormede, S. (2015). Spatial Population Model.
+  NIWA Technical Report 138.
+* Dunn, A., Hoyle, S.D. and Datta, S. (2020). Development of spatially
+  explicit operating models for yellowfin tuna populations in the Indian
+  Ocean. IOTC Working Party on Tropical Tunas 22.
+* Fu, D., Merino, G., Langley, A. and Ijurco, A. (2018). Preliminary Indian
+  Ocean yellowfin tuna stock assessment 1950–2017 (Stock Synthesis). IOTC
+  20th Working Party on Tropical Tunas.
+* Fonteneau, A. and Gascuel, D. (2008). Growth rates and apparent growth
+  curves, for yellowfin, skipjack and bigeye tagged and recovered in the
+  Indian Ocean during the IOTTP. IOTC-2008-WPTDA-08.
+
 The SS3-to-opal converter and the detailed conversion vignettes are in
 <`r ref$source$repository`> (`code/rtmb`); the bundled data were exported by
 `r ref$source$script` at commit `r ref$source$commit`.

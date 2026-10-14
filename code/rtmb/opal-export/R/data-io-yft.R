@@ -89,9 +89,9 @@
 #'     expected length compositions aggregated per fishery weighted by sample
 #'     size; `sel_age` (`fishery`, `age`, `sel`); and `length_at_age`
 #'     (`age`, `length`, start of the time step).}
-#'   \item{truth}{The operating model, summed over its four regions: `b0`,
-#'     unfished equilibrium spawning biomass (t), and `trajectory` (`ts`,
-#'     `ssb`, `static_dep`).}
+#'   \item{truth}{The operating model (SPM, 159 cells on a 5 degree grid),
+#'     summed over the whole domain: `b0`, unfished equilibrium spawning
+#'     biomass (t), and `trajectory` (`ts`, `ssb`, `static_dep`).}
 #'   \item{schnute_length_at_age}{Length-at-age (`age`, `length`) of the
 #'     single-k Schnute curve used before opal supported age-specific K.}
 #'   \item{history}{B0 and terminal depletion of three opal fits: Schnute

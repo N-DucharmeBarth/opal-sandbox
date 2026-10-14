@@ -3,8 +3,10 @@
 # Extract the simulated truth for the IO yellowfin operating model
 # (replicate 4) and cache it for the SS3-to-opal vignette.
 #
-# The truth is a 4-region spatial population model; the SS3 and opal models
-# are single-region, so quantities are summed over regions. Years 1-256 of the
+# The truth is a spatially explicit SPM population model on 159 5x5 degree
+# cells; its outputs here are reported by the 4 IOTC assessment regions. The
+# SS3 and opal models are single-region, so quantities are summed over those
+# regions. Years 1-256 of the
 # operating model are quarters and align one-to-one with SS3 years 1-256.
 # See model-files/sim-truth/io-yft-iattc-sample-tree-4/README.md for the
 # definitions of SSB and B0.

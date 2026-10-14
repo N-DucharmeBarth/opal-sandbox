@@ -9,9 +9,14 @@ The SS3 model in `model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4`, built by
 the IATTC analyst team (Mark N. Maunder, Haikun Xu and Carolina Minte-Vera),
 is fitted to data simulated from this replicate; see that folder's README.
 
-The operating model is a spatial population model (SPM) with 4 regions, ages
-1–28 (plus group) and 256 years of 3 time steps each, i.e. one model year per
-quarter, aligned one-to-one with SS3 years 1–256.
+The operating model is a spatially explicit SPM population model on a
+5° × 5° grid of 159 ocean cells, with habitat-based movement (by maturity
+state), spatially varying recruitment, ages 1–28 (plus group) and 256 years
+of 3 time steps each, i.e. one model year per quarter, aligned one-to-one
+with SS3 years 1–256. The outputs below are reported by the 4 IOTC
+assessment regions the simulated data were aggregated to (Region 1 combines
+the OM's regions 1a and 1b). See the workshop's
+[OM description](https://github.com/aaronmberger-nwfsc/Spatial-Assessment-Modeling-Workshop/blob/main/vignettes/OM_description_YFT.Rmd).
 
 ## Files
 

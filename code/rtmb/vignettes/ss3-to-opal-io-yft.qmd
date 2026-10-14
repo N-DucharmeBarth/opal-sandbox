@@ -154,9 +154,11 @@ experiment, including theirs, are evaluated in Goethel, D.R., et al. (2024). 'Dr
 
 The data were simulated from replicate 4 of the Indian Ocean yellowfin
 operating model of the
-[Spatial Stock Assessment Simulation Experiment](`r truth$url`): a spatial
-population model with `r truth$n_region` regions, also run in quarterly
-"years" 1–256. Its spawning biomass is mature biomass at the start of each
+[Spatial Stock Assessment Simulation Experiment](`r truth$url`): a
+spatially explicit SPM population model on a 5° × 5° grid of 159 ocean cells,
+with habitat-based movement and spatially varying recruitment, also run in
+quarterly "years" 1–256. Its outputs are reported by the
+`r truth$n_region` IOTC assessment regions the data were aggregated to. Its spawning biomass is mature biomass at the start of each
 year, before fishing, in tonnes. That is the same timing and units as SS3's,
 so the two can share an axis once the truth is summed over regions. True B0
 is the operating model's unfished equilibrium SSB,
@@ -485,8 +487,8 @@ B0 is `r fmt(ss3$ssb0 / truth$b0, 2)` × the operating model's, so it ends
 more depleted (`r fmt(ss3$trajectory[ts == max(ts), static_dep], 3)` against
 `r fmt(truth$total[ts == max(ts), static_dep], 3)`). Its depletion error comes
 from the unfished reference point, not the current stock size. Part of the difference is
-structural: the truth has `r truth$n_region` regions with movement and
-maturity as a process, while SS3 is a single-region model with an age-based
+structural: the truth has movement among 159 cells, spatially varying
+recruitment and maturity as a process, while SS3 is a single-region model with an age-based
 maturity ogive. So "matches SS3" and "matches the truth" are separate
 questions. The bridging work in this vignette answers the first. The table
 answers the second, for SS3 and for each opal configuration.

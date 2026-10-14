@@ -1,0 +1,343 @@
+---
+title: "Age-based and length-based selectivity"
+subtitle: "A simulation to inform opal's design, using the IO yellowfin model"
+author: "Nicholas Ducharme-Barth"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    embed-resources: true
+    fig-width: 9
+    fig-height: 5
+    code-fold: true
+    code-summary: "Code"
+  typst:
+    toc: true
+    toc-depth: 2
+    section-numbering: "1.1"
+    fig-width: 8
+    fig-height: 5
+    papersize: a4
+    margin:
+      x: 2cm
+      y: 2cm
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| code-summary: "Setup: read the simulation outputs"
+#| echo: !expr knitr::is_html_output()
+knitr::opts_chunk$set(echo = knitr::is_html_output())
+options(knitr.kable.NA = "—")
+library(data.table)
+library(ggplot2)
+
+inputs = readRDS(file.path("data", "om-inputs.rds"))
+det    = readRDS(file.path("data", "deterministic.rds"))
+se     = readRDS(file.path("data", "sim-est.rds"))
+traj   = as.data.table(det$traj)
+res    = as.data.table(se$results)
+n_t    = inputs$n_t
+
+fmt = function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
+pct = function(x, d = 0) paste0(formatC(100 * x, format = "f", digits = d), "%")
+
+om_lab = c(age = "age-based truth (SS3 curves)", length = "length-based truth (C2 curves)")
+em_lab = c(age = "age", length_c2 = "length (C2 parameters)", length_all = "length (all parameters)")
+em_col = c("age" = "#D35400", "length (C2 parameters)" = "#1E8449", "length (all parameters)" = "#8E44AD")
+theme_set(theme_bw(base_size = 11) +
+          theme(legend.position = "bottom", panel.grid.minor = element_blank()))
+term = traj[ts == n_t]
+g = function(cv, k = 1) term[curve == cv & mult == k, dep]
+```
+
+# Why this matters
+
+In the IO yellowfin conversion, opal with SS3's age-based selectivity held
+fixed (fit A1) reproduced SS3's stock size: B0 1.03 × SS3's and terminal
+depletion 0.404 against SS3's 0.399. When opal estimated its own
+length-based selectivity instead (fits C and C2), B0 fell to 0.88 × SS3's
+and terminal depletion to 0.307. The [timing simulation](../timing/timing-sim.qmd)
+showed that catch and biology timing barely move estimated depletion, which
+leaves selectivity as the main candidate.
+
+SS3's curves for this model are **age-based**: selectivity is a function of
+age, and every fish of an age is equally selected whatever its length.
+opal's are **length-based**: selectivity is a function of length, and
+reaches age through the distribution of length at age. Two consequences:
+
+1. The same curve family produces different shapes of selectivity-at-age,
+   so one cannot reproduce the other exactly.
+2. Length-based selection also changes the predicted length composition
+   *within* an age: larger fish of an age are more likely to be caught. An
+   age-based model predicts the catch's lengths from the population's
+   length distribution at age alone.
+
+This document tests whether these differences bias B0 and depletion, using
+the model of the timing simulation with opal's timing conventions
+(start-of-quarter catch and biology) throughout, so that only selectivity
+differs.
+
+# Design
+
+## True selectivity
+
+```{r}
+#| label: rmse
+r = inputs$sel$rmse
+knitr::kable(data.table(fishery = r$fishery,
+                        `age truth vs SS3` = r$age_truth_vs_ss3,
+                        `length approximation of age truth` = r$length_approx_of_age,
+                        `age approximation of length truth` = r$age_approx_of_length),
+             digits = 4, caption = "RMSE of selectivity-at-age (ages 1–28) for each fit.")
+```
+
+* **Age-based truth:** opal's double-normal curve evaluated on age (the same
+  six-parameter form as SS3's pattern 20), fitted by least squares to SS3's
+  selectivity-at-age for the source fleets of the three pooled fisheries
+  (SS3 fleets 11, 4 and 8). It reproduces SS3's curves almost exactly.
+* **Length-based truth:** C2's fitted length-based curves for the same
+  fleets, as in the timing simulation.
+* **Cross-approximations:** each truth fitted by least squares in the other
+  basis, on selectivity-at-age. This is the step C2 used to seed opal's
+  curves from SS3's. A length-based curve approximates the age-based truth
+  worse than the reverse: an age-based curve can bend at any age, while a
+  length-based one is smoothed by the spread of length at age.
+
+```{r}
+#| label: sel-curves
+#| fig-height: 6
+#| fig-cap: "Selectivity-at-age of each truth and its approximation in the other basis, with SS3's curves (orange circles)."
+sa = as.data.table(det$sel_age)
+sa[, truth_f := factor(om_lab[truth], om_lab)]
+ss3 = as.data.table(inputs$sel$ss3_sel_age)
+ss3[, fishery := inputs$fleet_names[match(fishery, c(11, 4, 8))]]
+ss3[, truth_f := factor(om_lab["age"], om_lab)]
+ggplot(sa, aes(age, sel, colour = curve, linetype = curve)) +
+    geom_line(linewidth = 0.7) +
+    geom_point(data = ss3, aes(age, sel), inherit.aes = FALSE, size = 1.4, shape = 1, colour = "#D35400") +
+    facet_grid(truth_f ~ fishery) +
+    scale_colour_manual(values = c("age truth" = "grey20", "length approximation" = "#1E8449",
+                                   "length truth" = "#1E8449", "age approximation" = "grey20"), name = NULL) +
+    scale_linetype_manual(values = c("age truth" = "solid", "length approximation" = "dashed",
+                                     "length truth" = "solid", "age approximation" = "dashed"), name = NULL) +
+    labs(x = "Age (quarters)", y = "Selectivity")
+```
+
+## Simulation–estimation
+
+Each of `r se$n_rep` replicates draws recruitment deviations (shared by both
+operating models) and observation error, with the timing simulation's data:
+a longline index (CV `r inputs$index_cv`, quarters
+`r min(inputs$index_t)`–`r max(inputs$index_t)`), multinomial length
+compositions (ESS `r inputs$comp_ess`) for each fishery in every quarter
+with catch, and catch known exactly. Three estimation models fit each
+dataset:
+
+| Estimation model | Basis | Estimated selectivity columns |
+|---|---|---|
+| `age` | age | 1–4 (peak, plateau, ascending and descending width) for all three fisheries, as SS3 estimated |
+| `length (C2 parameters)` | length | C2's choices: 1–4, and 1 and 3 for the longline |
+| `length (all parameters)` | length | 1–4 for all fisheries, plus 5–6 (initial and final selectivity) for the two dome-shaped fisheries |
+
+All estimate log B0, `r n_t` recruitment deviations (N(0, σ~R~) penalty)
+and log q, and put opal's N(0, 2) prior on the estimated selectivity
+parameters. Unestimated selectivity columns stay at their starting values:
+the truth when the basis matches the operating model, otherwise the
+least-squares approximation, as in C2. Fits start at the true B0, q and
+recruitment deviations, and are polished with Newton steps.
+
+As in the timing simulation, recruitment-deviation shrinkage biases even
+the matched models (B0 up, depletion down), so each model is also compared
+**paired against the matched model on the same dataset**: `age` for the
+age-based truth, `length (C2 parameters)` for the length-based truth.
+
+# Part 1: the same parameters, the other basis
+
+Each truth is projected with its approximation in the other basis, with the
+same B0, recruitment and catch. Nothing is estimated.
+
+```{r}
+#| label: det-table
+tab = dcast(term, truth + mult ~ curve, value.var = "dep")
+tab = rbind(tab[truth == "age", .(truth = om_lab["age"], mult, truth_dep = `age truth`, approx = `length approximation`)],
+            tab[truth == "length", .(truth = om_lab["length"], mult, truth_dep = `length truth`, approx = `age approximation`)])
+tab[, diff := pct(approx / truth_dep - 1, 1)]
+knitr::kable(tab, digits = 3,
+             col.names = c("Truth", "Catch ×", "Terminal SSB/B0, truth", "with the other basis' approximation", "Difference"))
+```
+
+With the same B0, recruitment and catch, swapping a truth for its best
+approximation in the other basis changes terminal depletion little: at the
+observed catch, `r fmt(g("age truth"), 3)` for the age-based truth against
+`r fmt(g("length approximation"), 3)` with its length-based approximation
+(`r pct(g("length approximation") / g("age truth") - 1, 1)`), and
+`r fmt(g("length truth"), 3)` against `r fmt(g("age approximation"), 3)`
+for the length-based truth
+(`r pct(g("age approximation") / g("length truth") - 1, 1)`). The
+difference grows with the catch but stays small next to the timing effects.
+So the shapes alone are not the issue; any larger effect has to come from
+how the curves are estimated against the length compositions.
+
+# Part 2: estimating selectivity in each basis
+
+```{r}
+#| label: fit-quality
+fq = res[, .(fits = .N, failed = sum(is.na(B0)), `max |gradient| (max)` = max(max_gradient, na.rm = TRUE),
+             `seconds (median)` = median(seconds, na.rm = TRUE))]
+knitr::kable(fq, digits = 4, caption = "Fit diagnostics over all fits.")
+```
+
+```{r}
+#| label: est-prep
+res[, `:=`(rel_B0 = B0 / B0_true - 1, err_dep = dep_T - dep_T_true,
+           em_f = factor(em_lab[em], em_lab), om_f = factor(om_lab[om], om_lab))]
+res[, matched := (om == "age" & em == "age") | (om == "length" & em == "length_c2")]
+ref = res[matched == TRUE, .(rep, om, ref_B0 = B0, ref_dep = dep_T)]
+res = merge(res, ref, by = c("rep", "om"))
+res[, `:=`(paired_B0 = B0 / ref_B0 - 1, paired_dep = dep_T - ref_dep)]
+```
+
+```{r}
+#| label: est-box
+#| fig-height: 6
+#| fig-cap: "Relative error in B0 (top) and error in terminal depletion (bottom) by estimation model, for each operating model."
+long = rbind(res[, .(om_f, em_f, value = rel_B0, what = "B0: relative error")],
+             res[, .(om_f, em_f, value = err_dep, what = "terminal SSB/B0: error")])
+ggplot(long, aes(em_f, value, fill = em_f)) +
+    geom_hline(yintercept = 0, colour = "grey50") +
+    geom_boxplot(outlier.size = 0.6, width = 0.6) +
+    facet_grid(what ~ om_f, scales = "free_y") +
+    scale_fill_manual(values = em_col, name = NULL) +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+    labs(x = NULL, y = NULL)
+```
+
+```{r}
+#| label: est-table
+smry = res[, .(B0_err = pct(median(rel_B0), 1), B0_vs = pct(median(paired_B0), 1),
+               dep_err = fmt(median(err_dep), 3), dep_vs = fmt(median(paired_dep), 3),
+               dep_vs_iqr = paste(fmt(quantile(paired_dep, 0.25), 3), "to", fmt(quantile(paired_dep, 0.75), 3)),
+               mare = fmt(mean(mare_dep), 3)),
+           by = .(om = sub(" truth.*", "", om_lab[om]), em = paste0(em_lab[em], ifelse(matched, " *", "")))]
+knitr::kable(smry[order(om, em)],
+             col.names = c("Truth", "Estimation model", "B0 error", "B0 vs matched", "Term. dep. error",
+                           "Term. dep. vs matched", "IQR vs matched", "Mean abs. dep. error"),
+             caption = "Medians over replicates (mean for the last column). 'vs matched' is the paired difference from the matched estimation model (*) on the same dataset.")
+```
+
+```{r}
+#| label: est-sel
+#| fig-height: 6
+#| fig-cap: "Estimated selectivity-at-age (median and 10–90% range over replicates) against the truth (black)."
+es = as.data.table(se$sel)[, .(med = median(sel), lo = quantile(sel, 0.1), hi = quantile(sel, 0.9)),
+                           by = .(om, em, fishery, age)]
+es[, `:=`(em_f = factor(em_lab[em], em_lab), om_f = factor(om_lab[om], om_lab))]
+tr = sa[curve %in% c("age truth", "length truth")]
+tr[, om_f := factor(om_lab[truth], om_lab)]
+ggplot(es, aes(age, med, colour = em_f, fill = em_f)) +
+    geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.15, colour = NA) +
+    geom_line(linewidth = 0.6) +
+    geom_line(data = tr, aes(age, sel), inherit.aes = FALSE, colour = "black", linewidth = 0.5, linetype = "dotted") +
+    facet_grid(om_f ~ fishery) +
+    scale_colour_manual(values = em_col, name = NULL) +
+    scale_fill_manual(values = em_col, name = NULL) +
+    labs(x = "Age (quarters)", y = "Selectivity")
+```
+
+```{r}
+#| label: est-numbers
+q = function(o, e, v) res[om == o & em == e, median(get(v))]
+qq = function(o, e, v, p) res[om == o & em == e, quantile(get(v), p)]
+```
+
+All `r nrow(res)` fits converged (largest gradient
+`r formatC(max(res$max_gradient), format = "e", digits = 1)`).
+
+**A length-based model fitted to age-based data keeps depletion.** With
+SS3-like age-based selectivity as the truth, the length-based models
+estimate B0 `r pct(q("age", "length_c2", "paired_B0"), 1)` (C2 parameters)
+to `r pct(q("age", "length_all", "paired_B0"), 1)` (all parameters) higher
+than the matched age-based model, but terminal depletion within
+`r fmt(abs(q("age", "length_c2", "paired_dep")), 3)`
+(10–90%: `r fmt(qq("age", "length_c2", "paired_dep", 0.1), 3)` to
+`r fmt(qq("age", "length_c2", "paired_dep", 0.9), 3)`). As with timing, the
+misspecification goes into the scale.
+
+**An age-based model fitted to length-based data does not.** With opal-like
+length-based selectivity as the truth, the age-based model estimates
+terminal depletion `r fmt(abs(q("length", "age", "paired_dep")), 3)` lower
+than the matched model (10–90%: `r fmt(qq("length", "age", "paired_dep", 0.1), 3)`
+to `r fmt(qq("length", "age", "paired_dep", 0.9), 3)`), and B0
+`r pct(abs(q("length", "age", "paired_B0")), 1)` lower: the stock looks
+more depleted than it is. An age-based model cannot represent the larger
+fish of each age being caught preferentially, so it misfits the catch's
+length compositions and absorbs the difference in the stock's trajectory.
+
+**Estimating more length-based parameters changes little.** Freeing the
+initial and final selectivity of the dome-shaped fisheries
+(`length (all parameters)`) moves terminal depletion by
+`r fmt(abs(q("length", "length_all", "paired_dep")), 3)` (length truth) and
+`r fmt(abs(q("age", "length_all", "paired_dep") - q("age", "length_c2", "paired_dep")), 3)`
+(age truth) relative to C2's parameter choices.
+
+**The direction does not match the IO yellowfin fits.** In those fits, opal's
+length-based selectivity (C2) gave a *lower* B0 (0.88 against 1.03 × SS3's
+with SS3's selectivity) and *lower* depletion (0.307 against 0.404) than
+SS3's age-based curves. Here, fitted to the same data, the length-based
+model's B0 and depletion are at or above the age-based model's in the
+median: B0 is
+`r pct(res[, .(d = B0[em == "length_c2"] / B0[em == "age"] - 1), by = .(rep, om)][, median(d)], 1)`
+higher and terminal depletion
+`r fmt(res[om == "age", .(d = dep_T[em == "length_c2"] - dep_T[em == "age"]), by = rep][, median(d)], 3)`
+(age truth) to
+`r fmt(res[om == "length", .(d = dep_T[em == "length_c2"] - dep_T[em == "age"]), by = rep][, median(d)], 3)`
+(length truth) higher. The selectivity basis on its own therefore does not
+explain C2's lower stock size.
+
+# Implications for opal
+
+1. **Length-based selectivity is the safer default.** When the truth is
+   age-based, opal's length-based curves still estimate depletion without
+   bias (B0 is about 4–6% high). When the truth is length-based, an
+   age-based model biases depletion low. An option for age-based curves
+   would help reproduce SS3 models exactly, but is not needed for unbiased
+   status estimates.
+2. **The IO yellowfin gap is not a basis effect.** Both simulations (timing
+   and selectivity) move estimated depletion by at most about 0.04, and
+   in the opposite direction to C2's lower depletion (0.307 against
+   SS3's 0.399). The remaining candidates are features these simulations
+   leave out:
+   * the full set of 16 fleets, with fleet-specific shapes that a
+     length-based double normal fits poorly (for example fishery 5's
+     shallow ascending limb and fishery 9's drop in the plus group);
+   * the survey's generalised size-frequency data, which SS3 fitted and the
+     converter omits, leaving the index selectivity weakly informed;
+   * opal's N(0, 2) prior on the selectivity parameters, which set nine of
+     C's parameters;
+   * data from a spatial operating model, where pooled area fleets need not
+     follow either basis.
+   A next step would be to rerun this design with all 16 fleets, or to
+   refit C2 with the survey's size-frequency data, to see which of these
+   moves depletion by 0.1.
+3. **Freeing more selectivity parameters is not the fix.** Estimating the
+   initial and final selectivity of the domes made almost no difference.
+
+# Reproducing
+
+| Step | Script | Does | Time |
+|---|---|---|---|
+| 1 | `01-om-inputs.r` | True and approximating selectivity curves; reuses `../timing/data/om-inputs.rds` | ~10 s |
+| 2 | `02-deterministic.r` | Part 1 projections | ~10 s |
+| 3 | `03-sim-est.r [n_rep] [n_cores]` | Part 2, `r se$n_rep` replicates × 6 fits | `r fmt(se$minutes, 0)` min on 4 cores |
+| 4 | `selectivity-sim.qmd` | This document; reads only `data/` | seconds |
+
+The model is the timing simulation's (`../timing/R/timing-model.R`), which
+gained a `sel_basis` argument for this study. Results were generated
+`r se$created`.

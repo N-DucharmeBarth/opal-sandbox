@@ -51,11 +51,19 @@ sel_at_length = function(par, type, len_mid) {
 #' Selectivity at length and at age for every fishery
 #' @param par_sel [n_fishery, 6] opal par_sel matrix.
 #' @param pla [n_age, n_len] age-length key.
-selectivity = function(par_sel, sel_type, pla, len_mid) {
+#' @param basis "length" (opal): the curve is a function of length and
+#'   reaches age through the age-length key. "age" (SS3 age-based patterns):
+#'   the same curve family is evaluated directly on age, and there is no
+#'   selection by length within an age (sel_fl is NULL).
+selectivity = function(par_sel, sel_type, pla, len_mid, basis = "length") {
     "[<-" = RTMB::ADoverload("[<-")
     n_f = nrow(par_sel); n_a = nrow(pla)
-    sel_fl = matrix(0, n_f, length(len_mid))
     sel_fa = matrix(0, n_f, n_a)
+    if (basis == "age") {
+        for (f in seq_len(n_f)) sel_fa[f, ] = sel_at_length(par_sel[f, ], sel_type[f], seq_len(n_a))
+        return(list(sel_fl = NULL, sel_fa = sel_fa))
+    }
+    sel_fl = matrix(0, n_f, length(len_mid))
     for (f in seq_len(n_f)) {
         sel_fl[f, ] = sel_at_length(par_sel[f, ], sel_type[f], len_mid)
         for (a in seq_len(n_a)) sel_fa[f, a] = sum(pla[a, ] * sel_fl[f, ])
@@ -167,11 +175,13 @@ expected_obs = function(dyn, sel, pla, idx_fleet, q, timing, comp_fleets) {
     n_t = nrow(Nobs); n_a = ncol(Nobs); n_l = ncol(pla)
     index_t = numeric(n_t)
     for (t in seq_len(n_t)) index_t[t] = q * sum(Nobs[t, ] * sel$sel_fa[idx_fleet, ])
-    # catch-at-length: sum_a C_fa * pla[a, l] * s_f(l) / sel_fa[a]
+    # catch-at-length: sum_a C_fa * pla[a, l] * s_f(l) / sel_fa[a] for
+    # length-based selectivity; sum_a C_fa * pla[a, l] for age-based
     comp = list()
     for (f in comp_fleets) {
         w_al = matrix(0, n_a, n_l)
-        for (a in seq_len(n_a)) w_al[a, ] = pla[a, ] * sel$sel_fl[f, ] / (sel$sel_fa[f, a] + 1e-12)
+        for (a in seq_len(n_a)) w_al[a, ] = if (is.null(sel$sel_fl)) pla[a, ] else
+            pla[a, ] * sel$sel_fl[f, ] / (sel$sel_fa[f, a] + 1e-12)
         cl = matrix(0, n_t, n_l)
         for (t in seq_len(n_t)) {
             row = 0 * w_al[1, ]
@@ -184,10 +194,10 @@ expected_obs = function(dyn, sel, pla, idx_fleet, q, timing, comp_fleets) {
 }
 
 #' Build the full model for one convention and parameter set
-run_model = function(par, inputs, method, timing, n_iter = 8L) {
+run_model = function(par, inputs, method, timing, n_iter = 8L, sel_basis = "length") {
     lw = inputs$laa[[if (timing == "start") "beg" else "mid"]]
     pla = pla_matrix(lw$mu, lw$sd, inputs$len_lower, inputs$len_upper)
-    sel = selectivity(par$par_sel, inputs$sel_type, pla, inputs$len_mid)
+    sel = selectivity(par$par_sel, inputs$sel_type, pla, inputs$len_mid, sel_basis)
     dyn = dynamics(exp(par$log_B0), inputs$h, inputs$sigma_r, par$rdev_y, inputs$M_a,
                    inputs$sp_a, sel$sel_fa, inputs$catch_tf, method, n_iter)
     obs = expected_obs(dyn, sel, pla, inputs$index_fleet, exp(par$log_q), timing,

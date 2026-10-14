@@ -1,0 +1,35 @@
+# Notes for Claude Code
+
+## R environment in cloud containers
+
+R is not preinstalled. `code/rtmb/setup/install-r-opal.sh` installs R 4.5,
+opal (dev), r4ss and Quarto into `/opt/renv45` through conda-forge and
+`git clone` (CRAN and GitHub HTTP are blocked). It takes 20-30 minutes, so run
+it in the background:
+
+```bash
+bash code/rtmb/setup/install-r-opal.sh > /tmp/install-r.log 2>&1
+```
+
+In each new shell afterwards:
+
+```bash
+export PATH=/opt/renv45/bin:$PATH LANG=C.UTF-8 LC_ALL=C.UTF-8
+export QUARTO_SHARE_PATH=/opt/renv45/share/quarto QUARTO_DENO=/opt/renv45/bin/deno \
+       QUARTO_ESBUILD=/opt/renv45/bin/esbuild QUARTO_DART_SASS=/opt/renv45/bin/sass \
+       QUARTO_PANDOC=/opt/renv45/bin/pandoc QUARTO_TYPST=/opt/renv45/bin/typst
+```
+
+The repository's `.Rprofile` activates renv, which tries to reach CRAN. Run R
+with `--no-init-file` or from outside the repository root. Scripts find the
+project root with `this.path::this.proj()`, so they still work from anywhere.
+
+## SS3 -> opal (code/rtmb)
+
+* `helper-fns/`: the SS3-to-opal converter and fit helpers.
+* `scripts/01`-`03`: fits that write the caches in `vignettes/data/`.
+* `scripts/04-export-io-yft-for-opal.r`: exports fit C2 as package data, a
+  stored fit, a vignette and data docs for the opal package, under
+  `opal-export/` (laid out like the opal repository; see its README).
+* `.gitignore` ignores everything not explicitly whitelisted; add new file
+  types there.

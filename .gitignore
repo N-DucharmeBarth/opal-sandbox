@@ -25,7 +25,11 @@
 !*.r
 !*.rds
 !*.R
+!*.rda
+!*.Rd
 !.Rprofile
+# shell scripts (e.g. code/rtmb/setup/install-r-opal.sh)
+!*.sh
 # git files
 !.gitignore
 !DISCLAIMER.md
@@ -36,6 +40,7 @@
 !.renvignore
 # markdown
 !README.md
+!CLAUDE.md
 !*.qmd
 # stock synthesis
 !control.ss

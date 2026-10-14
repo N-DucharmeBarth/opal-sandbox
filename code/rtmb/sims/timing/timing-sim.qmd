@@ -154,8 +154,10 @@ ggplot(d1, aes(ts, dep, colour = method_f)) +
 tab = term[, .(mult, method = method_lab[method], timing = timing, dep)]
 tab = dcast(tab, mult + timing ~ method, value.var = "dep")
 setcolorder(tab, c("mult", "timing", method_lab))
-tab[, `start vs Baranov` := pct(`start (opal)` / `Baranov (SS3)` - 1)]
-tab[, `Pope vs Baranov` := pct(`Pope mid-step` / `Baranov (SS3)` - 1, 1)]
+# ratios are meaningless once Baranov has collapsed the stock
+ok = tab$`Baranov (SS3)` > 0.05
+tab[, `start vs Baranov` := ifelse(ok, pct(`start (opal)` / `Baranov (SS3)` - 1), "collapse")]
+tab[, `Pope vs Baranov` := ifelse(ok, pct(`Pope mid-step` / `Baranov (SS3)` - 1, 1), "collapse")]
 knitr::kable(tab[order(mult, -rank(timing))], digits = 3,
              col.names = c("Catch ×", "Biology", method_lab, "start vs Baranov", "Pope vs Baranov"),
              caption = "Terminal depletion by convention and catch multiplier.")
@@ -186,7 +188,32 @@ ggplot(sa, aes(age, sel, colour = timing_f)) +
     labs(x = "Age (quarters)", y = "Selectivity")
 ```
 
-RESULTS_PART1
+```{r}
+#| label: det-numbers
+g = function(m, tm, k = 1) term[method == m & timing == tm & mult == k, dep]
+```
+
+At the observed catch, removing it at the start of the quarter leaves SSB/B0
+`r pct(g("start", "mid") / g("baranov", "mid") - 1)` higher than Baranov does
+(both with mid-quarter biology) (`r fmt(g("start", "mid"), 3)` against
+`r fmt(g("baranov", "mid"), 3)`). A fish caught at the start of the quarter
+is taken before natural mortality acts on it, so the same catch in numbers
+costs the stock less. The gap grows with the harvest rate: at 1.25 × the
+catch, Baranov drives the stock to collapse while start-of-quarter removal
+still leaves `r fmt(g("start", "mid", 1.25), 2)` of B0.
+
+**Pope's mid-step approximation reproduces Baranov** to within
+`r pct(max(abs(term[mult <= 1 & method == "pope_mid", dep] / term[mult <= 1 & method == "baranov", dep] - 1)), 1)`
+up to the observed catch, without iteration.
+
+**Biology timing matters on its own.** With the same length-based curves,
+mid-quarter length-at-age makes every fishery select slightly younger fish
+(the figure above), and with Baranov catch terminal depletion moves from
+`r fmt(g("baranov", "start"), 3)` (start) to `r fmt(g("baranov", "mid"), 3)`
+(mid). The two effects run in opposite directions: opal's combination
+(`start` and `start`, `r fmt(g("start", "start"), 3)`) is closer to SS3's
+(`baranov` and `mid`, `r fmt(g("baranov", "mid"), 3)`) than either change
+alone would make it.
 
 # Part 2: fitting with the wrong convention
 
@@ -263,15 +290,17 @@ ggplot(long, aes(timing_f, value, fill = method_f)) +
 
 ```{r}
 #| label: est-table
-smry = res[, .(`B0 error (median)` = pct(median(rel_B0), 1),
-               `B0 vs matched (median)` = pct(median(paired_B0), 1),
-               `terminal dep. error (median)` = fmt(median(err_dep), 3),
-               `terminal dep. vs matched (median)` = fmt(median(paired_dep), 3),
-               `dep. vs matched (IQR)` = paste(fmt(quantile(paired_dep, 0.25), 3), "to", fmt(quantile(paired_dep, 0.75), 3)),
-               `mean abs. dep. error` = fmt(mean(mare_dep), 3)),
-           by = .(om = om_lab[om], catch = method_lab[em_method], biology = em_timing, matched)]
+smry = res[, .(B0_err = pct(median(rel_B0), 1),
+               B0_vs = pct(median(paired_B0), 1),
+               dep_err = fmt(median(err_dep), 3),
+               dep_vs = fmt(median(paired_dep), 3),
+               mare = fmt(mean(mare_dep), 3)),
+           by = .(om = sub("-like.*", "-like", om_lab[om]), catch = em_method, biology = em_timing, matched)]
+smry[matched == TRUE, catch := paste0(catch, " *")]
 knitr::kable(smry[order(om, biology, catch)][, !"matched"],
-             caption = "Estimation errors by operating and estimation model, over replicates. 'vs matched' is the paired difference from the matched estimation model on the same dataset.")
+             col.names = c("OM", "EM catch", "EM biology", "B0 error", "B0 vs matched",
+                           "Term. dep. error", "Term. dep. vs matched", "Mean abs. dep. error"),
+             caption = "Medians over replicates (mean for the last column). 'vs matched' is the paired difference from the matched estimation model (*) on the same dataset.")
 ```
 
 ```{r}
@@ -290,11 +319,80 @@ ggplot(tj, aes(ts, dep, colour = method_f)) +
     labs(x = "Quarter", y = "SSB / B0")
 ```
 
-RESULTS_PART2
+```{r}
+#| label: est-numbers
+q = function(o, m, tm, v) smry_num[om == o & em_method == m & em_timing == tm][[v]]
+smry_num = res[, .(B0 = median(rel_B0), B0p = median(paired_B0), depp = median(paired_dep),
+                   depp_abs = quantile(abs(paired_dep), 0.9)), by = .(om, em_method, em_timing)]
+# paired B0 shift between two EM conventions, for both OMs and both levels of
+# the other factor, as a range
+shift = function(a, b) {
+    d = merge(res[em_method == a[1] & em_timing == a[2], .(rep, om, x = B0)],
+              res[em_method == b[1] & em_timing == b[2], .(rep, om, y = B0)], by = c("rep", "om"))
+    d[, median(x / y - 1), by = om]$V1
+}
+rng = function(x) paste0(pct(min(x), 1), " to ", pct(max(x), 1))
+catch_shift = c(shift(c("baranov", "mid"), c("start", "mid")), shift(c("baranov", "start"), c("start", "start")))
+bio_shift   = c(shift(c("baranov", "start"), c("baranov", "mid")), shift(c("start", "start"), c("start", "mid")))
+```
+
+**B0 absorbs the convention.** Against the matched model on the same
+dataset, the estimated B0 moves by a consistent amount for each convention,
+whichever operating model generated the data:
+
+* **Catch:** Baranov catch gives a B0 `r rng(catch_shift)` higher than
+  start-of-quarter catch with the same biology timing (medians over
+  replicates, for both operating models and both biology timings).
+* **Biology:** start-of-quarter biology gives a B0 `r rng(bio_shift)` higher
+  than mid-quarter biology with the same catch method.
+* **Together they cancel.** opal's `start`/`start` fitted to SS3-like data
+  gives a B0 `r pct(q("ss3_like", "start", "start", "B0p"), 1)` from the
+  matched model, and `baranov`/`mid` fitted to opal-like data
+  `r pct(q("opal_like", "baranov", "mid", "B0p"), 1)`. Changing only one of
+  the two conventions moves B0 by `r rng(abs(c(catch_shift, bio_shift)))`.
+* **Pope tracks Baranov** to within
+  `r pct(max(abs(smry_num[em_method == "pope_mid", B0p] - smry_num[em_method == "baranov", B0p])), 1)`.
+
+**Estimated depletion barely moves.** Every estimation model's terminal
+depletion is within `r fmt(max(abs(smry_num$depp)), 3)` of the matched
+model's in the median, and within `r fmt(max(smry_num$depp_abs), 3)` in 90%
+of replicates. Fitted to an index and length compositions, a model with the
+"wrong" timing rescales B0 so that its relative trajectory matches the
+data; the convention ends up in the scale, not in the trend. This is the
+opposite of Part 1, where B0 was held fixed and depletion moved by 20%.
+
+All estimation models share the same small depletion bias against the truth
+(median `r fmt(median(res$err_dep), 3)`) and B0 bias
+(`r pct(median(res[matched == TRUE, rel_B0]), 0)` for the matched models),
+from recruitment-deviation shrinkage.
 
 # Implications for opal
 
-IMPLICATIONS
+1. **Within a quarterly model, these conventions matter for scale, not for
+   depletion.** They move estimated B0 by up to about 8% each, but estimated
+   depletion by less than 0.01. The IO yellowfin difference in depletion
+   between opal and SS3 (0.307 against 0.399 for fit C2) is therefore
+   unlikely to come from catch or biology timing; the C2 vignette traced it
+   to selectivity, and fit A1 (SS3's selectivity) matched SS3's depletion.
+2. **Where they do matter:** anything evaluated at fixed parameters rather
+   than fitted, such as bridging runs, projections under a fixed catch,
+   catch-based reference points and absolute biomass. Part 1 shows 20–25% in
+   depletion for the same catch, more at higher harvest rates, and longer
+   (annual) time steps would make both effects larger.
+3. **Change both or neither.** opal's start-of-quarter catch and
+   start-of-quarter biology roughly cancel against SS3's Baranov catch and
+   mid-season biology. Adopting only one SS3 convention would move opal's B0
+   further from SS3's (about 8%) than it is now.
+4. **Pope's mid-step catch is a cheap substitute for Baranov.** It is
+   explicit (no iteration), as cheap as opal's current method, and matched
+   Baranov within about 2% in both parts. If opal adds an SS3-compatible
+   option, Pope mid-step catch together with mid-step length-at-age and
+   mid-step index abundance would reproduce SS3's timing without solving
+   for F.
+5. **Start-of-step removal is the most forgiving at high harvest rates.**
+   For the same catch it leaves the most fish, so near collapse it can show
+   a viable stock where Baranov does not (1.25 × catch in Part 1). This
+   matters most for projections under fixed catches.
 
 # Reproducing
 

@@ -31,5 +31,9 @@ project root with `this.path::this.proj()`, so they still work from anywhere.
 * `scripts/04-export-io-yft-for-opal.r`: exports fit C2 as package data, a
   stored fit, a vignette and data docs for the opal package, under
   `opal-export/` (laid out like the opal repository; see its README).
+* `scripts/05-io-yft-ss3-to-opal-workflow.r`: end-to-end conversion, tests
+  and fit C2 with the settings as an R list; companion to the step-by-step
+  guide `vignettes/ss3-to-opal-workflow.qmd` (HTML + PDF), which shows its
+  chunks via `knitr::read_chunk()` and reads the cache it writes.
 * `.gitignore` ignores everything not explicitly whitelisted; add new file
   types there.

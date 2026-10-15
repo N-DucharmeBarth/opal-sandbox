@@ -353,11 +353,21 @@ cpue[, ss3 := Exp * obs / Obs][, c("Obs", "Exp") := NULL]
 lf_opal = ss3_lf_long(d, rep_opal$lf_pred)
 lf_agg  = lf_opal[, .(obs = sum(obs * n), opal = sum(pred * n)), by = .(fishery, bin)]
 lf_agg[, `:=`(obs = obs / sum(obs), opal = opal / sum(opal)), by = fishery]
-lb = as.data.table(rep_ss3$lendbase)[Fleet %in% cfg$lf$keep_fisheries]
-lb[, bin := d$len_lower[findInterval(Bin, d$len_lower)]]   # SS3 198 -> opal 195 bin
-lb = merge(lb, unique(lf_opal[, .(fishery, ts, n)]), by.x = c("Fleet", "Yr"),
+# SS3's expected compositions: this run wrote no CompReport.sso (so r4ss has
+# no lendbase), but data.ss_new carries them in its second (expected-value)
+# section. The reader is SS3 3.24-specific.
+dims    = converted$meta$dims
+dat_exp = suppressWarnings(r4ss::SS_readdat_3.24(
+    file.path(proj_dir, cfg$ss3_dir, cfg$files$dat), section = 2, verbose = FALSE))
+lc = as.data.table(dat_exp$lencomp)[FltSvy %in% cfg$lf$keep_fisheries]
+bin_cols = grep("^l[0-9]", names(lc), value = TRUE)
+lb = melt(lc[, c("Yr", "FltSvy", bin_cols), with = FALSE], id.vars = c("Yr", "FltSvy"),
+          variable.name = "bin_col", value.name = "Exp")
+lb[, bin := dims$.len_bins[match(as.numeric(sub("^l", "", bin_col)), dims$.len_bins_ss3)]]
+lb[, Exp := Exp / sum(Exp), by = .(Yr, FltSvy)]
+lb = merge(lb, unique(lf_opal[, .(fishery, ts, n)]), by.x = c("FltSvy", "Yr"),
            by.y = c("fishery", "ts"))
-lf_ss3 = lb[, .(ss3 = sum(Exp * n)), by = .(fishery = Fleet, bin)]
+lf_ss3 = lb[, .(ss3 = sum(Exp * n)), by = .(fishery = FltSvy, bin)]
 lf_ss3[, ss3 := ss3 / sum(ss3), by = fishery]
 lf_agg = merge(lf_agg, lf_ss3, by = c("fishery", "bin"), all.x = TRUE)
 

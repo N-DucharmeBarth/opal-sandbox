@@ -54,7 +54,8 @@ theme_set(theme_bw(base_size = 11) +
 fleet_name = function(f) {
     f  = as.integer(f)
     nm = c(cache$fleet_names[1:16], paste0("llcpue_q", 1:4))
-    sprintf("%d: %s", f, nm[f])
+    lv = sprintf("%d: %s", seq_along(nm), nm)
+    factor(lv[f], levels = lv)
 }
 fmt = function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
 sci = function(x, d = 1) formatC(x, format = "e", digits = d)
@@ -453,7 +454,7 @@ selectivity functions so that the seeded values are on opal's scale.
 ```
 
 ```{r seed-table}
-sr = cache$seed_rmse[, .(fishery = fleet_name(fishery),
+sr = cache$seed_rmse[, .(fishery = as.character(fleet_name(fishery)),
                          curve = c("logistic", "double-normal", "double Richards")[sel_type],
                          rmse = fmt(rmse, 3))]
 knitr::kable(sr, col.names = c("Fishery", "opal curve", "RMSE against SS3"), align = "llr")
@@ -515,11 +516,12 @@ to 10^-4^), that the Hessian is positive definite and that the parameters
 are estimable.
 
 ```{r convergence-table}
+#| tbl-colwidths: [14, 14, 14, 10, 18, 16, 14]
 knitr::kable(C[, .(fmt(objective_start, 2), fmt(objective_fit, 3), sci(max_gradient, 1),
                    newton_steps, ifelse(positive_hessian, "yes", "**no**"),
                    ifelse(check_passes, "passed", "**failed**"), fmt(seconds, 0))],
              col.names = c("Objective at start", "Objective at fit", "Max |gradient|",
-                           "Newton steps", "Hessian positive definite", "opal_check()",
+                           "Newton steps", "Positive definite Hessian", "opal_check()",
                            "Seconds"),
              align = "rrrrccr")
 ```
@@ -606,8 +608,12 @@ st = S[, .(quantity,
 knitr::kable(st, col.names = c("Quantity", "SS3", "opal", "opal / SS3"), align = "lrrr")
 ```
 
-opal and SS3 should be close but not identical. Expected sources of
-difference are:
+For IO YFT, opal's B0 is `r fmt(S[1, opal / SS3], 2)` × SS3's, and its
+terminal SSB/B0 is `r fmt(S[3, opal], 2)` against SS3's `r fmt(S[3, SS3], 2)`.
+Most of that gap comes from selectivity. When the same opal model is fitted
+with SS3's selectivity-at-age held fixed (fit A1 in
+`ss3-to-opal-io-yft-age-k.qmd`), its terminal SSB/B0 is within 0.01 of SS3's.
+The remaining sources of difference are:
 
 * catch timing;
 * opal's length-based selectivity curves, which cannot match every SS3
@@ -629,6 +635,7 @@ difference tells you which function to check or extend. The last column
 points to where to start.
 
 ```{r features-table}
+#| tbl-colwidths: [20, 13, 13, 54]
 notes = c(
     "SS3 version" = "Tested on 3.24 only. `ss3_read_model()` reads the par file with `SS_readpar_3.24()`, and `ss3_lencomp_n_mult()` and the catch row of `ss3_reconcile()` expect 3.24 layouts. For 3.30, check every reader in `ss3-convert.R`, and `ss3_recdevs()`.",
     "Model period (SS3 years)" = "`cfg$time`; the opal step is the SS3 year.",
@@ -654,7 +661,9 @@ notes = c(
     "F method" = "opal removes catch at the start of each step; the bridging test measures the effect.",
     "Stock-recruit function" = "opal is Beverton–Holt; steepness and σR are read from the par file.",
     "Report.sso available" = "Required for the `endgrowth` route, selectivity, B0 and the bridging test.")
-ft = cache$features[, .(feature, yft = value, yours = "", where = notes[feature])]
+ft = cache$features[, .(feature, yft = value, yours = " ", where = notes[feature])]
+# Shorten SS3's full version banner to its number.
+ft[feature == "SS3 version", yft := sub("^SS-V([0-9.]+[A-Za-z]*).*", "\\1", yft)]
 knitr::kable(ft, col.names = c("Feature", "IO YFT", "Your model", "What the converter does / where to look"))
 ```
 

@@ -42,6 +42,8 @@
 !README.md
 !CLAUDE.md
 !*.qmd
+# self-contained HTML of the SS3-to-opal workflow guide
+!code/rtmb/vignettes/ss3-to-opal-workflow.html
 # stock synthesis
 !control.ss
 !data.ss

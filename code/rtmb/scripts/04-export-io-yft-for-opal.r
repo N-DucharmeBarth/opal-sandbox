@@ -182,6 +182,28 @@
             end_ts(prev$trajectory[id == "A1" & state == "fitted"], "static_dep"),
             end_ts(prev$trajectory[id == "C2" & state == "fitted"], "static_dep")))
 
+    # SS3's age_selex patterns and parameters (pattern 20 double normal, 12
+    # logistic, 15 mirror), so opal's age-based selectivity (sel_basis_f = 2)
+    # can start from them through convert_ss3_selex_to_rtmb(basis = "age").
+    # control.ss_new carries the estimates as INIT.
+    ctl = converted$ss3$ctl
+    sel_types = as.data.frame(ctl$age_selex_types)
+    sel_pattern = data.table(fleet   = seq_len(nrow(sel_types)),
+                             name    = prev$fleet_names[seq_len(nrow(sel_types))],
+                             pattern = as.integer(sel_types[[1]]),
+                             special = as.integer(sel_types[[4]]))
+    sp = as.data.frame(ctl$age_selex_parms)
+    sel_par = data.table(label = rownames(sp), value = sp$INIT, lo = sp$LO, hi = sp$HI,
+                         phase = as.integer(sp$PHASE))
+    sel_par[, fleet := as.integer(sub("^AgeSel_([0-9]+)P_.*", "\\1", label))]
+    sel_par[, par   := as.integer(sub("^AgeSel_[0-9]+P_([0-9]+)_.*", "\\1", label))]
+    sel_par = merge(sel_par, sel_pattern[, .(fleet, pattern)], by = "fleet")
+    setcolorder(sel_par, c("fleet", "pattern", "par", "value", "phase", "lo", "hi", "label"))
+    setorder(sel_par, fleet, par)
+    stopifnot("Unexpected SS3 age selectivity parameters" =
+                  sel_par[pattern == 20L, .N] == 6L * sel_pattern[pattern == 20L, .N],
+              sel_par[pattern == 12L, .N] == 2L * sel_pattern[pattern == 12L, .N])
+
     io_yft_reference = list(
         fleet_names = c(prev$fleet_names[1:16], paste0("llcpue_q", 1:4)),
         ss3 = list(
@@ -192,6 +214,8 @@
             cpue        = plain(ss3$cpue[, .(ts, fishery, obs, expected = exp, se)]),
             lf          = plain(ss3_lf),
             sel_age     = plain(ss3$sel_age[, .(fishery, age, sel)]),
+            sel_pattern = plain(sel_pattern),
+            sel_par     = plain(sel_par),
             length_at_age = plain(data.table(age = io_yft_data$age_a,
                                              length = prev$growth$laa_ss3))),
         truth = list(

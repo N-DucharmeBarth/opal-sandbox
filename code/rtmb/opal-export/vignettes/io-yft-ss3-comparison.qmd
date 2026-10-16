@@ -36,6 +36,11 @@ n_ts  <- d$n_year
 truth <- ref$truth$trajectory
 ss3   <- ref$ss3$trajectory
 
+# Model outputs precomputed by data-raw/generate-io-yft-vignette-cache.R, so
+# the article renders without rebuilding the RTMB model
+cache <- readRDS(system.file("extdata", "io_yft_vignette_cache.rds", package = "opal"))
+c2    <- cache$models$C2
+
 fmt <- function(x, digits = 2) formatC(x, format = "f", digits = digits, big.mark = ",")
 options(knitr.kable.NA = "—")
 fleet_name <- function(f) sprintf("%d: %s", as.integer(f), ref$fleet_names[as.integer(f)])
@@ -253,7 +258,7 @@ the third decimal), without the result depending on the prior.
 
 ## Fit
 
-Fitting takes a few minutes, so the vignette loads the stored result. The
+Fitting takes a few minutes, so the vignette uses the stored result. The
 fit below was made from exactly these inputs.
 
 ```{r}
@@ -266,21 +271,32 @@ The stored fit also polishes the optimum with Newton steps and runs
 `opal_check()` with a gradient tolerance of 1e-4
 (`data-raw/generate-io-yft-c2-fit.R`).
 
+The stored fit is `inst/extdata/io_yft_c2_fit.rds`. Reading it and
+rebuilding the model for `opal_report()` takes about a minute, so the
+figures below use outputs precomputed from it
+(`data-raw/generate-io-yft-vignette-cache.R`):
+
 ```{r}
 #| label: load-fit
+#| eval: false
 fit <- opal_read(system.file("extdata", "io_yft_c2_fit.rds", package = "opal"))
 summary(fit)
 report <- opal_report(fit)
-B0 <- exp(fit$fit$opt$par[["log_B0"]])
+```
+
+```{r}
+#| label: fit-summary
+cat(c2$fit$summary, sep = "\n")
+B0 <- c2$B0
 ```
 
 ```{r}
 #| label: fit-check
-v <- fit$validation$fit
+v <- c2$fit
 knitr::kable(data.frame(
   quantity = c("Estimated parameters", "Objective", "Max |gradient|", "opal_check()"),
-  value = c(length(fit$fit$opt$par), fmt(fit$fit$opt$objective, 3),
-            formatC(v$metrics$max_gradient, format = "e", digits = 1),
+  value = c(v$n_par, fmt(v$objective, 3),
+            formatC(v$max_gradient, format = "e", digits = 1),
             if (isTRUE(v$passes)) "passed" else "failed")),
   col.names = c("Quantity", "Value"))
 ```
@@ -295,7 +311,7 @@ knitr::kable(data.frame(
 #| fig-cap: "Observed longline index (points, ±1.96 SE) with opal's predictions and SS3's expected values. Each quarterly series is on a mean-one scale."
 cp <- d$cpue_data
 idx <- data.frame(ts = cp$ts, fishery = cp$fishery, obs = cp$value, se = cp$se,
-                  pred = report$cpue_pred)
+                  pred = c2$cpue$pred)
 pred <- rbind(data.frame(ts = idx$ts, fishery = idx$fishery, value = idx$pred, series = "opal C2"),
               data.frame(ts = ref$ss3$cpue$ts, fishery = ref$ss3$cpue$fishery,
                          value = ref$ss3$cpue$expected, series = "SS3"))
@@ -329,9 +345,9 @@ agg <- do.call(rbind, lapply(seq_along(d$lf_fishery_f), function(j) {
   obs  <- obs / rowSums(obs)
   n    <- d$lf_n_fi[[j]]
   data.frame(fishery = d$lf_fishery_f[j], bin = d$len_lower,
-             observed  = colSums(obs * n) / sum(n),
-             predicted = colSums(report$lf_pred[[j]] * n) / sum(n))
+             observed  = colSums(obs * n) / sum(n))
 }))
+agg <- merge(agg, c2$lf, by = c("fishery", "bin"))
 ss3_lf <- ref$ss3$lf
 lines <- rbind(data.frame(fishery = agg$fishery, bin = agg$bin, value = agg$predicted,
                           series = "opal C2"),
@@ -355,10 +371,8 @@ SS3's through selectivity and the within-quarter timing.
 #| label: sel-age
 #| fig-height: 8
 #| fig-cap: "Selectivity-at-age: SS3 (age-based) and opal C2 (length-based, mapped to age)."
-sel <- report$sel_fya[, 1, ]
 sa <- rbind(
-  data.frame(fishery = rep(seq_len(nrow(sel)), times = ncol(sel)),
-             age = rep(d$age_a, each = nrow(sel)), sel = as.vector(sel), series = "opal C2"),
+  data.frame(c2$sel_age, series = "opal C2"),
   data.frame(ref$ss3$sel_age, series = "SS3"))
 ggplot(sa[sa$fishery <= 17, ], aes(age, sel, colour = series)) +
   geom_line(linewidth = 0.7) +
@@ -383,8 +397,7 @@ that fishery's length compositions is closer to the data.
 #| fig-height: 7
 #| fig-cap: "Spawning biomass (top) and static depletion SSB / B0 (bottom): opal C2, SS3 and the simulated truth."
 traj <- rbind(
-  data.frame(ts = seq_len(n_ts), ssb = report$spawning_biomass_y[seq_len(n_ts)],
-             static_dep = report$static_depletion_y[seq_len(n_ts)], series = "opal C2"),
+  data.frame(c2$trajectory, series = "opal C2"),
   data.frame(ss3, series = "SS3"),
   data.frame(truth, series = "Simulated truth"))
 traj$series <- factor(traj$series, names(series_col))
@@ -404,8 +417,7 @@ ggplot(long, aes(ts, value, colour = series)) +
 #| label: recruitment
 #| fig-height: 4
 #| fig-cap: "Recruitment deviations, opal C2 against SS3. opal's deviation for time step t sets the age-1 recruits entering at t + 1."
-rdev <- fit$fit$opt$par[grepl("^rdev_y", names(fit$fit$opt$par))]
-rd <- merge(data.frame(ts = seq_along(rdev), opal = unname(rdev)),
+rd <- merge(data.frame(ts = seq_along(c2$rdev), opal = c2$rdev),
             ref$ss3$recdevs, by = "ts")
 ggplot(rd, aes(recdev, opal)) +
   geom_abline(colour = "grey60") +
@@ -450,6 +462,9 @@ knitr::kable(tab, digits = c(0, 2, 2, 1, 1, 3, 3),
   stock size comes from the selectivity curves opal estimates from the
   length compositions. Its depletion trajectory nonetheless follows
   SS3's closely for most of the series and drops below it late on.
+  Estimating SS3's own age-based curves instead gives a similar stock size
+  (`vignette("io-yft-age-selectivity", package = "opal")`), so the
+  difference is not that opal's curves are length-based.
 * Neither model is the truth. SS3 overestimates B0 by
   `r fmt(100 * (ref$ss3$ssb0 / ref$truth$b0 - 1), 0)`%; the operating model
   has movement among 159 cells and spatially varying recruitment, which
@@ -492,4 +507,7 @@ yellowfin operating model
 
 The SS3-to-opal converter and the detailed conversion vignettes are in
 <`r ref$source$repository`> (`code/rtmb`); the bundled data were exported by
-`r ref$source$script` at commit `r ref$source$commit`.
+`r ref$source$script` at commit `r ref$source$commit`. The opal outputs shown were computed with
+opal `r cache$opal` (commit `r cache$commit`). Age-based selectivity, which
+SS3 uses here, is compared with C2 in
+`vignette("io-yft-age-selectivity", package = "opal")`.

@@ -79,3 +79,6 @@ _site/*
 !*.yml# generated opal driver outputs (rebuilt by code/rtmb/scripts/00-prep-io-yft-sim-data-for-rtmb.r)
 /opal_data/
 .quarto/
+
+# opal patches for the age-selex branch
+!code/rtmb/opal-export/patches/*.patch

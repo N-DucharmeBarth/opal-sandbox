@@ -12,7 +12,8 @@
 #                                  optimum with seeded selectivity curves
 #   data/io_yft_map.rda            fit C2's map: log_B0, 256 rec devs, 4 q and
 #                                  49 selectivity parameters estimated
-#   data/io_yft_reference.rda      SS3 and simulated-truth comparison tables
+#   data/io_yft_reference.rda      SS3 and simulated-truth comparison tables,
+#                                  with SS3's age_selex patterns and parameters
 #   inst/extdata/io_yft_c2_fit.rds the fitted C2 opal_obj (opal_save())
 #
 # The vignette, the data documentation and the opal-side fit script in the

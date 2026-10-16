@@ -42,6 +42,8 @@
 !README.md
 !CLAUDE.md
 !*.qmd
+# self-contained HTML of the SS3-to-opal workflow guide
+!code/rtmb/vignettes/ss3-to-opal-workflow.html
 # stock synthesis
 !control.ss
 !data.ss
@@ -77,3 +79,6 @@ _site/*
 !*.yml# generated opal driver outputs (rebuilt by code/rtmb/scripts/00-prep-io-yft-sim-data-for-rtmb.r)
 /opal_data/
 .quarto/
+
+# opal patches for the age-selex branch
+!code/rtmb/opal-export/patches/*.patch

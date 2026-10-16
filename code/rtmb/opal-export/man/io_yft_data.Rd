@@ -43,7 +43,10 @@ spawning potential at age, with M scaled to the quarter. Growth uses SS3's
 multipliers, which are in \code{io_yft_parameters$log_k_mult}, and
 \code{growth_plus_group_adjust} applies SS3's plus-group length approximation.
 Selectivity is length-based (\code{sel_type_f}: 2 = double normal for fisheries
-1--16, 1 = logistic for the index series). \code{priors} holds the default
+1--16, 1 = logistic for the index series). \code{sel_basis_f} is not set, so
+every curve is evaluated on length; adding \code{sel_basis_f = rep(2L, 20)}
+evaluates them on age instead, as SS3 does (see the "Length- or age-based
+selectivity" article). \code{priors} holds the default
 priors from \code{\link[=get_priors]{get_priors()}}.
 }
 \examples{

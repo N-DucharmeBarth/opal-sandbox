@@ -13,7 +13,13 @@ A named list:
 \code{cpue} (\code{ts}, \code{fishery}, \code{obs}, \code{expected}, \code{se}), each quarterly
 series scaled to mean one; \code{lf} (\code{fishery}, \code{bin}, \code{expected}),
 expected length compositions aggregated per fishery weighted by sample
-size; \code{sel_age} (\code{fishery}, \code{age}, \code{sel}); and \code{length_at_age}
+size; \code{sel_age} (\code{fishery}, \code{age}, \code{sel}); \code{sel_pattern} (\code{fleet},
+\code{name}, \code{pattern}, \code{special}), SS3's \code{age_selex} pattern per fleet
+(20 = double normal, 12 = logistic, 15 = mirror of fleet \code{special});
+\code{sel_par} (\code{fleet}, \code{pattern}, \code{par}, \code{value}, \code{phase}, \code{lo}, \code{hi},
+\code{label}), SS3's estimated age selectivity parameters P1--P6, with
+\code{phase > 0} for the ones SS3 estimated (see
+\code{\link[=convert_ss3_selex_to_rtmb]{convert_ss3_selex_to_rtmb()}} with \code{basis = "age"}); and \code{length_at_age}
 (\code{age}, \code{length}, start of the time step).}
 \item{truth}{The operating model (SPM, 159 cells on a 5 degree grid),
 summed over the whole domain: \code{b0}, unfished equilibrium spawning

@@ -3,7 +3,7 @@
 # minutes. The inputs (data/io_yft_*.rda) were exported from an SS3 model by
 # code/rtmb/scripts/04-export-io-yft-for-opal.r in
 # https://github.com/N-DucharmeBarth/wcpfc-bet-single-region.
-devtools::load_all()
+pkgload::load_all()
 
 x <- opal_obj(io_yft_data, io_yft_parameters, io_yft_map,
               control = list(eval.max = 10000, iter.max = 10000))

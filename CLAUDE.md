@@ -28,9 +28,13 @@ project root with `this.path::this.proj()`, so they still work from anywhere.
 
 * `helper-fns/`: the SS3-to-opal converter and fit helpers.
 * `scripts/01`-`03`: fits that write the caches in `vignettes/data/`.
-* `scripts/04-export-io-yft-for-opal.r`: exports fit C2 as package data, a
-  stored fit, a vignette and data docs for the opal package, under
-  `opal-export/` (laid out like the opal repository; see its README).
+* `scripts/04-export-io-yft-for-opal.r`: exports fit C2 as package data
+  (including SS3's `age_selex` parameters in `io_yft_reference`), a stored
+  fit and data docs for the opal package, under `opal-export/` (laid out
+  like the opal repository; see its README). The age-based fits, the
+  vignette cache and the two vignettes there are made inside opal's
+  `age-selex` branch by its `data-raw/` scripts and copied back;
+  `opal-export/patches/` holds the same changes as `git am` patches.
 * `scripts/05-io-yft-ss3-to-opal-workflow.r`: end-to-end conversion, tests
   and fit C2 with the settings as an R list; companion to the step-by-step
   guide `vignettes/ss3-to-opal-workflow.qmd` (HTML + PDF), which shows its

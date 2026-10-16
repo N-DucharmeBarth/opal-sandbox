@@ -21,7 +21,10 @@
 #' multipliers, which are in `io_yft_parameters$log_k_mult`, and
 #' `growth_plus_group_adjust` applies SS3's plus-group length approximation.
 #' Selectivity is length-based (`sel_type_f`: 2 = double normal for fisheries
-#' 1--16, 1 = logistic for the index series). `priors` holds the default
+#' 1--16, 1 = logistic for the index series). `sel_basis_f` is not set, so
+#' every curve is evaluated on length; adding `sel_basis_f = rep(2L, 20)`
+#' evaluates them on age instead, as SS3 does (see the "Length- or age-based
+#' selectivity" article). `priors` holds the default
 #' priors from [get_priors()].
 #'
 #' @format A named list of 62 elements in the form [opal_obj()] expects:
@@ -87,7 +90,13 @@
 #'     `cpue` (`ts`, `fishery`, `obs`, `expected`, `se`), each quarterly
 #'     series scaled to mean one; `lf` (`fishery`, `bin`, `expected`),
 #'     expected length compositions aggregated per fishery weighted by sample
-#'     size; `sel_age` (`fishery`, `age`, `sel`); and `length_at_age`
+#'     size; `sel_age` (`fishery`, `age`, `sel`); `sel_pattern` (`fleet`,
+#'     `name`, `pattern`, `special`), SS3's `age_selex` pattern per fleet
+#'     (20 = double normal, 12 = logistic, 15 = mirror of fleet `special`);
+#'     `sel_par` (`fleet`, `pattern`, `par`, `value`, `phase`, `lo`, `hi`,
+#'     `label`), SS3's estimated age selectivity parameters P1--P6, with
+#'     `phase > 0` for the ones SS3 estimated (see
+#'     [convert_ss3_selex_to_rtmb()] with `basis = "age"`); and `length_at_age`
 #'     (`age`, `length`, start of the time step).}
 #'   \item{truth}{The operating model (SPM, 159 cells on a 5 degree grid),
 #'     summed over the whole domain: `b0`, unfished equilibrium spawning

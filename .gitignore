@@ -82,3 +82,7 @@ _site/*
 
 # opal patches for the age-selex branch
 !code/rtmb/opal-export/patches/*.patch
+# opal patch series (opal-patches/<topic>/) and their rendered article
+!*.patch
+!opal-patches/*/README.md
+!opal-patches/*/*.html

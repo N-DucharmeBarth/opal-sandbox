@@ -205,6 +205,13 @@
                   sel_par[pattern == 20L, .N] == 6L * sel_pattern[pattern == 20L, .N],
               sel_par[pattern == 12L, .N] == 2L * sel_pattern[pattern == 12L, .N])
 
+    # SS3's generalised size compositions for the index (fleet 17), with
+    # SS3's expected values and its lambda, for an SS3-matched opal model
+    # (the opal article io-yft-ss3-matched). Also written on their own by
+    # 06-export-io-yft-sizefreq-for-opal.r.
+    sizefreq = ss3_sizefreq_reference(converted$ss3, file.path(proj_dir, cfg$ss3_dir), cfg)
+    sizefreq$data = plain(sizefreq$data)
+
     io_yft_reference = list(
         fleet_names = c(prev$fleet_names[1:16], paste0("llcpue_q", 1:4)),
         ss3 = list(
@@ -217,6 +224,8 @@
             sel_age     = plain(ss3$sel_age[, .(fishery, age, sel)]),
             sel_pattern = plain(sel_pattern),
             sel_par     = plain(sel_par),
+            sizefreq    = sizefreq,
+            lambdas     = plain(ss3_lambda_reference(converted$ss3)),
             length_at_age = plain(data.table(age = io_yft_data$age_a,
                                              length = prev$growth$laa_ss3))),
         truth = list(

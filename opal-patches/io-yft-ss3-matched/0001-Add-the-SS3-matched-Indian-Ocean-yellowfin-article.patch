@@ -1,0 +1,2349 @@
+From cd8e3c77ce42cdd7598266879eccd845f2942b4c Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 27 Oct 2026 06:29:27 +0000
+Subject: [PATCH 1/2] Add the SS3-matched Indian Ocean yellowfin article
+
+New article io-yft-ss3-matched takes the age-based fit A-SS3 (AGE here)
+closer to the SS3 configuration: SS3's lambda of 0 on parameter priors
+(AGE-NP), and SS3's generalised size compositions for the index on their
+own bins with SS3's lambda of 0.51 (AGE-NP-SF); AGE-SF keeps the priors.
+Without priors the selectivity parameters the data do not inform are held
+at their free estimates. The article also records the start sensitivity:
+from SS3's solution the no-prior fits stop at a worse optimum with a
+stock size close to SS3's.
+
+io_yft_reference$ss3 gains sizefreq and lambdas (exported by
+06-export-io-yft-sizefreq-for-opal.r in wcpfc-bet-single-region).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DnfY2GLFTeXdrpNCmFdVQD
+---
+ NEWS.md                                   |   9 +
+ R/data-io-yft.R                           |  12 +-
+ _pkgdown.yml                              |   1 +
+ data-raw/generate-io-yft-matched-fits.R   | 192 ++++++++
+ data-raw/generate-io-yft-matched-s3-fit.R |  30 ++
+ data-raw/generate-io-yft-vignette-cache.R |  71 ++-
+ data-raw/io-yft-ss3-matched-setup.R       |  82 ++++
+ data/io_yft_reference.rda                 | Bin 21748 -> 42932 bytes
+ man/io_yft_reference.Rd                   |  12 +-
+ vignettes/io-yft-ss3-matched.qmd          | 520 ++++++++++++++++++++++
+ 10 files changed, 910 insertions(+), 19 deletions(-)
+ create mode 100644 data-raw/generate-io-yft-matched-fits.R
+ create mode 100644 data-raw/generate-io-yft-matched-s3-fit.R
+ create mode 100644 data-raw/io-yft-ss3-matched-setup.R
+ create mode 100644 vignettes/io-yft-ss3-matched.qmd
+
+diff --git a/NEWS.md b/NEWS.md
+index 9126c47..54be0a0 100644
+--- a/NEWS.md
++++ b/NEWS.md
+@@ -1,5 +1,14 @@
+ # opal 0.1.1
+ 
++- 2026/10/27: New article "Matching the Stock Synthesis configuration:
++  Indian Ocean yellowfin". It takes the age-based fit A-SS3 two steps closer
++  to the SS3 model, using SS3's lambda of 0 on parameter priors
++  (`data$lambdas$prior`) and fitting SS3's generalised size compositions for
++  the index on their own bins with SS3's lambda of 0.51 (row-specific
++  composition bin schemes and `lf` lambdas). It also shows how the results
++  depend on starting values. `io_yft_reference$ss3` gains `sizefreq` and
++  `lambdas`, and `inst/extdata/` the stored fits S1 and S2 and the
++  start-sensitivity runs (`data-raw/generate-io-yft-matched-fits.R`).
+ - 2026/10/26 ([#150](https://github.com/N-DucharmeBarth-NOAA/opal/issues/150)):
+   SS3-style likelihood lambdas. The optional `data$lambdas` list weights CPUE
+   by index, length and weight compositions by fleet, and the recruitment,
+diff --git a/R/data-io-yft.R b/R/data-io-yft.R
+index 75d107a..be39493 100644
+--- a/R/data-io-yft.R
++++ b/R/data-io-yft.R
+@@ -96,8 +96,16 @@
+ #'     `sel_par` (`fleet`, `pattern`, `par`, `value`, `phase`, `lo`, `hi`,
+ #'     `label`), SS3's estimated age selectivity parameters P1--P6, with
+ #'     `phase > 0` for the ones SS3 estimated (see
+-#'     [convert_ss3_selex_to_rtmb()] with `basis = "age"`); and `length_at_age`
+-#'     (`age`, `length`, start of the time step).}
++#'     [convert_ss3_selex_to_rtmb()] with `basis = "age"`); `length_at_age`
++#'     (`age`, `length`, start of the time step); `sizefreq`, SS3's
++#'     generalised size compositions for the index (fleet 17, method 1):
++#'     `bins` (lower edges, cm; the last is a plus bin), `units`, `lambda`
++#'     (0.51) and `data` (`ts`, `fishery`, `nsamp`, `bin`, `obs`, `expected`),
++#'     observed and SS3-expected proportions with each observation assigned
++#'     to its quarterly index fishery; and `lambdas` (`like_comp`,
++#'     `component`, `fleet`, `phase`, `value`, `sizefreq_method`), the
++#'     control file's lambda changes (parameter priors 0, size frequency
++#'     0.51). See the "Matching the Stock Synthesis configuration" article.}
+ #'   \item{truth}{The operating model (SPM, 159 cells on a 5 degree grid),
+ #'     summed over the whole domain: `b0`, unfished equilibrium spawning
+ #'     biomass (t), and `trajectory` (`ts`, `ssb`, `static_dep`).}
+diff --git a/_pkgdown.yml b/_pkgdown.yml
+index ba5699f..c818b09 100644
+--- a/_pkgdown.yml
++++ b/_pkgdown.yml
+@@ -65,6 +65,7 @@ articles:
+     contents:
+       - io-yft-ss3-comparison
+       - io-yft-age-selectivity
++      - io-yft-ss3-matched
+ 
+ reference:
+   - title: Assessment objects
+diff --git a/data-raw/generate-io-yft-matched-fits.R b/data-raw/generate-io-yft-matched-fits.R
+new file mode 100644
+index 0000000..855da61
+--- /dev/null
++++ b/data-raw/generate-io-yft-matched-fits.R
+@@ -0,0 +1,192 @@
++# Fit the SS3-matched Indian Ocean yellowfin models for the io-yft-ss3-matched
++# article. Each adds one SS3 setting to fit A-SS3 (age-based selectivity,
++# every selectivity parameter SS3 estimated). Run from the package root;
++# takes about 30 minutes on 4 cores. Afterwards, rerun
++# generate-io-yft-vignette-cache.R.
++#
++#   inst/extdata/io_yft_matched_s1_fit.rds   S1: no priors (SS3's lambda of 0
++#                                            on parameter priors)
++#   inst/extdata/io_yft_matched_s2_fit.rds   S2: S1 plus SS3's index size
++#                                            compositions, lambda 0.51
++#   inst/extdata/io_yft_matched_s1_free.rds  identifiability check: S1 with
++#                                            A-SS3's map, unpolished
++#   inst/extdata/io_yft_matched_starts.rds   start sensitivity: S1 and S2
++#                                            from SS3's solution, from each
++#                                            other's estimates and from four
++#                                            jittered starts
++#
++# S1 and S2 start from A-SS3's estimates. Started from SS3's own solution
++# they stop at a local optimum about 20 likelihood units worse, with a
++# larger stock; the start-sensitivity fits record this.
++pkgload::load_all()
++source("data-raw/io-yft-ss3-matched-setup.R")
++
++inputs <- io_yft_matched_inputs()
++control <- list(eval.max = 10000, iter.max = 10000)
++metadata <- list(
++  stock = "Indian Ocean yellowfin (simulated, replicate 4)",
++  source = "SS3 model by M.N. Maunder, H. Xu and C. Minte-Vera (IATTC), converted to opal",
++  converter = "https://github.com/N-DucharmeBarth/wcpfc-bet-single-region (code/rtmb)")
++build <- function(data, parameters, map, model = NULL) {
++  opal_obj(data, parameters, map, bounds = io_yft_age_bounds(parameters, map),
++           control = control, metadata = c(metadata, list(model = model)))
++}
++# Parameter list at an estimate
++par_list <- function(x, par) opal_rtmb(x, fresh = TRUE)$env$parList(par)
++n_ts <- inputs$data$n_year
++# Two nlminb passes, then Newton steps only while they lower both the
++# objective and the largest gradient: without priors the Hessian need not be
++# positive definite, and an unguarded Newton step can leave the optimum.
++fit_polished_safe <- function(x) {
++  x <- opal_fit(x, n_passes = 2L, check = FALSE)
++  object <- opal_rtmb(x, fresh = TRUE)
++  opt <- x$fit$opt
++  g <- as.numeric(object$gr(opt$par))
++  f <- object$fn(opt$par)
++  for (i in seq_len(5L)) {
++    if (max(abs(g)) < 1e-8) break
++    step <- tryCatch(as.numeric(solve(object$he(opt$par), g)), error = function(e) NULL)
++    if (is.null(step)) break
++    par <- stats::setNames(opt$par - step, names(opt$par))
++    f_new <- object$fn(par)
++    g_new <- as.numeric(object$gr(par))
++    if (!is.finite(f_new) || f_new > f || max(abs(g_new)) >= max(abs(g))) break
++    opt$par <- par
++    f <- f_new
++    g <- g_new
++  }
++  opt$objective <- f
++  opal_attach_fit(x, opt, check = TRUE, check_args = list(gradient_tolerance = 1e-4))
++}
++summarise_fit <- function(x, opt) {
++  object <- opal_rtmb(x, fresh = TRUE)
++  report <- object$report(opt$par)
++  list(objective = opt$objective, B0 = report$B0,
++       max_gradient = max(abs(object$gr(opt$par))),
++       ssb = report$spawning_biomass_y[seq_len(n_ts)],
++       static_dep = report$static_depletion_y[seq_len(n_ts)])
++}
++
++# A-SS3's estimates: the starting point of S1 and S2
++a_ss3 <- opal_read(file.path("inst", "extdata", "io_yft_age_ss3_fit.rds"))
++p_a <- par_list(a_ss3, a_ss3$fit$opt$par)
++
++data_m <- list(S1 = inputs$data_s1, S2 = inputs$data_s2)
++model_m <- c(S1 = "S1: as A-SS3, with SS3's lambda of 0 on parameter priors",
++             S2 = "S2: as S1, with SS3's index size compositions (lambda 0.51)")
++
++# Phase 1, in parallel: S1 and S2 ------------------------------------------
++# Without the prior, several selectivity parameters are not identified: the
++# likelihood is flat in them. Each model is fitted freely first (A-SS3's
++# map, every parameter SS3 estimated); parameters with a Hessian diagonal
++# below 1e-3 at that estimate are then held at it, which leaves the
++# objective unchanged, and any parameter still dominating a near-zero
++# eigenvalue is added, before the final fit is polished and checked.
++sel_labels <- function(map) {
++  lv <- matrix(as.integer(map$par_sel), nrow = inputs$data$n_fishery)
++  first <- vapply(seq_len(max(lv, na.rm = TRUE)), function(k) which(lv == k)[1], integer(1))
++  list(lv = lv, first = first, pos = arrayInd(first, dim(lv)))
++}
++hold <- function(map, cells) {
++  lv <- matrix(as.integer(map$par_sel), nrow = inputs$data$n_fishery)
++  lv[lv %in% lv[cells]] <- NA_integer_
++  map$par_sel <- factor(as.vector(lv))
++  map
++}
++fit_identified <- function(job) {
++  x <- opal_fit(build(data_m[[job]], p_a, inputs$map_ss3), n_passes = 2L, check = FALSE)
++  object <- opal_rtmb(x, fresh = TRUE)
++  opt <- x$fit$opt
++  hess <- object$he(opt$par)
++  sl <- sel_labels(inputs$map_ss3)
++  sel <- grep("^par_sel", names(opt$par))
++  flat <- data.frame(fishery = sl$pos[, 1], col = sl$pos[, 2],
++                     start = p_a$par_sel[sl$first], estimate = unname(opt$par[sel]),
++                     hessian = diag(hess)[sel])
++  free <- list(objective = opt$objective, n_par = length(opt$par),
++               max_gradient = max(abs(object$gr(opt$par))),
++               n_flat_eigen = sum(abs(eigen(hess, symmetric = TRUE,
++                                            only.values = TRUE)$values) < 1e-6))
++  p_free <- par_list(x, opt$par)
++  map <- hold(inputs$map_ss3, sl$first[abs(flat$hessian) < 1e-3])
++  for (round in 1:3) {
++    y <- opal_fit(build(data_m[[job]], p_free, map, model_m[[job]]), n_passes = 2L,
++                  check = FALSE)
++    o <- opal_rtmb(y, fresh = TRUE)
++    e <- eigen(o$he(y$fit$opt$par), symmetric = TRUE)
++    small <- which(abs(e$values) < 1e-6)
++    if (!length(small)) break
++    sly <- sel_labels(map)
++    sel_y <- grep("^par_sel", names(y$fit$opt$par))
++    add <- vapply(small, function(k) sel_y[which.max(abs(e$vectors[sel_y, k]))], integer(1))
++    p_free <- par_list(y, y$fit$opt$par)
++    map <- hold(map, sly$first[match(add, sel_y)])
++  }
++  held_cells <- which(!is.na(as.integer(inputs$map_ss3$par_sel)) & is.na(as.integer(map$par_sel)))
++  flat$held <- sl$first %in% held_cells |
++    vapply(seq_len(nrow(flat)), function(k) any(sl$lv[held_cells] == k), logical(1))
++  free$flat <- flat
++  y <- fit_polished_safe(build(data_m[[job]], p_free, map, model_m[[job]]))
++  cat(sprintf("%s: objective %.4f (free %.4f), %d parameters, %d held, check %s\n", job,
++              y$fit$opt$objective, free$objective, length(y$fit$opt$par), sum(flat$held),
++              isTRUE(y$validation$fit$passes)))
++  list(fit = y, free = free)
++}
++phase1 <- parallel::mclapply(c(S1 = "S1", S2 = "S2"), fit_identified,
++                             mc.cores = 2L, mc.preschedule = FALSE)
++for (nm in c("S1", "S2")) {
++  if (inherits(phase1[[nm]], "try-error")) stop(nm, ": ", phase1[[nm]])
++  # Report the fit check rather than stop on it: without priors the Hessian
++  # need not be positive definite (see the article)
++  v <- phase1[[nm]]$fit$validation$fit
++  cat(sprintf("%s fit check: passes %s, max gradient %.2e, positive Hessian %s\n", nm,
++              isTRUE(v$passes), v$metrics$max_gradient, isTRUE(v$metrics$positive_hessian)))
++  opal_save(phase1[[nm]]$fit, file.path("inst", "extdata",
++                                       sprintf("io_yft_matched_%s_fit.rds", tolower(nm))),
++            compress = "xz", overwrite = TRUE)
++}
++saveRDS(phase1$S1$free, file.path("inst", "extdata", "io_yft_matched_s1_free.rds"),
++        compress = "xz", version = 3L)
++fitted <- lapply(phase1, `[[`, "fit")
++
++# Phase 2, in parallel: start sensitivity ---------------------------------
++# Same data and map as each fit; unpolished. Starts: SS3's solution, the
++# other model's estimates, and four jitters of the fit's own estimates
++# (normal, SD 0.2, on the estimated selectivity parameters and log B0).
++# Held parameters stay at the fit's values in every start.
++fitted_par <- lapply(fitted, function(x) par_list(x, x$fit$opt$par))
++start_from <- function(p, nm) {
++  out <- p
++  est <- !is.na(fitted[[nm]]$map$par_sel)
++  out$par_sel <- fitted_par[[nm]]$par_sel
++  out$par_sel[est] <- p$par_sel[est]
++  out
++}
++jitter <- function(nm, seed, sd = 0.2) {
++  p <- fitted_par[[nm]]
++  est <- !is.na(fitted[[nm]]$map$par_sel)
++  set.seed(seed)
++  p$par_sel[est] <- p$par_sel[est] + stats::rnorm(sum(est), 0, sd)
++  p$log_B0 <- p$log_B0 + stats::rnorm(1, 0, sd)
++  p
++}
++starts <- list(
++  S1 = c(list(ss3 = start_from(inputs$parameters, "S1"), cross = start_from(fitted_par$S2, "S1")),
++         stats::setNames(lapply(1:4, function(i) jitter("S1", 100 + i)), paste0("jitter", 1:4))),
++  S2 = c(list(ss3 = start_from(inputs$parameters, "S2"), cross = start_from(fitted_par$S1, "S2")),
++         stats::setNames(lapply(1:4, function(i) jitter("S2", 200 + i)), paste0("jitter", 1:4))))
++jobs <- do.call(rbind, lapply(names(starts), function(m)
++  data.frame(model = m, start = names(starts[[m]]))))
++runs <- parallel::mclapply(seq_len(nrow(jobs)), function(i) {
++  m <- jobs$model[i]
++  x <- build(data_m[[m]], starts[[m]][[jobs$start[i]]], fitted[[m]]$map)
++  x <- tryCatch(opal_fit(x, n_passes = 2L, check = FALSE), error = function(e) e)
++  if (inherits(x, "error")) return(list(error = conditionMessage(x)))
++  s <- summarise_fit(x, x$fit$opt)
++  cat(sprintf("%s from %s: objective %.3f, B0 %.4g\n", m, jobs$start[i], s$objective, s$B0))
++  s
++}, mc.cores = 4L, mc.preschedule = FALSE)
++reference <- lapply(fitted, function(x) summarise_fit(x, x$fit$opt))
++saveRDS(list(jobs = jobs, runs = runs, reference = reference, jitter_sd = 0.2),
++        file.path("inst", "extdata", "io_yft_matched_starts.rds"),
++        compress = "xz", version = 3L)
+diff --git a/data-raw/generate-io-yft-matched-s3-fit.R b/data-raw/generate-io-yft-matched-s3-fit.R
+new file mode 100644
+index 0000000..ce4f7d9
+--- /dev/null
++++ b/data-raw/generate-io-yft-matched-s3-fit.R
+@@ -0,0 +1,30 @@
++# Fit S3 for the io-yft-ss3-matched article: S2 with opal's default priors
++# kept, i.e. A-SS3 plus SS3's index size compositions (lambda 0.51). With
++# the priors, every selectivity parameter SS3 estimated is identified, so it
++# uses A-SS3's map and starts from A-SS3's estimates, like S1 and S2. Run
++# from the package root; takes about 10 minutes. Afterwards, rerun
++# generate-io-yft-vignette-cache.R.
++#
++#   inst/extdata/io_yft_matched_s3_fit.rds
++pkgload::load_all()
++source("data-raw/io-yft-ss3-matched-setup.R")
++
++inputs <- io_yft_matched_inputs()
++a_ss3 <- opal_read(file.path("inst", "extdata", "io_yft_age_ss3_fit.rds"))
++p_a <- opal_rtmb(a_ss3, fresh = TRUE)$env$parList(a_ss3$fit$opt$par)
++
++x <- opal_obj(inputs$data_s3, p_a, inputs$map_ss3,
++              bounds = io_yft_age_bounds(p_a, inputs$map_ss3),
++              control = list(eval.max = 10000, iter.max = 10000),
++              metadata = list(
++                stock = "Indian Ocean yellowfin (simulated, replicate 4)",
++                model = "S3: as S2, with opal's default priors (A-SS3 plus the index size compositions)",
++                source = "SS3 model by M.N. Maunder, H. Xu and C. Minte-Vera (IATTC), converted to opal",
++                converter = "https://github.com/N-DucharmeBarth/wcpfc-bet-single-region (code/rtmb)"))
++t0 <- proc.time()[["elapsed"]]
++x <- io_yft_fit_polished(x)
++cat(sprintf("S3: objective %.4f, %d parameters, check %s, %.0f s\n", x$fit$opt$objective,
++            length(x$fit$opt$par), isTRUE(x$validation$fit$passes), proc.time()[["elapsed"]] - t0))
++print(x$validation$fit$checks)
++opal_save(x, file.path("inst", "extdata", "io_yft_matched_s3_fit.rds"),
++          compress = "xz", overwrite = TRUE)
+diff --git a/data-raw/generate-io-yft-vignette-cache.R b/data-raw/generate-io-yft-vignette-cache.R
+index aa22f1b..7fcdc64 100644
+--- a/data-raw/generate-io-yft-vignette-cache.R
++++ b/data-raw/generate-io-yft-vignette-cache.R
+@@ -3,56 +3,81 @@
+ #
+ #   inst/extdata/io_yft_vignette_cache.rds
+ #
+-# Read by vignettes/io-yft-ss3-comparison.qmd and
+-# vignettes/io-yft-age-selectivity.qmd. Run from the package root after
+-# generate-io-yft-c2-fit.R or generate-io-yft-age-fits.R, or after any change
+-# to opal's model code (about a minute: one model build per entry).
++# Read by vignettes/io-yft-ss3-comparison.qmd,
++# vignettes/io-yft-age-selectivity.qmd and vignettes/io-yft-ss3-matched.qmd.
++# Run from the package root after generate-io-yft-c2-fit.R,
++# generate-io-yft-age-fits.R or generate-io-yft-matched-fits.R, or after any
++# change to opal's model code (a few minutes: one model build per entry).
+ pkgload::load_all()
+-source("data-raw/io-yft-age-setup.R")
++source("data-raw/io-yft-ss3-matched-setup.R")
+ 
+ d <- io_yft_data
+ n_ts <- d$n_year
+ read_fit <- function(file) opal_read(file.path("inst", "extdata", file))
+ 
+ # Everything the articles take from one model: report quantities as plain
+-# data frames, and the fit statistics when the model has been fitted.
+-extract <- function(x) {
++# data frames, and the fit statistics when the model has been fitted. Length
++# compositions on the model's 5 cm grid go in `lf`; the index size
++# compositions on SS3's sizefreq bins, when the model has them, in
++# `sizefreq`.
++extract <- function(x, par = NULL) {
+   object <- opal_rtmb(x, fresh = TRUE)
+-  par <- if (is.null(x$fit$opt)) object$par else x$fit$opt$par
++  if (is.null(par)) par <- if (is.null(x$fit$opt)) object$par else x$fit$opt$par
+   report <- object$report(par)
+   sel <- report$sel_fya[, 1, ]
+-  lf <- do.call(rbind, lapply(seq_along(d$lf_fishery_f), function(j) {
+-    n <- d$lf_n_fi[[j]]
+-    data.frame(fishery = d$lf_fishery_f[j], bin = d$len_lower,
++  xd <- x$data
++  native <- vapply(report$lf_pred, ncol, integer(1)) == xd$n_len
++  lf <- do.call(rbind, lapply(which(native), function(j) {
++    n <- xd$lf_n_fi[[j]]
++    data.frame(fishery = xd$lf_fishery_f[j], bin = xd$len_lower,
+                predicted = colSums(report$lf_pred[[j]] * n) / sum(n))
+   }))
++  sf_bins <- io_yft_reference$ss3$sizefreq$bins
++  sizefreq <- if (any(!native)) do.call(rbind, lapply(which(!native), function(j) {
++    p <- report$lf_pred[[j]]
++    p <- p / rowSums(p)
++    data.frame(fishery = xd$lf_fishery_f[j],
++               ts = rep(xd$lf_year_fi[[j]], each = ncol(p)),
++               bin = rep(sf_bins, nrow(p)), predicted = as.vector(t(p)))
++  })) else NULL
++  lf_f <- rep(xd$lf_fishery_f, xd$lf_n_f)
++  lf_native <- rep(native, xd$lf_n_f)
+   traj <- data.frame(ts = seq_len(n_ts),
+                      ssb = report$spawning_biomass_y[seq_len(n_ts)],
+                      static_dep = report$static_depletion_y[seq_len(n_ts)])
+-  fit <- if (is.null(x$fit$opt)) NULL else list(
++  fit <- if (is.null(x$fit$opt) || !identical(unname(par), unname(x$fit$opt$par))) NULL else list(
+     n_par = length(x$fit$opt$par),
+     objective = x$fit$opt$objective,
+     max_gradient = x$validation$fit$metrics$max_gradient,
+     passes = isTRUE(x$validation$fit$passes),
++    positive_hessian = isTRUE(x$validation$fit$metrics$positive_hessian),
+     summary = utils::capture.output(summary(x)))
+   list(
+     B0 = report$B0,
+     objective = as.numeric(object$fn(par)),
+-    nll = c(index = sum(report$lp_cpue), length = sum(report$lp_lf),
++    nll = c(index = sum(report$lp_cpue), length = sum(report$lp_lf[lf_native]),
+             recruitment = sum(report$lp_rec), prior = sum(report$lp_prior),
+             penalty = sum(report$lp_penalty)),
++    # lambda-weighted terms, as they enter the objective
++    nll_w = c(index = sum(report$lp_cpue_w), length = sum(report$lp_lf_w[lf_native]),
++              sizefreq = sum(report$lp_lf_w[!lf_native]),
++              recruitment = sum(report$lp_rec_w), prior = sum(report$lp_prior_w),
++              penalty = sum(report$lp_penalty_w)),
++    sizefreq_nll = sum(report$lp_lf[!lf_native]),
++    lf_nll_f = tapply(report$lp_lf, lf_f, sum),
+     trajectory = traj,
+     sel_age = data.frame(fishery = rep(seq_len(nrow(sel)), times = ncol(sel)),
+                          age = rep(d$age_a, each = nrow(sel)), sel = as.vector(sel)),
+     cpue = data.frame(ts = d$cpue_data$ts, fishery = d$cpue_data$fishery,
+                       pred = report$cpue_pred),
+     lf = lf,
++    sizefreq = sizefreq,
+     rdev = unname(par[grepl("^rdev_y", names(par))]),
+     sel_free = sum(grepl("^par_sel", names(par))),
+     fit = fit)
+ }
+ 
+-inputs <- io_yft_age_inputs()
++inputs <- io_yft_matched_inputs()
+ sa <- io_yft_reference$ss3$sel_age
+ external_data <- inputs$data
+ external_data$sel_fa_external <- matrix(0, d$n_fishery, d$n_age)
+@@ -67,7 +92,16 @@ models <- list(
+                      bounds = io_yft_age_bounds(inputs$parameters, inputs$map_c2)),
+   # The same, with SS3's selectivity-at-age supplied as a fixed matrix
+   E_start = opal_obj(external_data, inputs$parameters, inputs$map_c2,
+-                     bounds = io_yft_age_bounds(inputs$parameters, inputs$map_c2)))
++                     bounds = io_yft_age_bounds(inputs$parameters, inputs$map_c2)),
++  # SS3-matched fits (io-yft-ss3-matched article)
++  S1 = read_fit("io_yft_matched_s1_fit.rds"),
++  S2 = read_fit("io_yft_matched_s2_fit.rds"),
++  S3 = read_fit("io_yft_matched_s3_fit.rds"),
++  # S2's inputs at SS3's solution, not fitted: opal's predictions of the
++  # index size compositions against SS3's expected values. A-SS3's map, so
++  # that A-SS3's estimates can be evaluated with it below.
++  S2_start = opal_obj(inputs$data_s2, inputs$parameters, inputs$map_ss3,
++                      bounds = io_yft_age_bounds(inputs$parameters, inputs$map_ss3)))
+ 
+ cache <- list(
+   created = format(Sys.time(), tz = "UTC", usetz = TRUE),
+@@ -75,6 +109,13 @@ cache <- list(
+   commit = tryCatch(system2("git", c("rev-parse", "--short", "HEAD"), stdout = TRUE),
+                     error = function(e) NA_character_),
+   models = lapply(models, extract))
++# A-SS3's estimates with S2's data (the same parameters): how well A-SS3,
++# which did not see the index size compositions, predicts them.
++cache$models$A_ss3_S2 <- extract(models$S2_start, par = models$A_ss3$fit$opt$par)
++# Identifiability without priors (generate-io-yft-matched-fits.R)
++cache$s1_free <- readRDS(file.path("inst", "extdata", "io_yft_matched_s1_free.rds"))
++# Start sensitivity of S1 and S2 (generate-io-yft-matched-fits.R)
++cache$starts <- readRDS(file.path("inst", "extdata", "io_yft_matched_starts.rds"))
+ 
+ saveRDS(cache, file.path("inst", "extdata", "io_yft_vignette_cache.rds"),
+         compress = "xz", version = 3L)
+diff --git a/data-raw/io-yft-ss3-matched-setup.R b/data-raw/io-yft-ss3-matched-setup.R
+new file mode 100644
+index 0000000..da57885
+--- /dev/null
++++ b/data-raw/io-yft-ss3-matched-setup.R
+@@ -0,0 +1,82 @@
++# SS3-matched inputs for the Indian Ocean yellowfin example, shared by
++# generate-io-yft-matched-fits.R and generate-io-yft-vignette-cache.R. The
++# io-yft-ss3-matched article shows the same steps.
++#
++# Starts from io_yft_age_inputs() (age-based selectivity at SS3's age_selex
++# parameters, map_ss3 estimating every selectivity parameter SS3 estimated)
++# and adds, one step at a time, the two SS3 settings fit A-SS3 lacks:
++#
++#   S1  SS3's lambda of 0 on parameter priors (lambdas$prior = 0);
++#   S2  as S1, plus SS3's generalised size compositions for the index
++#       (fleet 17, 14 bins from 30 cm with a 160 cm plus bin), on their own
++#       bin scheme alongside the 5 cm length compositions, with SS3's lambda
++#       of 0.51 on the four quarterly index fisheries;
++#   S3  as S2 with the priors kept (A-SS3 plus the index size compositions),
++#       which identifies every selectivity parameter SS3 estimated.
++#
++# Without the prior, some selectivity parameters are not identified: the
++# likelihood is flat in them. generate-io-yft-matched-fits.R finds them and
++# holds them at their estimates. SS3 estimated them, but was run without a
++# Hessian.
++#
++# io_yft_matched_inputs() returns A-SS3's inputs and the data for S1-S3.
++source("data-raw/io-yft-age-setup.R")
++
++# The bundled 5 cm length compositions as one wide data frame of counts, in
++# their input order. lf_n already carries SS3's variance adjustment
++# (n / lf_var_adjust), so it is undone here for prep_lf_data() to reapply.
++io_yft_lf_wide <- function(d = io_yft_data) {
++  n_raw <- d$lf_n * d$lf_var_adjust[d$lf_fishery]
++  counts <- d$lf_obs_in * n_raw
++  colnames(counts) <- as.character(d$len_lower)
++  data.frame(fishery = d$lf_fishery, year = d$lf_year, month = 1L, ts = d$lf_year,
++             counts, check.names = FALSE)
++}
++
++# SS3's index size compositions as a wide data frame of counts
++# (proportion x SS3 sample size), assigned to the quarterly index fishery of
++# each time step. The last bin is SS3's plus bin: it ends at the top of the
++# model's length grid.
++io_yft_sizefreq_wide <- function(ref = io_yft_reference) {
++  sf <- ref$ss3$sizefreq$data
++  wide <- stats::reshape(sf[, c("ts", "fishery", "nsamp", "bin", "obs")],
++                         idvar = c("ts", "fishery", "nsamp"), timevar = "bin",
++                         direction = "wide")
++  counts <- as.matrix(wide[, paste0("obs.", ref$ss3$sizefreq$bins)]) * wide$nsamp
++  colnames(counts) <- as.character(ref$ss3$sizefreq$bins)
++  data.frame(fishery = wide$fishery, year = wide$ts, month = 1L, ts = wide$ts,
++             counts, check.names = FALSE, row.names = NULL)
++}
++
++io_yft_matched_inputs <- function() {
++  inputs <- io_yft_age_inputs()
++  d <- inputs$data
++  ref <- io_yft_reference
++  index_f <- sort(unique(d$cpue_data$fishery))
++
++  # S1: no priors, as SS3's lambda of 0 on parameter priors
++  d_s1 <- d
++  d_s1$lambdas <- list(prior = 0)
++
++  # S2: add the index size compositions as a second bin scheme. SS3 puts the
++  # population below 30 cm into the first bin (SIZEFREQ_TRANSLATION in
++  # Report.sso), and the last bin is an open plus bin: opal's default
++  # "accumulate" tails do both.
++  top <- d$len_bin_start + d$n_len * d$len_bin_width
++  d_s2 <- prep_lf_data(
++    d,
++    list(io_yft_lf_wide(d), io_yft_sizefreq_wide(ref)),
++    lf_switch     = d$lf_switch,
++    lf_minbin     = d$lf_minbin,
++    lf_maxbin     = d$lf_maxbin,
++    lf_var_adjust = d$lf_var_adjust,
++    lf_addtocomp  = d$lf_addtocomp,
++    lf_upper_edge = c(top, top))
++  lf_lambda <- rep(1, d$n_fishery)
++  lf_lambda[index_f] <- ref$ss3$sizefreq$lambda
++  d_s2$lambdas <- list(prior = 0, lf = lf_lambda)
++  d_s3 <- d_s2
++  d_s3$lambdas <- list(lf = lf_lambda)
++
++  c(inputs, list(data_s1 = d_s1, data_s2 = d_s2, data_s3 = d_s3, index_fisheries = index_f))
++}
+diff --git a/data/io_yft_reference.rda b/data/io_yft_reference.rda
+index 688982fbf7987318dc7110c7e0b9af1df3ee7712..99802fbc8a1a24ba9962149d9b70725567a2d4db 100644
+GIT binary patch
+literal 42932
+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
+AeE<Le
+
+delta 21747
+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%0AP
+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
+a0nMoasf+_Bqds#!Fb#_W000000a;pdjX+BP
+
+diff --git a/man/io_yft_reference.Rd b/man/io_yft_reference.Rd
+index 01a5087..eeee37f 100644
+--- a/man/io_yft_reference.Rd
++++ b/man/io_yft_reference.Rd
+@@ -19,8 +19,16 @@ size; \code{sel_age} (\code{fishery}, \code{age}, \code{sel}); \code{sel_pattern
+ \code{sel_par} (\code{fleet}, \code{pattern}, \code{par}, \code{value}, \code{phase}, \code{lo}, \code{hi},
+ \code{label}), SS3's estimated age selectivity parameters P1--P6, with
+ \code{phase > 0} for the ones SS3 estimated (see
+-\code{\link[=convert_ss3_selex_to_rtmb]{convert_ss3_selex_to_rtmb()}} with \code{basis = "age"}); and \code{length_at_age}
+-(\code{age}, \code{length}, start of the time step).}
++\code{\link[=convert_ss3_selex_to_rtmb]{convert_ss3_selex_to_rtmb()}} with \code{basis = "age"}); \code{length_at_age}
++(\code{age}, \code{length}, start of the time step); \code{sizefreq}, SS3's
++generalised size compositions for the index (fleet 17, method 1):
++\code{bins} (lower edges, cm; the last is a plus bin), \code{units}, \code{lambda}
++(0.51) and \code{data} (\code{ts}, \code{fishery}, \code{nsamp}, \code{bin}, \code{obs}, \code{expected}),
++observed and SS3-expected proportions with each observation assigned
++to its quarterly index fishery; and \code{lambdas} (\code{like_comp},
++\code{component}, \code{fleet}, \code{phase}, \code{value}, \code{sizefreq_method}), the
++control file's lambda changes (parameter priors 0, size frequency
++0.51). See the "Matching the Stock Synthesis configuration" article.}
+ \item{truth}{The operating model (SPM, 159 cells on a 5 degree grid),
+ summed over the whole domain: \code{b0}, unfished equilibrium spawning
+ biomass (t), and \code{trajectory} (\code{ts}, \code{ssb}, \code{static_dep}).}
+diff --git a/vignettes/io-yft-ss3-matched.qmd b/vignettes/io-yft-ss3-matched.qmd
+new file mode 100644
+index 0000000..04c9685
+--- /dev/null
++++ b/vignettes/io-yft-ss3-matched.qmd
+@@ -0,0 +1,520 @@
++---
++title: "Matching the Stock Synthesis configuration: Indian Ocean yellowfin"
++format:
++  html:
++    code-fold: true
++    code-summary: "Show code"
++execute:
++  eval: true
++  warning: false
++  message: false
++vignette: >
++  %\VignetteIndexEntry{Matching the Stock Synthesis configuration: Indian Ocean yellowfin}
++  %\VignetteEngine{quarto::html}
++  %\VignetteEncoding{UTF-8}
++---
++
++```{r}
++#| include: false
++knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 8, fig.height = 5)
++```
++
++```{r}
++#| label: setup
++#| code-summary: "Setup"
++library(opal)
++library(ggplot2)
++
++data(io_yft_data)
++data(io_yft_parameters)
++data(io_yft_map)
++data(io_yft_reference)
++
++ref  <- io_yft_reference
++d    <- io_yft_data
++n_ts <- d$n_year
++sf   <- ref$ss3$sizefreq
++
++# Model outputs precomputed by data-raw/generate-io-yft-vignette-cache.R
++cache <- readRDS(system.file("extdata", "io_yft_vignette_cache.rds", package = "opal"))
++m <- cache$models
++
++fmt <- function(x, digits = 2) formatC(x, format = "f", digits = digits, big.mark = ",")
++options(knitr.kable.NA = "—")
++fleet_name <- function(f) sprintf("%d: %s", as.integer(f), ref$fleet_names[as.integer(f)])
++last <- function(df, v) df[[v]][df$ts == max(df$ts)]
++
++series_col <- c("opal C2 (length)" = "#1E8449", "opal AGE" = "#8E44AD",
++                "opal AGE-NP" = "#2E86C1", "opal AGE-NP-SF" = "#D35400",
++                "opal AGE-SF" = "#C2185B",
++                "SS3" = "grey20", "Simulated truth" = "#D4AC0D")
++series_lty <- setNames(rep("solid", length(series_col)), names(series_col))
++series_lty[["opal AGE-NP"]] <- "42"
++series_lty[["opal AGE-SF"]] <- "42"
++scale_series <- list(scale_colour_manual(values = series_col, name = NULL, drop = TRUE),
++                     scale_linetype_manual(values = series_lty, name = NULL, drop = TRUE))
++theme_set(theme_bw(base_size = 11) +
++            theme(legend.position = "bottom", panel.grid.minor = element_blank()))
++```
++
++
++Two earlier articles fitted opal to the simulated Indian Ocean yellowfin
++data and compared it with the Stock Synthesis (SS3) model of the same data:
++`vignette("io-yft-ss3-comparison", package = "opal")` (length-based
++selectivity, fit C2) and
++`vignette("io-yft-age-selectivity", package = "opal")` (SS3's age-based
++selectivity curves, fits A and A-SS3). This article starts from that
++article's fit A-SS3, called **AGE** here: it uses SS3's selectivity basis,
++curve families and mirrors, and estimates every selectivity parameter SS3
++estimated, including the index's logistic curve. (No opal fit here has SS3
++in its name; "SS3" always means the Stock Synthesis model.) Two SS3 settings remained
++that opal could not represent until now. This article adds them, one at a
++time:
++
++* **AGE-NP** ("no priors") switches off the priors, as SS3's control
++  file does with a lambda of 0 on parameter priors.
++* **AGE-NP-SF** ("no priors, size frequency") also fits SS3's
++  generalised size compositions for the index (the longline survey, fleet
++  17), on SS3's own size bins, with SS3's lambda of 0.51. This is the model
++  with SS3's configuration.
++
++A third fit, **AGE-SF**, keeps opal's default priors and adds only the
++index size compositions to AGE. It separates the effect of the size data
++from that of the priors, and with the priors every selectivity parameter is
++identifiable.
++
++# What SS3 does that AGE does not
++
++SS3's control file changes two lambdas from their default of 1:
++
++```{r}
++#| label: ss3-lambdas
++knitr::kable(ref$ss3$lambdas[, c("like_comp", "component", "fleet", "value")],
++             col.names = c("SS3 code", "Component", "Fleet", "Lambda"))
++```
++
++opal now takes both. The `prior` entry of `data$lambdas` scales the prior
++term, and opal can fit composition data on bins that differ from row to
++row (`prep_lf_data()` with a list of wide tables), each with an `lf` lambda
++by fleet.
++
++Some structural differences remain, as accepted differences rather than
++settings to match:
++
++| | SS3 (this model) | opal (AGE-NP, AGE-NP-SF) |
++|---|---|---|
++| Timing within the quarter | Catch by hybrid F (Baranov), index and compositions at mid-quarter | Catch removed at the start of the quarter; everything evaluated at the start |
++| Index catchability | One series, one analytic q | Four quarterly series, four estimated q |
++| Recruitment deviations | Sum to zero (`do_recdev = 1`) | Unconstrained |
++| Recruitment age | Age 0 at *t* | Age 1 at *t* + 1 |
++| Selectivity bounds | Per parameter (index inflection 8–18 quarters) | ±20 on opal's age scale for every `par_sel` |
++
++# Step 1: no priors
++
++opal's IO yellowfin inputs carry the default priors from `get_priors()`:
++N(0, 2) on every `par_sel` element and weak normal priors on log B0 and the
++catchabilities. SS3 has none, so AGE-NP sets the prior lambda to 0:
++
++```{r}
++#| label: s1-data
++#| eval: false
++# In the opal repository: data-raw/io-yft-ss3-matched-setup.R
++source("data-raw/io-yft-ss3-matched-setup.R")
++inputs <- io_yft_matched_inputs()
++
++d_s1 <- inputs$data                    # AGE's data: sel_basis_f = 2
++d_s1$lambdas <- list(prior = 0)
++```
++
++At AGE's estimates the prior term is
++`r fmt(m$A_ss3$nll[["prior"]], 1)` likelihood units, so it is not a small
++part of AGE's objective. Removing it exposes parameters the data do not
++inform. With every selectivity parameter SS3 estimated, the Hessian of AGE-NP
++has `r cache$s1_free$n_flat_eigen` near-zero eigenvalues: the likelihood is
++flat in those directions.
++
++```{r}
++#| label: flat
++fl <- cache$s1_free$flat
++col_name <- c("peak", "plateau", "ascending width", "descending width")
++held <- fl[fl$held, ]
++held_tab <- aggregate(col ~ fishery, held, function(x) paste(col_name[x], collapse = ", "))
++held_tab$fishery <- fleet_name(held_tab$fishery)
++knitr::kable(held_tab, col.names = c("Fishery", "Held fixed"),
++             caption = sprintf("The %d selectivity parameters held fixed in AGE-NP.", nrow(held)))
++```
++
++They fall into three groups. The plateau width of the dome-shaped fisheries
++is very negative, so the plateau is a single age and any lower value gives
++the same curve. Several ascending (and fishery 9's descending) limbs are
++knife-edge, so making them steeper changes nothing. And the asymptotic
++fisheries 4, 5, 7 and 13 reach full selectivity before the oldest ages, so
++their plateau and descending limb are not seen at all; C2 fixes the same
++parameters for the same reason. Under the prior, these parameters sat at the
++prior's mean. Without it they drift, and the fit cannot be checked. AGE-NP and
++AGE-NP-SF hold them at their values in the free fit, which leaves the objective
++unchanged and
++`r m$S1$sel_free` of SS3's 58 selectivity parameters estimated (AGE-NP-SF:
++`r m$S2$sel_free`). SS3
++estimated all 58, but was run without a Hessian (`Report.sso` has none), so
++it never tested whether they were identified.
++
++# Step 2: the index size compositions
++
++SS3's generalised size compositions for the survey use
++`r length(sf$bins)` bins with lower edges `r paste(sf$bins, collapse = ", ")` cm,
++in numbers, `r length(unique(sf$data$ts))` observations with sample sizes of
++`r min(sf$data$nsamp)`–`r max(sf$data$nsamp)`. SS3's `SIZEFREQ_TRANSLATION`
++table in `Report.sso` puts the population below 30 cm into the first bin,
++and the last bin is open-ended. opal's default `"accumulate"` tails do both.
++In opal the index is four quarterly series, so each observation goes to the
++index fishery of its quarter; the four share one selectivity curve, as SS3's
++survey does.
++
++```{r}
++#| label: s2-data
++#| eval: false
++# The bundled 5 cm compositions and SS3's size compositions, each as a wide
++# table of counts (proportion x sample size). The size bins end at the top of
++# the model's length grid.
++top <- d_s1$len_bin_start + d_s1$n_len * d_s1$len_bin_width
++d_s2 <- prep_lf_data(
++  inputs$data,
++  list(io_yft_lf_wide(inputs$data), io_yft_sizefreq_wide(io_yft_reference)),
++  lf_switch = 1L, lf_var_adjust = inputs$data$lf_var_adjust,
++  lf_addtocomp = inputs$data$lf_addtocomp, lf_upper_edge = c(top, top))
++
++# SS3's lambdas: 0 on priors, 0.51 on the survey's size compositions
++lf_lambda <- rep(1, d_s2$n_fishery)
++lf_lambda[17:20] <- io_yft_reference$ss3$sizefreq$lambda
++d_s2$lambdas <- list(prior = 0, lf = lf_lambda)
++```
++
++Only opal's predictions are rebinned: the observations stay on SS3's bins.
++At SS3's solution (before fitting), opal's predicted size compositions are
++close to SS3's expected values:
++
++```{r}
++#| label: sizefreq-check
++ss3_like <- function(o, e, n) { i <- o > 0; -sum(n[i] * o[i] * log(e[i] / o[i])) }
++sf_pred <- function(nm) merge(sf$data, m[[nm]]$sizefreq, by = c("fishery", "ts", "bin"))
++chk <- sf_pred("S2_start")
++knitr::kable(data.frame(
++  quantity = c("Largest difference in a proportion", "Mean absolute difference",
++               "SS3-style multinomial likelihood, SS3's expected values",
++               "The same, opal's predictions", "SS3's reported likelihood (Report.sso)"),
++  value = c(fmt(max(abs(chk$predicted - chk$expected)), 4),
++            fmt(mean(abs(chk$predicted - chk$expected)), 4),
++            fmt(ss3_like(chk$obs, chk$expected, chk$nsamp), 1),
++            fmt(ss3_like(chk$obs, chk$predicted, chk$nsamp), 1), "1,067.4")),
++  col.names = c("At SS3's solution", "Value"))
++```
++
++The remaining difference is the timing: SS3 takes the survey at
++mid-quarter, opal at the start. (The SS3-style likelihood is
++−Σ N o log(e / o); opal's multinomial differs by a constant, so its own
++values are larger.)
++
++# Fits
++
++```{r}
++#| label: fit-table
++fits <- list("opal C2 (length)" = m$C2, "opal AGE" = m$A_ss3,
++             "opal AGE-NP" = m$S1, "opal AGE-NP-SF" = m$S2,
++             "opal AGE-SF" = m$S3)
++fit_tab <- do.call(rbind, lapply(names(fits), function(nm) {
++  x <- fits[[nm]]
++  w <- if (is.null(x$nll_w)) c(x$nll[c("index", "length")], sizefreq = 0,
++                               x$nll[c("recruitment", "prior")]) else x$nll_w
++  data.frame(model = nm, sel = x$sel_free, n_par = x$fit$n_par, objective = x$objective,
++             index = w[["index"]], length = w[["length"]], sizefreq = w[["sizefreq"]],
++             rec = w[["recruitment"]], prior = w[["prior"]],
++             grad = formatC(x$fit$max_gradient, format = "e", digits = 1),
++             check = if (isTRUE(x$fit$passes)) "passed" else "failed")
++}))
++knitr::kable(fit_tab, digits = 1, row.names = FALSE,
++             col.names = c("Model", "Selectivity parameters", "Estimated parameters",
++                           "Objective", "Index", "Length comps", "Index sizes (× 0.51)",
++                           "Recruitment", "Priors", "Max |gradient|", "opal_check()"))
++```
++
++The objectives are not comparable across rows: each step changes what the
++objective contains. All three new fits start from AGE's estimates and
++converge (nlminb, then Newton steps only where they improve the fit).
++AGE-SF, with the priors, passes `opal_check()`. AGE-NP does not:
++its Hessian is positive definite, but the largest gradient
++(`r formatC(m$S1$fit$max_gradient, format = "e", digits = 1)`) is above the
++strict tolerance of 1e-4 used for these fits. AGE-NP-SF does not either: its
++Hessian is not positive definite, so without a prior some remaining
++selectivity directions are only weakly determined once the index size
++compositions are added. The point estimates of AGE-NP and AGE-NP-SF are usable for
++comparison with SS3, but AGE-NP-SF's standard errors are not. SS3, run without a
++Hessian, gives no information on this.
++
++## Starting values
++
++Started from SS3's own solution instead, opal stops at a different optimum.
++The fits below use the same data and map as AGE-NP and AGE-NP-SF and differ only in
++where they start: SS3's solution, the other model's estimates (the cross
++start), and four jitters of AGE's estimates
++(normal, SD `r cache$starts$jitter_sd`, on the estimated selectivity
++parameters and log B0). They are not polished, so objectives within about
++0.01 are the same optimum.
++
++```{r}
++#| label: starts
++st <- cache$starts
++start_lab <- c(ss3 = "SS3's solution", cross = "Cross start",
++               jitter1 = "Jitter 1", jitter2 = "Jitter 2",
++               jitter3 = "Jitter 3", jitter4 = "Jitter 4")
++st_tab <- do.call(rbind, lapply(seq_len(nrow(st$jobs)), function(i) {
++  r <- st$runs[[i]]
++  ref_fit <- st$reference[[st$jobs$model[i]]]
++  if (!is.null(r$error)) return(data.frame(model = st$jobs$model[i],
++    start = start_lab[[st$jobs$start[i]]], dobj = NA, B0 = NA, dep = NA))
++  data.frame(model = st$jobs$model[i], start = start_lab[[st$jobs$start[i]]],
++             dobj = r$objective - ref_fit$objective, B0 = r$B0 / ref$ss3$ssb0,
++             dep = tail(r$static_dep, 1))
++}))
++ref_rows <- do.call(rbind, lapply(names(st$reference), function(nm) data.frame(
++  model = nm, start = "AGE's estimates (as fitted)", dobj = 0,
++  B0 = st$reference[[nm]]$B0 / ref$ss3$ssb0, dep = tail(st$reference[[nm]]$static_dep, 1))))
++st_tab <- rbind(ref_rows, st_tab)
++st_tab <- st_tab[order(st_tab$model), ]
++st_tab$model <- c(S1 = "AGE-NP", S2 = "AGE-NP-SF")[st_tab$model]
++knitr::kable(st_tab, digits = c(0, 0, 2, 3, 3), row.names = FALSE,
++             col.names = c("Model", "Start", "Objective − fitted", "B0 / SS3 B0",
++                           "Terminal SSB / B0"))
++```
++
++```{r}
++#| label: starts-plot
++#| fig-height: 6
++#| fig-cap: "Static depletion of the start-sensitivity fits (thin lines) against the fitted AGE-NP and AGE-NP-SF (thick) and SS3 (black)."
++st_traj <- do.call(rbind, lapply(seq_len(nrow(st$jobs)), function(i) {
++  r <- st$runs[[i]]
++  if (!is.null(r$error)) return(NULL)
++  data.frame(ts = seq_len(n_ts), dep = r$static_dep, model = st$jobs$model[i],
++             start = start_lab[[st$jobs$start[i]]])
++}))
++fit_traj <- do.call(rbind, lapply(names(st$reference), function(nm)
++  data.frame(ts = seq_len(n_ts), dep = st$reference[[nm]]$static_dep, model = nm)))
++ss3_traj <- do.call(rbind, lapply(names(st$reference), function(nm)
++  data.frame(ts = ref$ss3$trajectory$ts, dep = ref$ss3$trajectory$static_dep, model = nm)))
++ggplot() +
++  geom_line(data = st_traj, aes(ts, dep, colour = start), linewidth = 0.4) +
++  geom_line(data = fit_traj, aes(ts, dep), colour = series_col[["opal AGE-NP-SF"]],
++            linewidth = 1.1) +
++  geom_line(data = ss3_traj, aes(ts, dep), colour = "black", linewidth = 0.6) +
++  facet_wrap(~ model, ncol = 1,
++             labeller = as_labeller(c(S1 = "AGE-NP", S2 = "AGE-NP-SF"))) +
++  scale_colour_viridis_d(name = "Start", end = 0.85) +
++  expand_limits(y = 0) +
++  labs(x = "Time step (quarter)", y = "SSB / B0")
++```
++
++```{r}
++#| label: starts-summary
++ss3_row <- st_tab[st_tab$start == "SS3's solution", ]
++```
++
++From SS3's solution, both AGE-NP and AGE-NP-SF stop at an optimum
++`r fmt(min(ss3_row$dobj), 1)`–`r fmt(max(ss3_row$dobj), 1)` likelihood units
++worse than the fits started from AGE's estimates, with B0
++`r fmt(min(ss3_row$B0), 2)`–`r fmt(max(ss3_row$B0), 2)` × SS3's. That
++optimum is close to SS3 in stock size, but opal's data fit prefers the
++other. The jittered starts show how stable the fitted optimum is: those
++that return to it (objective difference near 0) give the same stock
++status. The likelihood surface without priors has more than one optimum,
++so a comparison of stock size with SS3 depends on where each model starts.
++
++# Selectivity
++
++```{r}
++#| label: sel-fitted
++#| fig-height: 8
++#| fig-cap: "Selectivity-at-age: SS3, AGE, and the fits AGE-NP, AGE-NP-SF and AGE-SF."
++sel_series <- c("opal AGE", "opal AGE-NP", "opal AGE-NP-SF",
++                "opal AGE-SF")
++sa <- rbind(
++  data.frame(ref$ss3$sel_age, series = "SS3"),
++  do.call(rbind, lapply(sel_series, function(nm) data.frame(fits[[nm]]$sel_age, series = nm))))
++sa$series <- factor(sa$series, names(series_col))
++ggplot(sa[sa$fishery <= 17, ], aes(age, sel, colour = series, linetype = series)) +
++  geom_line(linewidth = 0.6) +
++  facet_wrap(~ fishery, ncol = 4, labeller = as_labeller(fleet_name)) +
++  scale_series +
++  labs(x = "Age (quarters)", y = "Selectivity")
++```
++
++```{r}
++#| label: a50
++a50 <- function(sa) {
++  s <- sa[sa$fishery == 17, ]
++  stats::approx(s$sel, s$age, 0.5, ties = "ordered")$y
++}
++knitr::kable(data.frame(
++  model = c("SS3", sel_series),
++  a50 = c(a50(ref$ss3$sel_age), vapply(sel_series, function(nm) a50(fits[[nm]]$sel_age),
++                                       numeric(1), USE.NAMES = FALSE))),
++  digits = 2, col.names = c("Model", "Index: age at 50% selectivity (quarters)"))
++```
++
++Fisheries 15 and 16 mirror 14, and panel 17 stands for all four quarterly
++index series. Without the size compositions (AGE, AGE-NP), the index
++selectivity is informed only by the CPUE trend. With them (AGE-NP-SF, AGE-SF) its age
++at 50% selectivity moves towards SS3's. SS3's estimate sits at its lower
++bound of 8 quarters, which opal does not impose.
++
++# Fits to the data
++
++## Index size compositions
++
++```{r}
++#| label: sizefreq-fit
++#| fig-height: 4.5
++#| fig-cap: "Index size compositions aggregated over all observations, weighted by sample size: observed (bars), SS3's expected values, AGE (not fitted to them), AGE-NP-SF and AGE-SF."
++agg_sf <- function(p, v) {
++  a <- tapply(p[[v]] * p$nsamp, p$bin, sum)
++  data.frame(bin = as.numeric(names(a)), value = as.numeric(a / sum(a)))
++}
++p_s2 <- sf_pred("S2")
++p_a <- sf_pred("A_ss3_S2")
++p_s3 <- sf_pred("S3")
++obs_sf <- agg_sf(p_s2, "obs")
++lines_sf <- rbind(data.frame(agg_sf(p_s2, "expected"), series = "SS3"),
++                  data.frame(agg_sf(p_a, "predicted"), series = "opal AGE"),
++                  data.frame(agg_sf(p_s2, "predicted"), series = "opal AGE-NP-SF"),
++                  data.frame(agg_sf(p_s3, "predicted"), series = "opal AGE-SF"))
++lines_sf$series <- factor(lines_sf$series, names(series_col))
++ggplot() +
++  geom_col(data = obs_sf, aes(bin + 5, value), fill = "grey80", width = 10) +
++  geom_line(data = lines_sf, aes(bin + 5, value, colour = series, linetype = series),
++            linewidth = 0.6) +
++  scale_series +
++  labs(x = "Length (cm; the last bin is 160 cm and above)", y = "Proportion")
++```
++
++```{r}
++#| label: sizefreq-like
++knitr::kable(data.frame(
++  model = c("SS3", "opal AGE (not fitted to them)", "opal AGE-NP-SF", "opal AGE-SF"),
++  like = c(ss3_like(p_s2$obs, p_s2$expected, p_s2$nsamp),
++           ss3_like(p_a$obs, p_a$predicted, p_a$nsamp),
++           ss3_like(p_s2$obs, p_s2$predicted, p_s2$nsamp),
++           ss3_like(p_s3$obs, p_s3$predicted, p_s3$nsamp))),
++  digits = 1, col.names = c("Model", "SS3-style likelihood of the index size compositions"))
++```
++
++## Index and length compositions
++
++```{r}
++#| label: index-rmse
++rmse <- function(o, p) sqrt(mean((log(o) - log(p))^2))
++cp <- d$cpue_data
++lf_change <- function(nm) sum(fits[[nm]]$lf_nll_f[as.character(d$lf_fishery_f)]) -
++  sum(m$A_ss3$lf_nll_f[as.character(d$lf_fishery_f)])
++knitr::kable(data.frame(
++  model = c(names(fits), "SS3"),
++  rmse = c(vapply(fits, function(x) rmse(cp$value, x$cpue$pred), numeric(1), USE.NAMES = FALSE),
++           rmse(ref$ss3$cpue$obs, ref$ss3$cpue$expected)),
++  lf = c(NA, 0, lf_change("opal AGE-NP"), lf_change("opal AGE-NP-SF"),
++         lf_change("opal AGE-SF"), NA)),
++  digits = c(0, 4, 1),
++  col.names = c("Model", "RMSE of log index residuals", "Length comps NLL − AGE"))
++```
++
++# Stock status
++
++```{r}
++#| label: trajectories
++#| fig-height: 7
++#| fig-cap: "Spawning biomass (top) and static depletion SSB / B0 (bottom) of each fit, SS3 and the simulated truth."
++traj <- rbind(
++  do.call(rbind, lapply(names(fits), function(nm) data.frame(fits[[nm]]$trajectory, series = nm))),
++  data.frame(ref$ss3$trajectory, series = "SS3"),
++  data.frame(ref$truth$trajectory, series = "Simulated truth"))
++traj$series <- factor(traj$series, names(series_col))
++long <- rbind(data.frame(ts = traj$ts, series = traj$series, value = traj$ssb / 1e6,
++                         panel = "Spawning biomass (million t)"),
++              data.frame(ts = traj$ts, series = traj$series, value = traj$static_dep,
++                         panel = "SSB / B0"))
++ggplot(long, aes(ts, value, colour = series, linetype = series)) +
++  geom_line(linewidth = 0.6) +
++  facet_wrap(~ panel, ncol = 1, scales = "free_y") +
++  expand_limits(y = 0) +
++  scale_series +
++  labs(x = "Time step (quarter)", y = NULL)
++```
++
++```{r}
++#| label: status-table
++ss3_tr <- ref$ss3$trajectory
++vs_ss3 <- function(tr) {
++  mm <- merge(tr, ss3_tr, by = "ts")
++  c(mean_pct = mean(abs(100 * (mm$ssb.x / mm$ssb.y - 1))),
++    max_dep = max(abs(mm$static_dep.x - mm$static_dep.y)))
++}
++status <- do.call(rbind, lapply(names(fits), function(nm) {
++  x <- fits[[nm]]
++  data.frame(model = nm, B0_ss3 = x$B0 / ref$ss3$ssb0, B0_truth = x$B0 / ref$truth$b0,
++             dep = last(x$trajectory, "static_dep"), t(vs_ss3(x$trajectory)))
++}))
++status <- rbind(status,
++  data.frame(model = "SS3", B0_ss3 = 1, B0_truth = ref$ss3$ssb0 / ref$truth$b0,
++             dep = last(ss3_tr, "static_dep"), mean_pct = NA, max_dep = NA),
++  data.frame(model = "Simulated truth", B0_ss3 = ref$truth$b0 / ref$ss3$ssb0, B0_truth = 1,
++             dep = last(ref$truth$trajectory, "static_dep"), mean_pct = NA, max_dep = NA))
++knitr::kable(status, digits = c(0, 3, 3, 3, 1, 3), row.names = FALSE,
++             col.names = c("Model", "B0 / SS3 B0", "B0 / true B0", "Terminal SSB / B0",
++                           "SSB mean |% diff| from SS3", "Max |depletion diff| from SS3"))
++```
++
++# Summary
++
++| Fit | Priors | Index size compositions | Selectivity parameters estimated |
++|---|---|---|---|
++| AGE | opal defaults | no | all 58 SS3 estimated |
++| AGE-NP | off (λ = 0) | no | the identifiable ones |
++| AGE-NP-SF | off (λ = 0) | yes (λ = 0.51) | the identifiable ones |
++| AGE-SF | opal defaults | yes (λ = 0.51) | all 58 |
++
++```{r}
++#| label: summary-values
++dep <- function(nm) last(fits[[nm]]$trajectory, "static_dep")
++b0 <- function(nm) fits[[nm]]$B0 / ref$ss3$ssb0
++```
++
++* opal now takes the two SS3 settings AGE lacked: SS3's lambda of 0 on
++  parameter priors (`data$lambdas$prior`), and SS3's generalised size
++  compositions for the index on their own bins with SS3's lambda of 0.51
++  (a second bin scheme through `prep_lf_data()`, weighted by `lf` lambdas).
++  At SS3's solution, opal's predictions of those size compositions agree
++  with SS3's expected values.
++* Without priors, `r nrow(held)` selectivity parameters SS3 estimated are not
++  identified, and AGE-NP and AGE-NP-SF hold them at their free estimates, which leaves
++  the objective unchanged. AGE-NP then has a positive-definite Hessian; AGE-NP-SF does
++  not. With the priors kept, AGE-SF passes `opal_check()`.
++* From AGE's estimates, B0 is `r fmt(b0("opal AGE"), 2)`
++  (AGE), `r fmt(b0("opal AGE-NP"), 2)` (AGE-NP),
++  `r fmt(b0("opal AGE-NP-SF"), 2)` (AGE-NP-SF) and
++  `r fmt(b0("opal AGE-SF"), 2)` (AGE-SF) × SS3's. Terminal
++  depletion is `r fmt(dep("opal AGE"), 3)`,
++  `r fmt(dep("opal AGE-NP"), 3)`,
++  `r fmt(dep("opal AGE-NP-SF"), 3)` and
++  `r fmt(dep("opal AGE-SF"), 3)`, against SS3's
++  `r fmt(last(ss3_tr, "static_dep"), 3)`. The index size compositions move
++  opal closest to SS3, with or without priors (AGE to AGE-SF, or
++  AGE-NP to AGE-NP-SF). Removing the priors changes little at this
++  optimum.
++* Started from SS3's own solution, AGE-NP and AGE-NP-SF stop at an optimum with
++  stock size close to SS3's, but worse for opal's likelihood. The remaining
++  gap to SS3 is partly a question of which optimum each model is in, and
++  partly the accepted structural differences (catch and survey timing,
++  four quarterly catchabilities, unconstrained recruitment deviations).
++
++The outputs in this article were computed with opal `r cache$opal`
++(commit `r cache$commit`) by `data-raw/generate-io-yft-matched-fits.R` and
++`data-raw/generate-io-yft-vignette-cache.R`. SS3's size compositions and
++lambdas were exported by `r ref$source$sizefreq_script` in
++<`r ref$source$repository`>.
+-- 
+2.43.0
+

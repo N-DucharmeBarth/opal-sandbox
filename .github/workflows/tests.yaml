@@ -31,9 +31,14 @@ jobs:
         with:
           r-version: "release"
           use-public-rspm: true
+          # StanEstimators (used by SparseNUTS), as in opal's renv.lock
+          extra-repositories: "https://andrjohns.r-universe.dev"
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          # hard dependencies only: opal's Suggests (e.g. compResidual,
+          # tidyverse) are not needed by the tests
+          dependencies: '"hard"'
           packages: |
             any::testthat
             any::data.table
@@ -46,6 +51,7 @@ jobs:
             github::r4ss/r4ss
             github::flr/FLCore
             github::PacificCommunity/ofp-sam-flr4mfcl
+            github::noaa-afsc/SparseNUTS
             github::N-DucharmeBarth-NOAA/opal@dev
 
       - name: Run tests

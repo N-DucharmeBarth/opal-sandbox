@@ -1,0 +1,87 @@
+# Runs the unit tests in tests/testthat: the shared SS3 and MFCL extractors
+# (on the WCPO bigeye model files) and the SS3-to-opal converter (on the IO
+# yellowfin case study). Then measures the tests' coverage of shared/ and
+# uploads it to Codecov.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testthat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write  # Codecov OIDC upload
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      # .Rprofile activates renv; CI installs packages with pak instead
+      RENV_ACTIVATE_PROJECT: "FALSE"
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs a prebuilt R (about 20 s); there is nothing worth caching here
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+          # StanEstimators (used by SparseNUTS), as in opal's renv.lock
+          extra-repositories: "https://andrjohns.r-universe.dev"
+
+      # The R package library is cached, keyed on the resolved lockfile (which
+      # records the GitHub commit SHAs) and restored from the closest earlier
+      # key when it changes, so only new or updated packages are installed.
+      # "always" saves the cache even when a later step fails.
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          cache: always
+          cache-version: 1
+          # hard dependencies only: opal's Suggests (e.g. compResidual,
+          # tidyverse) are not needed by the tests
+          dependencies: '"hard"'
+          packages: |
+            any::testthat
+            any::covr
+            any::xml2
+            any::data.table
+            any::magrittr
+            any::ggplot2
+            any::viridis
+            any::this.path
+            any::yaml
+            any::RTMB
+            github::r4ss/r4ss
+            github::flr/FLCore
+            github::PacificCommunity/ofp-sam-flr4mfcl
+            github::noaa-afsc/SparseNUTS
+            github::N-DucharmeBarth-NOAA/opal@dev
+
+      - name: Run tests
+        shell: Rscript --no-init-file {0}
+        run: |
+          testthat::test_dir("tests/testthat", reporter = "progress", stop_on_failure = TRUE)
+
+      - name: Test coverage
+        run: Rscript --no-init-file tests/coverage.r
+
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7, as in opal
+        with:
+          # Authenticate same-repository uploads without a long-lived secret;
+          # fork PRs use Codecov's tokenless upload for public repositories
+          use_oidc: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          # Coverage is informational: an upload problem does not fail the job
+          fail_ci_if_error: false
+          files: ./cobertura.xml
+          plugins: noop
+          disable_search: true

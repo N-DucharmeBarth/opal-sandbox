@@ -1,0 +1,43 @@
+# opal-sandbox (development)
+
+- 2026/10/28 ([#8](https://github.com/N-DucharmeBarth/opal-sandbox/pull/8)):
+  Continuous integration.
+  - `.github/workflows/tests.yaml` runs `tests/testthat` on every pull
+    request and on every push to `main`. It installs opal from `dev`,
+    caches the R package library between runs and uploads the tests'
+    coverage of `shared/` to Codecov (`tests/coverage.r`, `codecov.yml`).
+  - The new test `test-ss3-to-opal-io-yft.r` checks the SS3-to-opal
+    converter on the IO yellowfin case study. The structural checks and the
+    reconciliation with SS3 pass, the opal object builds, and replaying the
+    converted inputs with SS3's catch timing reproduces SS3's spawning
+    biomass to within 1%.
+  - The SS3 length- and weight-composition tests read `CompReport.sso`,
+    which is not in the repository, so they errored in a fresh clone. They
+    are now skipped until the file is added.
+  - `extract_mfcl_cpue()` now returns `Time` as a double, like
+    `extract_ss3_cpue()`. Its rows are now sorted by fishery, year and month
+    before `Time` is assigned; the sort had been computed but not kept.
+  - The CPUE extractor test no longer overwrites the tracked
+    `mfcl/v11/cpue.csv`.
+- 2026/10/28 ([#7](https://github.com/N-DucharmeBarth/opal-sandbox/pull/7)):
+  The repository now holds opal case studies and tests.
+  - Each stock has its own folder under `case-studies/` (`wcpo-bet`,
+    `io-yft`). Code used by more than one case study is in `shared/`: the
+    SS3-to-opal converter (`ss3-to-opal/`), the SS3 and MFCL extractors
+    (`extractors/`) and the cloud install script (`setup/`). The opal
+    simulation studies are in `simulations/`.
+  - The southwest Pacific striped marlin SS3 base file moved to
+    `case-studies/wcpo-bet/`, the case study it was used to build.
+  - The README was rewritten for the new purpose. The WCPO bigeye
+    background moved to `case-studies/wcpo-bet/README.md`.
+- 2026/10/13–2026/10/27: IO yellowfin case study.
+  - A YAML-driven SS3-to-opal converter, with validation, reconciliation and
+    bridging checks.
+  - Vignettes comparing opal with SS3 and with the simulated truth,
+    including the age-specific K and age-based selectivity fits, and a
+    step-by-step workflow guide.
+  - Catch-timing and selectivity-basis simulations.
+  - Exports of the data, fits and articles to the opal package
+    (`opal-export/`, `opal-patches/`).
+- Earlier: the WCPO bigeye single-region MFCL model was rebuilt in SS3, and
+  the SS3 and MFCL output extractors were added with unit tests.

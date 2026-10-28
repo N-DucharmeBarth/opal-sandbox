@@ -18,6 +18,11 @@ sapply(file.path(dir_helper_fns_mfcl, list.files(dir_helper_fns_mfcl)), source)
 
 context("extract_weight_comp")
 
+# SS3 composition fits are read from CompReport.sso, which is not in the
+# repository; skip this file until it is added
+skip_if_not(file.exists(file.path(dir_ss3, "01-bet-base", "CompReport.sso")),
+            "01-bet-base/CompReport.sso is not in the repository; run the SS3 model to create it")
+
 # Define required columns for output
 required_cols = c("id", "Fleet", "Fleet_name", "Used", "Kind", "Sex",
                  "Bin", "Obs", "Exp", "Dev", "effN", "Nsamp_in", "Nsamp_adj")

@@ -167,8 +167,8 @@ extract_mfcl_cpue = function(frq_file, rep_file, model_id,
   cpue_dt[, Use := 1L]
   
   # 12. Convert to standard output format
-  cpue_dt[order(fishery,year,month)]
-  cpue_dt[, Time := 1:.N, by = fishery]  # Create Time as sequential index within each fishery
+  cpue_dt = cpue_dt[order(fishery,year,month)]
+  cpue_dt[, Time := as.numeric(seq_len(.N)), by = fishery]  # Create Time as sequential index within each fishery (double, as in extract_ss3_cpue)
   cpue_dt[, Dev := obs - pred_cpue]  # Deviation: observed - predicted
   cpue_dt[, Obs := obs]
   cpue_dt[, Exp := pred_cpue]

@@ -2,6 +2,9 @@
 
 library(testthat)
 library(data.table)
+library(magrittr)
+library(r4ss)
+library(FLR4MFCL)
 
 # Define project paths
 proj_dir = this.path::this.proj()

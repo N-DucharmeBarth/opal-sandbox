@@ -1,6 +1,7 @@
 # opal-sandbox
 
 [![tests](https://github.com/N-DucharmeBarth/opal-sandbox/actions/workflows/tests.yaml/badge.svg)](https://github.com/N-DucharmeBarth/opal-sandbox/actions/workflows/tests.yaml)
+[![codecov](https://codecov.io/gh/N-DucharmeBarth/opal-sandbox/graph/badge.svg)](https://codecov.io/gh/N-DucharmeBarth/opal-sandbox)
 
 Case studies and tests for [opal](https://github.com/N-DucharmeBarth-NOAA/opal),
 an RTMB-based, age-structured stock assessment model.
@@ -82,7 +83,7 @@ The tests in `tests/testthat/` cover the shared code:
 
 The SS3 length- and weight-composition tests read `CompReport.sso`, which is not in the repository. Those two test files are skipped until `case-studies/wcpo-bet/model-files/ss3/01-bet-base/CompReport.sso` is added.
 
-The GitHub Actions workflow `.github/workflows/tests.yaml` runs the tests on every pull request and on every push to `main`. To run them locally from the project root:
+The GitHub Actions workflow `.github/workflows/tests.yaml` runs the tests on every pull request and on every push to `main`, and caches the R package library between runs. It then measures the tests' coverage of `shared/` with `tests/coverage.r` and uploads it to [Codecov](https://codecov.io/gh/N-DucharmeBarth/opal-sandbox). Changes are listed in [`NEWS.md`](NEWS.md). To run them locally from the project root:
 
 ```r
 testthat::test_dir("tests/testthat")

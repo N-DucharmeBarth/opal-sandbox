@@ -76,7 +76,9 @@ context("extract_mfcl_cpue")
 # Test MFCL extractor
 mfcl_frq = file.path(dir_mfcl, "v11", "bet.frq")
 mfcl_rep = file.path(dir_mfcl, "v11", "plot-10.par.rep")
-mfcl_dir = file.path(dir_mfcl, "v11")
+# write the CSV to a temporary directory, not over the tracked v11/cpue.csv
+mfcl_dir = file.path(tempdir(), "mfcl-v11")
+dir.create(mfcl_dir, showWarnings = FALSE)
 cpue_mfcl = extract_mfcl_cpue(mfcl_frq, mfcl_rep, "mfcl-v11", output_dir = mfcl_dir, verbose = FALSE)
 
 test_that("MFCL CPUE extractor produces correct structure", {

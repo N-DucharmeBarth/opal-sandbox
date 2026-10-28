@@ -184,11 +184,11 @@ other parameter.
 ```{r}
 #| label: fig-profile
 #| fig-height: 6
-#| fig-cap: "Likelihood profiles over ln(R0) for S6, B1 and B2e (top: change in total NLL, with the 1.92 line of an approximate 95% interval; bottom: terminal depletion). Open points did not converge. The vertical lines are each model's estimate."
+#| fig-cap: "Likelihood profiles over ln(R0) for S6, B1 and B2e (top: change in total NLL, capped at 8, with the 1.92 line of an approximate 95% interval; bottom: terminal depletion). Open points did not converge. The vertical lines are each model's estimate."
 pp = copy(P)
 pp[, label := step_lab[step]]
 est = copy(profile$estimates)[, label := step_lab[step]]
-pl = melt(pp[, .(label, ln_r0, converged, `Change in NLL` = pmin(delta_nll, 12),
+pl = melt(pp[, .(label, ln_r0, converged, `Change in NLL` = pmin(delta_nll, 8),
                  `SSB2020 / SSB0` = depletion)], id.vars = c("label", "ln_r0", "converged"))
 ggplot(pl, aes(ln_r0, value, colour = label)) +
     geom_hline(data = data.table(variable = "Change in NLL", y = 1.92),
@@ -335,17 +335,19 @@ uses start-of-year weights here: mid-year weights would double the gap.
 
 # opal fits {#sec-fits}
 
-Two fits, each started at SS3's values. Growth, h, sigma~R~ and the biology
-stay at SS3's values; opal's default priors are switched off, as SS3 has no
-parameter priors.
+Two fits. Growth, h, sigma~R~, the biology and F4's initial F stay at SS3's
+values; opal's default priors are switched off, as SS3 has no parameter
+priors. SS3 ties the initial F to an initial-equilibrium catch of 40,000 t
+(SE 0.05) through a likelihood term opal does not have; left free in opal, the
+initial F doubled (0.11 to 0.22) and depleted the 1971 stock to 0.37 of B~0~.
 
 * **O1** keeps SS3's selectivity-at-age and estimates B~0~, the recruitment
-  deviations, the initial age structure, F4's initial F and the two
-  catchabilities.
+  deviations, the initial age structure (1971 recruitment and the ten early
+  deviations) and the two catchabilities, starting at SS3's values.
 * **O2** uses opal's own length-based double normals, started at SS3's
   curves, and also estimates the selectivity parameters SS3 estimated
-  (peak and widths, with SS3's bounds on opal's scale); mirrored fleets share
-  their source's parameters, as in SS3.
+  (peak and widths, within SS3's bounds on opal's scale); mirrored fleets
+  share their source's parameters, as in SS3. It starts from O1's estimates.
 
 ```{r}
 #| label: tbl-fits
@@ -360,6 +362,23 @@ knitr::kable(S[, .(Model = model, `Est. par.` = n_par,
                    `Length NLL` = ifelse(is.na(lp_lf), "", fmt(lp_lf, 1)))],
              format = "pipe", align = "lrrrlrrrrr")
 ```
+
+```{r}
+#| label: fits-text
+o1 = S[model == "O1"]
+o2 = S[model == "O2"]
+conv = function(x) if (isTRUE(x$check_passes)) "converged and passes `opal_check()`" else
+    sprintf("did not converge (maximum gradient %s)", sci(x$max_gradient, 1))
+```
+
+O1 `r conv(o1)`; its terminal depletion is `r fmt(o1$depletion_2020, 3)`
+against SS3's `r fmt(S[model == "SS3 B2e"]$depletion_2020, 3)`. O2
+`r conv(o2)`, with terminal depletion `r fmt(o2$depletion_2020, 3)`. O2 improves
+the fit to the compositions by `r fmt(o1$lp_lf - o2$lp_lf, 0)` units over O1
+and changes the fit to the indices by `r fmt(o2$lp_cpue - o1$lp_cpue, 1)`.
+Given the flat ln(R~0~) profile of B2e, differences in scale between opal and
+SS3 of this size are possible from small differences in how the two models
+predict the data, and the fits to the data are the better guide.
 
 ```{r}
 #| label: fig-fits
@@ -424,6 +443,9 @@ ggplot(sel, aes(age, sel, colour = model)) +
 * **Time-varying selectivity.** Blocks (F8) and deviations (F19) cannot be
   estimated. Blocks that replace parameters are reproduced exactly by
   splitting the fleet (B2b); deviations have no equivalent (B2c).
+* **Initial-equilibrium catch.** SS3 fits the catch implied by the initial F
+  (40,000 t for F4 here) as data; opal has no such term, so its initial F is
+  fixed at SS3's value.
 * **Regime offset on the initial equilibrium recruitment**, and SS3's
   **F-ballpark** penalty. opal fits catch exactly with harvest rates, so it
   does not need the latter for convergence, but as @sec-bridge shows the

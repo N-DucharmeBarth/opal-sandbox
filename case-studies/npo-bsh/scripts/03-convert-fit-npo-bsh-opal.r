@@ -6,8 +6,8 @@
 #   O0  bridge: opal at SS3's parameter values with SS3's selectivity-at-age;
 #       nothing estimated
 #   O1  SS3's selectivity-at-age held fixed; B0, recruitment deviations,
-#       initial age structure, F4's initial F and the two catchabilities
-#       estimated
+#       initial age structure and the two catchabilities estimated (F4's
+#       initial F stays at SS3's value; see the maps below)
 #   O2  opal's own length-based double normals, started exactly at SS3's
 #       curves; the selectivity parameters SS3 estimated are estimated, plus
 #       everything O1 estimates
@@ -107,13 +107,12 @@
     # the ten early deviations (ages 1-10)
     n_init = sum(converted$parameters$init_rdev_a != 0 | seq_len(converted$data$n_age) <= 11L)
     map_init_rdev = factor(c(seq_len(n_init), rep(NA, converted$data$n_age - n_init)))
-    init_f = exp(converted$parameters$log_init_F_f) > 1e-6
-    map_init_F = factor(ifelse(init_f, cumsum(init_f), NA))
-
+    # F4's initial F stays at SS3's value: SS3 ties it to the initial-
+    # equilibrium catch (40,000 t, SE 0.05) through a likelihood term opal does
+    # not have, and left free in opal it doubles (0.11 -> 0.22)
     base_map = function(x) {
         m = x$map %||% get_map(x$parameters)
-        m$init_rdev_a  = map_init_rdev
-        m$log_init_F_f = map_init_F
+        m$init_rdev_a = map_init_rdev
         m
     }
 
@@ -197,7 +196,11 @@
     fit_o1 = if (refit) fit_opal(o1) else saved$O1
 
     # O2: opal length-based selectivity, started at SS3's curves
+    # O2 starts from O1's estimates for everything but selectivity
     o2 = ss3_use_opal_selectivity(assessment, par_sel = seed$par_sel)
+    p2 = fit_o1$fit$parameters
+    p2$par_sel = seed$par_sel
+    o2 = opal_update(o2, parameters = p2)
     m2 = base_map(o2)
     m2$par_sel = sel_map(seed$par_sel)
     o2 = opal_update(o2, map = m2) %>% opal_build()

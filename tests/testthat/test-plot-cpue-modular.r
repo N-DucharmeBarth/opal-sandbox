@@ -6,10 +6,10 @@ library(ggplot2)
 
 # Define project paths
 proj_dir = this.path::this.proj()
-dir_model = file.path(proj_dir, "model-files")
+dir_model = file.path(proj_dir, "case-studies", "wcpo-bet", "model-files")
 dir_ss3 = file.path(dir_model, "ss3")
 dir_mfcl = file.path(dir_model, "mfcl")
-dir_helper_fns = file.path(proj_dir, "code", "ss3", "helper-fns")
+dir_helper_fns = file.path(proj_dir, "shared", "extractors", "ss3")
 
 # Source helper functions
 source(file.path(dir_helper_fns, "plot-cpue-modular.r"))

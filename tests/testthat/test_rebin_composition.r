@@ -3,7 +3,7 @@
 library(testthat)
 
 # Source the function from project root so tests run from `tests/testthat` correctly
-source(file.path(this.path::this.proj(), "code", "ss3", "helper-fns", "rebin_composition.r"))
+source(file.path(this.path::this.proj(), "shared", "extractors", "ss3", "rebin_composition.r"))
 
 context("rebin_composition")
 

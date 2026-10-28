@@ -1,0 +1,712 @@
+---
+title: "Converting an SS3 model to opal"
+subtitle: "A step-by-step guide, worked through with the IO yellowfin SS3 model"
+author: "Nicholas Ducharme-Barth"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    embed-resources: true
+    fig-width: 9
+    fig-height: 5
+    code-fold: false
+    code-overflow: wrap
+  typst:
+    toc: true
+    toc-depth: 2
+    section-numbering: "1.1"
+    fig-width: 8
+    fig-height: 5
+    papersize: a4
+    margin:
+      x: 2cm
+      y: 2cm
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+# The workflow code is read from the companion script and shown, not run.
+# Results come from the cache that script writes.
+knitr::read_chunk(file.path("..", "scripts", "05-io-yft-ss3-to-opal-workflow.r"))
+knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = "—")
+library(data.table)
+library(ggplot2)
+
+cache = readRDS(file.path("data", "io-yft-workflow-cache.rds"))
+C  = cache$convergence
+S  = cache$summary
+B  = cache$bridge
+
+col = c("SS3" = "grey20", "opal" = "#1E8449",
+        "opal at SS3 values" = "#C0392B", "replay with SS3 timing" = "#2471A3",
+        "observed" = "grey55")
+scale_series = list(scale_colour_manual(values = col, name = NULL))
+theme_set(theme_bw(base_size = 11) +
+          theme(legend.position = "bottom", panel.grid.minor = element_blank()))
+
+fleet_name = function(f) {
+    f  = as.integer(f)
+    nm = c(cache$fleet_names[1:16], paste0("llcpue_q", 1:4))
+    lv = sprintf("%d: %s", seq_along(nm), nm)
+    factor(lv[f], levels = lv)
+}
+fmt = function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
+sci = function(x, d = 1) formatC(x, format = "e", digits = d)
+pct = function(x, d = 1) paste0(fmt(100 * x, d), "%")
+```
+
+# Purpose
+
+This guide shows how a Stock Synthesis 3 (SS3) assessment is converted into
+an [opal](https://github.com/N-DucharmeBarth-NOAA/opal) model, how to test
+that the conversion is right, and how to set up and fit the opal model. It
+works through one example from start to finish: the IATTC team's SS3 model of
+the Indian Ocean yellowfin (IO YFT) simulated data, which became opal fit
+**C2**. It is written for analysts converting their own SS3 model, and
+section 9 lists what to compare between your model and this one.
+
+All the code is in one companion script,
+`case-studies/io-yft/scripts/05-io-yft-ss3-to-opal-workflow.r`. The code shown below is
+taken from that script, not retyped. Copy the script and edit it for your
+model. The results here are from the script's own run, read from the cache
+it writes.
+
+This guide covers the workflow only. For how the opal fits compare with SS3
+and with the simulated truth, and why they differ, see:
+
+* `ss3-to-opal-io-yft.qmd`: the first conversion, with both biology routes,
+  diagnostic fits and the comparison with the operating model.
+* `ss3-to-opal-io-yft-age-k.qmd`: SS3's age-specific K growth in opal, and
+  the selectivity fits C and C2.
+* `simulations/sims-synthesis.qmd`: simulations of the catch-timing and
+  selectivity differences between the two platforms.
+
+## How the converter works
+
+The converter is a set of R functions in `shared/ss3-to-opal/`:
+
+| File | What it does |
+|---|---|
+| `ss3-read.R` | Reads the SS3 files with r4ss and records their checksums |
+| `ss3-convert.R` | Converts dimensions, fleets, catch, indices, length compositions, selectivity and parameters (`ss3_to_opal()`) |
+| `ss3-biology.R` | Converts biology and growth: M, weight, maturity, spawning potential, length-at-age |
+| `ss3-validate.R` | Tests: structural checks, reconciliation with SS3, the bridging replay |
+| `ss3-opal-obj.R` | Builds the opal object and switches selectivity between SS3's and opal's |
+| `ss3-fit-tools.R` | Newton polishing after `nlminb`, and extraction helpers |
+
+The converter follows three rules:
+
+1. **Derived quantities come from `Report.sso`** wherever SS3 reports them:
+   M, weight, maturity and spawning potential at age, selectivity at age,
+   unfished spawning biomass and the recruitment bias ramp. These quantities
+   already include every transformation SS3 applied internally, so nothing
+   has to be re-derived from the control file.
+2. **Every decision that cannot be read from the SS3 files is in one settings
+   list.** That includes how to split an index, which fleets' compositions to
+   use and which opal curve to use for each fleet. The functions hard-code
+   nothing about the model.
+3. **Where opal cannot represent SS3 exactly, the converter reports how close
+   it gets** rather than hiding the approximation.
+
+The workflow has eight steps:
+
+| Step | Section | Main functions | Output |
+|---|---|---|---|
+| 1. Settings | 3 | an R list | `cfg` |
+| 2. Read SS3 | 4 | `ss3_read_model()` | `ss3` |
+| 3. Convert | 5 | `ss3_to_opal()`, `prep_lf_data()` | `converted` |
+| 4. Test inputs | 6.1–6.2 | `validate_opal_inputs()`, `ss3_reconcile()` | check tables |
+| 5. Build | 6.3 | `ss3_opal_obj()` | `assessment` |
+| 6. Test dynamics | 6.4–6.5 | `ss3_use_external_selectivity()`, `ss3_bridge_table()` | bridging table |
+| 7. Set up and fit | 7 | `ss3_seed_par_sel()`, `ss3_use_estimated_selectivity()`, `opal_fit()` | `fit` |
+| 8. Inspect and save | 7–8 | `opal_report()`, `opal_save()` | results, saved fit |
+
+# What you need
+
+* R with **opal** ≥ 0.1.1 (`dev` branch; 0.1.1 adds SS3's age-specific K
+  growth), **r4ss**, **data.table**, **magrittr** and **this.path**.
+* The SS3 model folder, with these files from a converged run:
+  * `data.ss_new` (data);
+  * `control.ss_new` (control);
+  * `ss3.par` (parameter estimates; called `ss.par` in some versions);
+  * `Report.sso`, which the converter needs for biology, selectivity and B0.
+* The converter functions (`shared/ss3-to-opal/`).
+
+```{r packages}
+#| echo: true
+#| eval: false
+```
+
+```{r paths}
+#| echo: true
+#| eval: false
+```
+
+# The conversion settings
+
+Everything the converter needs to know beyond the SS3 files is in `cfg`, a
+plain R list. The table below lists each block. The values below are for
+IO YFT, and each needs to be checked again for another model.
+
+| Block | Decision | IO YFT choice |
+|---|---|---|
+| `time` | Which SS3 time steps become opal time steps | All 256; each SS3 "year" is a quarter, so opal has `n_year = 256`, `n_season = 1` |
+| `age` | Which SS3 ages to keep | 1–28, so the opal age equals the SS3 age (age 0 dropped) |
+| `growth` | How opal computes length-at-age | `ss3_age_k`: SS3's `GrowthModel 3` reproduced exactly |
+| `bio` | Where M, weight, maturity and spawning potential come from | `endgrowth`: Report.sso's age table, used directly |
+| `index` | How SS3's index fleets map to opal index series | Fleet 17 split into four quarterly series (opal 17–20) |
+| `lf` | Which fleets' length compositions to use, and the bin grid | Fleets 1–14 and 16; last bin regularised to 195–200 cm |
+| `selectivity` | opal curve per fishery, and which parameters to estimate | Double-normal for fisheries, logistic for the index; estimate what SS3 estimated |
+
+```{r settings}
+#| echo: true
+#| eval: false
+```
+
+Points that are easy to get wrong:
+
+* **Time units.** opal's time step is the model step. When the SS3 year is a
+  quarter, SS3 still reads M and the von Bertalanffy K as *annual* rates and
+  applies them over the season. The converter divides both by
+  `12 / (nseas × months_per_seas)`, which is 4 here (`bio$m_rate_divisor`).
+* **Biology route.** `endgrowth` takes biology at age from SS3 exactly. Use
+  `control` only if growth is to be estimated in opal: it rebuilds weight and
+  maturity on a length basis and converts them through opal's
+  length-at-age, so any difference in growth then reaches spawning biomass.
+* **Selectivity codes.** `opal_type_f` uses opal's codes (1 logistic,
+  2 double-normal, 3 double Richards), not SS3 pattern numbers.
+  `validate_opal_inputs()` checks this.
+* **Index splitting** is a modelling choice: one SS3 index with one
+  catchability, against four opal series with four. Leave `split` empty to
+  keep SS3's index as one series.
+* **`estimate`, `mirror`, `free_par` and `fix_prior_dominated`** are used only
+  when the final model is set up (section 7), not during conversion.
+
+# Read the SS3 model
+
+`ss3_to_opal()` reads the files itself. Reading them separately first lets
+you look at the model and record the features that decide how it converts.
+
+```{r read-ss3}
+#| echo: true
+#| eval: false
+```
+
+```{r model-features}
+#| echo: true
+#| eval: false
+```
+
+`ss3_model_features()` is defined in the script. Its output for IO YFT is
+in section 9, next to a blank column for your own model.
+
+# Convert
+
+```{r convert}
+#| echo: true
+#| eval: false
+```
+
+`ss3_to_opal()` returns:
+
+* `data`: the opal data list;
+* `parameters`: starting values at SS3's estimates;
+* `lf`: length compositions in long format;
+* `selectivity`: SS3's selectivity-at-age, and the same projected onto length
+  bins;
+* `meta`: diagnostics and provenance;
+* `ss3`: the r4ss objects it read.
+
+The starting values are SS3's own estimates:
+
+* `log_B0` is SS3's unfished spawning biomass (opal estimates B0, not R0).
+* `rdev_y` holds SS3's recruitment deviations.
+* Steepness and σ~R~ come from the par file.
+* Growth comes from the SS3 files.
+* Each fishery's initial F is set to effectively zero (`log_init_F_f`), so the
+  model starts unfished.
+* Catchabilities start at 1.
+
+Then `prep_lf_data()` (an opal function) adds the length compositions to the
+data list. SS3's `mult_by_lencomp_N` becomes opal's `lf_var_adjust`; opal
+divides the sample size by it, so the converter passes the reciprocal.
+
+Two opal rules affect anything you add to the data list:
+
+* **Only plain R objects.** `opal_obj()` rejects data elements that hold an
+  external pointer, and every data.table has one. Convert to `data.frame`
+  (as above) or run `ss3_make_portable()` on the list.
+* **Change an opal object only through `opal_update()`.** The object stores a
+  hash of its contents. Assigning directly (`x$data$foo <- ...`) makes the
+  next validation fail with "Model state was modified directly". The
+  `ss3_use_*()` helpers all go through `opal_update()`.
+
+# Test the conversion
+
+The tests run in order, from the cheapest and most specific to the most
+general. A failure at one level should be fixed before moving on, because the
+later tests cannot separate a conversion error from a real difference between
+the two models.
+
+| Test | Asks | Fails when |
+|---|---|---|
+| 1. Structure | Is the opal input internally consistent? | dimension mismatches, wrong codes, non-portable objects |
+| 2. Reconciliation | Did the data and biology survive the conversion? | lost or duplicated observations, wrong units, wrong female fraction |
+| 3. Build | Can opal evaluate the model at the starting values? | non-finite objective or gradient |
+| 4. Bridging | At SS3's parameters, does opal reproduce SS3's dynamics? | any remaining conversion error that affects the population |
+
+## Test 1: structure
+
+```{r check-structure}
+#| echo: true
+#| eval: false
+```
+
+`validate_opal_inputs()` checks the following:
+
+* dimensions (ages, years, fisheries, length bins);
+* that M, weight, maturity and spawning potential have a valid length and
+  range;
+* catch array shape and units codes;
+* index columns, index numbering and time window;
+* length composition bins and fisheries;
+* parameter vector lengths;
+* selectivity codes;
+* that nothing non-portable is in the data list.
+
+For IO YFT, **`r sum(cache$checks$pass)` of `r nrow(cache$checks)`** checks
+pass.
+
+```{r check-table}
+ck = cache$checks[, .(check, pass = ifelse(pass, "yes", "**no**"))]
+knitr::kable(ck, col.names = c("Check", "Pass"))
+```
+
+## Test 2: reconciliation with SS3
+
+```{r check-reconcile}
+#| echo: true
+#| eval: false
+```
+
+`ss3_reconcile()` compares quantities that should match SS3 exactly. Each has
+a relative tolerance of 10^-6^, except spawning potential per recruit, which
+has 10^-4^. The most informative row is **unfished spawning potential per
+recruit**: one number that would show M in the wrong time units (a factor of
+about 4 here), a misplaced female fraction (a factor of 2) or a wrong
+plus-group treatment. Its small residual comes from two places: Report.sso
+prints six significant figures, and SS3 3.24 closes the plus group
+differently from opal.
+
+```{r recon-table}
+rc = cache$recon[, .(quantity,
+                     ss3  = ifelse(is.na(ss3),  NA, formatC(ss3,  format = "g", digits = 7)),
+                     opal = ifelse(is.na(opal), NA, formatC(opal, format = "g", digits = 7)),
+                     rel_diff = sci(rel_diff, 1),
+                     pass = ifelse(is.na(pass), "—", ifelse(pass, "yes", "**no**")))]
+knitr::kable(rc, col.names = c("Quantity", "SS3", "opal", "Relative difference", "Pass"),
+             align = "lrrrc")
+```
+
+The length-at-age row compares opal's growth (`get_growth()` with SS3's
+parameters and K multipliers) with SS3's `Len_Beg`. Its error is at the level
+of Report.sso's print precision, so the growth conversion is exact. With
+`growth$model = "schnute"` this row would report how well a single-k curve
+approximates SS3's growth.
+
+## Test 3: build the opal object
+
+```{r build}
+#| echo: true
+#| eval: false
+```
+
+`ss3_opal_obj()` does three things:
+
+* attaches opal's default priors (`get_priors()`);
+* records the SS3 file checksums, r4ss version and settings in
+  `$provenance$metadata`;
+* runs `opal_build()`, which builds the RTMB tape and checks that the
+  objective and gradient are finite at the starting values.
+
+The default map (`get_map()`) estimates `log_B0`, the recruitment deviations
+and the catchabilities, and fixes growth and selectivity.
+
+## Test 4: bridging at SS3's parameters
+
+This is the main test of the conversion. SS3's selectivity-at-age is put into
+opal directly (`sel_fa_external`), every parameter is left at SS3's value,
+and nothing is estimated. opal's spawning biomass is then compared with
+SS3's.
+
+```{r check-bridge}
+#| echo: true
+#| eval: false
+```
+
+Even with every input converted exactly, the two models differ in two
+places:
+
+* **Catch timing.** opal removes each step's catch at the start of the
+  step, before natural mortality. SS3 applies fishing and natural mortality
+  together through the Baranov equation.
+* **Recruitment timing.** opal recruits the first age class at *t* + 1 from
+  spawning biomass at *t* + 1. With SS3 age 0 dropped, SS3's matching fish
+  were recruited from spawning biomass at *t*.
+
+`ss3_bridge_replica()` replays the population on the converted inputs, either
+with opal's timing or with SS3's:
+
+* With opal's timing it reproduces `opal_report()`.
+* With SS3's timing it should reproduce SS3's spawning biomass.
+
+**A small residual under SS3's timing shows that the conversion is correct.**
+Any gap left between opal and SS3 is then a real difference between the
+platforms, not a conversion error.
+
+```{r bridge-figure}
+#| fig-height: 6
+#| fig-cap: "Bridging test. Top: spawning biomass from SS3, from opal at SS3's parameter values with SS3's selectivity-at-age, and from the converted inputs replayed with SS3's catch and recruitment timing. Bottom: each relative to SS3."
+bl = rbind(B[, .(ts, value = ss3, series = "SS3", panel = "Spawning biomass (t)")],
+           B[, .(ts, value = opal, series = "opal at SS3 values", panel = "Spawning biomass (t)")],
+           B[, .(ts, value = replica_ss3, series = "replay with SS3 timing", panel = "Spawning biomass (t)")],
+           B[, .(ts, value = 100 * rel_opal, series = "opal at SS3 values", panel = "Difference from SS3 (%)")],
+           B[, .(ts, value = 100 * rel_replica_ss3, series = "replay with SS3 timing", panel = "Difference from SS3 (%)")])
+bl[, panel := factor(panel, levels = c("Spawning biomass (t)", "Difference from SS3 (%)"))]
+ggplot(bl, aes(ts, value, colour = series)) +
+    geom_line(linewidth = 0.6) +
+    facet_wrap(~panel, ncol = 1, scales = "free_y") +
+    scale_series + labs(x = "Time step (quarter)", y = NULL)
+```
+
+```{r bridge-table}
+bt = data.table(
+    series = c("opal at SS3 values", "converted inputs, replayed with SS3 timing"),
+    mean_abs = c(mean(abs(B$rel_opal)), mean(abs(B$rel_replica_ss3))),
+    max_abs  = c(max(abs(B$rel_opal)), max(abs(B$rel_replica_ss3))))
+knitr::kable(bt[, .(series, pct(mean_abs, 2), pct(max_abs, 2))],
+             col.names = c("Series", "Mean |difference| from SS3", "Max |difference| from SS3"),
+             align = "lrr")
+```
+
+For IO YFT, opal at SS3's values differs from SS3 by up to
+`r pct(max(abs(B$rel_opal)))`. The replay with SS3's timing differs by at
+most `r pct(max(abs(B$rel_replica_ss3)), 2)`. The conversion is therefore
+correct, and the opal–SS3 gap at fixed parameters comes from catch timing.
+The simulations in `simulations/` measure how much that timing difference
+matters in estimation.
+
+If the replay with SS3's timing does *not* match SS3, look for a conversion
+error. Common causes:
+
+* catch units (biomass vs numbers) or a fleet out of order;
+* M or K not rescaled to the time step;
+* a female fraction applied twice or not at all;
+* selectivity read for the wrong fleet, year or `Factor` (`Asel` vs
+  `Asel2`);
+* recruitment deviations misaligned by a step.
+
+The replay needs biology at age and SS3's selectivity, so it works only with
+the `endgrowth` route.
+
+## Starting objective and gradient
+
+```{r start-objective}
+#| echo: true
+#| eval: false
+```
+
+```{r start-table}
+knitr::kable(cache$start[, .(model, n_par, fmt(objective, 3), sci(max_abs_gradient, 2))],
+             col.names = c("Configuration", "Estimated parameters", "Objective", "Max |gradient|"),
+             align = "lrrr")
+```
+
+The objective must be finite. At the converted SS3 optimum, the gradient is
+not zero, because the two models' likelihoods differ, but it should not be
+huge. A very large gradient on one parameter usually means a scale error in
+that parameter or in the data it fits.
+
+# Set up and fit the final model
+
+The bridging configuration used SS3's selectivity as fixed data. The final
+model, C2, uses opal's own length-based selectivity curves instead, with the
+opal equivalent of each parameter SS3 estimated being estimated here too.
+
+## Seed opal's selectivity from SS3's
+
+SS3's selectivity here is on age, while opal's is on length, and there is no
+algebraic conversion between the two. `ss3_seed_par_sel()` projects SS3's
+selectivity-at-age onto the length bins using SS3's age–length key. It then
+fits each opal curve to that projection by least squares, using opal's own
+selectivity functions so that the seeded values are on opal's scale.
+
+```{r seed-selectivity}
+#| echo: true
+#| eval: false
+```
+
+```{r seed-table}
+sr = cache$seed_rmse[, .(fishery = as.character(fleet_name(fishery)),
+                         curve = c("logistic", "double-normal", "double Richards")[sel_type],
+                         rmse = fmt(rmse, 3))]
+knitr::kable(sr, col.names = c("Fishery", "opal curve", "RMSE against SS3"), align = "llr")
+```
+
+The RMSE is on the selectivity scale (0–1) and shows how well the chosen
+opal curve can follow SS3's shape. A large value for a fishery means that
+curve family does not fit SS3's shape, so change `opal_type_f` for that
+fishery before fitting.
+
+## Choose what to estimate
+
+`ss3_use_estimated_selectivity()` removes SS3's selectivity from the model,
+puts in the seeded curves and writes the selectivity part of the map from
+`cfg$selectivity`:
+
+* **`estimate`**: fisheries whose curves are estimated. IO YFT: the 14
+  fishing fleets with their own selectivity in SS3, and the index.
+* **`free_par`**: which curve parameters are estimated, by opal curve family.
+  For the double-normal, columns 1–4 (peak, top width, ascending and
+  descending widths) are estimated, as SS3 estimated P1–P4 of its pattern
+  20. For the logistic, both parameters are estimated.
+* **`mirror`**: fisheries sharing another fishery's parameters (SS3 pattern
+  15). Fisheries 15 and 16 mirror 14; the four quarterly index series share
+  one curve.
+* **`fix`**: parameters held at their seeded values. In an earlier fit
+  (C), these nine went to the mean of opal's selectivity prior, which
+  meant the length data did not inform them, so C2 fixes them.
+
+```{r final-model}
+#| echo: true
+#| eval: false
+```
+
+```{r estimated-table}
+knitr::kable(cache$estimated, col.names = c("Parameter", "Estimated"))
+```
+
+The `r sum(cache$estimated$n_estimated)` estimated parameters are `log_B0`,
+the `r cache$estimated[parameter == "rdev_y", n_estimated]` recruitment
+deviations, the four catchabilities and
+`r cache$estimated[parameter == "par_sel", n_estimated]` selectivity
+parameters. Growth, steepness, σ~R~ and the observation variances stay at
+their SS3 or default values (opal's default map).
+
+## Fit
+
+```{r fit}
+#| echo: true
+#| eval: false
+```
+
+`opal_fit()` runs `nlminb` (here two passes). `nlminb` stops on relative
+change in the objective, which for an objective of this size can leave
+gradients near 10^-3^. `ss3_newton_polish()` then takes a few Newton steps
+with the exact RTMB Hessian. `opal_attach_fit()` puts the polished optimum
+back on the object and runs `opal_check()`, which checks the gradient (here
+to 10^-4^), that the Hessian is positive definite and that the parameters
+are estimable.
+
+```{r convergence-table}
+#| tbl-colwidths: [14, 14, 14, 10, 18, 16, 14]
+knitr::kable(C[, .(fmt(objective_start, 2), fmt(objective_fit, 3), sci(max_gradient, 1),
+                   newton_steps, ifelse(positive_hessian, "yes", "**no**"),
+                   ifelse(check_passes, "passed", "**failed**"), fmt(seconds, 0))],
+             col.names = c("Objective at start", "Objective at fit", "Max |gradient|",
+                           "Newton steps", "Positive definite Hessian", "opal_check()",
+                           "Seconds"),
+             align = "rrrrccr")
+```
+
+## Save
+
+```{r save}
+#| echo: true
+#| eval: false
+```
+
+`opal_save()` stores the whole object: data, parameters, map, fit and
+provenance. `opal_read(path, rebuild = TRUE)` loads it again and rebuilds the
+RTMB tape, ready for `opal_report()`.
+
+# A first look at the fit
+
+These figures only check that the fitted model is sensible and close to
+SS3. The two vignettes listed in section 1 have the full comparison, including
+against the simulated truth. The companion script's `results` chunk builds
+these tables from `opal_report(fit)` and SS3's `Report.sso`, and can be
+reused as it is.
+
+```{r index-figure}
+#| fig-height: 6
+#| fig-cap: "Longline index, each quarterly series scaled to mean 1: observations (points, ±1.96 SE), opal's fit and SS3's expected values."
+ci = cache$cpue
+ci[, series := fleet_name(fishery)]
+cl = rbind(ci[, .(ts, series, value = opal, model = "opal")],
+           ci[, .(ts, series, value = ss3,  model = "SS3")])
+ggplot() +
+    geom_pointrange(data = ci, aes(ts, obs, ymin = obs * exp(-1.96 * se), ymax = obs * exp(1.96 * se)),
+                    colour = "grey60", size = 0.15, linewidth = 0.3) +
+    geom_line(data = cl, aes(ts, value, colour = model), linewidth = 0.6) +
+    facet_wrap(~series, ncol = 2) +
+    scale_series + labs(x = "Time step (quarter)", y = "Index (mean 1)")
+```
+
+```{r lf-figure}
+#| fig-height: 8
+#| fig-cap: "Length compositions aggregated over all observations for each fishery, weighted by sample size: observed (bars), opal's and SS3's expected."
+lf = cache$lf
+lf[, series := fleet_name(fishery)]
+ll = rbind(lf[, .(series, bin, value = opal, model = "opal")],
+           lf[, .(series, bin, value = ss3,  model = "SS3")])
+ggplot() +
+    geom_col(data = lf, aes(bin + 2.5, obs), fill = "grey85", width = 5) +
+    geom_line(data = ll, aes(bin + 2.5, value, colour = model), linewidth = 0.5) +
+    facet_wrap(~series, ncol = 4, scales = "free_y") +
+    scale_series + labs(x = "Length (cm)", y = "Proportion") +
+    theme(strip.text = element_text(size = 8), axis.text.y = element_blank(),
+          axis.ticks.y = element_blank())
+```
+
+```{r sel-figure}
+#| fig-height: 7
+#| fig-cap: "Selectivity-at-age: SS3's (age-based) and opal's fitted length-based curves mapped to age through the age–length key. Fisheries 15, 16 and 18–20 are mirrors and are not shown."
+sl = cache$selectivity[fishery %in% c(1:14, 17)]
+sl[, series := fleet_name(fishery)]
+ggplot(sl, aes(age, sel, colour = model)) +
+    geom_line(linewidth = 0.6) +
+    facet_wrap(~series, ncol = 4) +
+    scale_series + labs(x = "Age (quarters)", y = "Selectivity") +
+    theme(strip.text = element_text(size = 8))
+```
+
+```{r ssb-figure}
+#| fig-height: 6
+#| fig-cap: "Spawning biomass (top) and spawning biomass relative to B0 (bottom): SS3 and the fitted opal model."
+tl = rbind(cache$trajectory[, .(ts, model, value = ssb, panel = "Spawning biomass (t)")],
+           cache$trajectory[, .(ts, model, value = depletion, panel = "SSB / B0")])
+ggplot(tl, aes(ts, value, colour = model)) +
+    geom_line(linewidth = 0.6) +
+    facet_wrap(~panel, ncol = 1, scales = "free_y") +
+    expand_limits(y = 0) +
+    scale_series + labs(x = "Time step (quarter)", y = NULL)
+```
+
+```{r summary-table}
+st = S[, .(quantity,
+           SS3  = ifelse(quantity == "Terminal SSB / B0", fmt(SS3, 3), fmt(SS3, 0)),
+           opal = ifelse(quantity == "Terminal SSB / B0", fmt(opal, 3), fmt(opal, 0)),
+           ratio = fmt(opal / SS3, 2))]
+knitr::kable(st, col.names = c("Quantity", "SS3", "opal", "opal / SS3"), align = "lrrr")
+```
+
+For IO YFT, opal's B0 is `r fmt(S[1, opal / SS3], 2)` × SS3's, and its
+terminal SSB/B0 is `r fmt(S[3, opal], 2)` against SS3's `r fmt(S[3, SS3], 2)`.
+Most of that gap comes from selectivity. When the same opal model is fitted
+with SS3's selectivity-at-age held fixed (fit A1 in
+`ss3-to-opal-io-yft-age-k.qmd`), its terminal SSB/B0 is within 0.01 of SS3's.
+The remaining sources of difference are:
+
+* catch timing;
+* opal's length-based selectivity curves, which cannot match every SS3
+  age-based shape;
+* the index split into four series with separate catchabilities;
+* SS3 data that opal does not use (here, the survey's generalised size
+  compositions).
+
+What matters is that the gap can be explained. The two vignettes explain the
+IO YFT gap one cause at a time.
+
+# From yellowfin to your model
+
+The converter was written for, and tested on, this one SS3 model. It reads
+the general SS3 file layout through r4ss, but wherever IO YFT did not need a
+feature, the code does not handle it. Before converting another model, list
+its features with `ss3_model_features()` and compare them with IO YFT's. Each
+difference tells you which function to check or extend. The last column
+points to where to start.
+
+```{r features-table}
+#| tbl-colwidths: [20, 13, 13, 54]
+notes = c(
+    "SS3 version" = "Tested on 3.24 only. `ss3_read_model()` reads the par file with `SS_readpar_3.24()`, and `ss3_lencomp_n_mult()` and the catch row of `ss3_reconcile()` expect 3.24 layouts. For 3.30, check every reader in `ss3-convert.R`, and `ss3_recdevs()`.",
+    "Model period (SS3 years)" = "`cfg$time`; the opal step is the SS3 year.",
+    "Seasons per year" = "The converter assumes `nseas = 1`: opal gets `n_season = 1`, and `ss3_catch_to_opal()` keeps one catch value per year and fleet.",
+    "Months per season" = "Sets the M and K divisor (`ss3_m_rate_divisor()`).",
+    "Sexes" = "Single-sex only. `ss3_endgrowth_table()` keeps the first sex; two-sex compositions and spawning output need new code.",
+    "Areas" = "Single area only.",
+    "Ages (max)" = "`cfg$age`.",
+    "Fishing fleets" = "One opal fishery per SS3 fleet, in SS3 order.",
+    "Survey / index fleets" = "`cfg$index` (`keep_ss3_fleets`, `split`); opal adds one fishery per index series.",
+    "Catch units (1 biomass, 2 numbers)" = "Passed through (opal uses the same codes).",
+    "Index observations" = "`ss3_index_to_opal()`; negative fleet codes are dropped; scaled to mean 1.",
+    "Length composition rows" = "`ss3_lencomp_to_opal()`; one sex, no partitions. `mult_by_lencomp_N` becomes `lf_var_adjust`.",
+    "Age composition rows" = "Not converted. Conditional age-at-length or age data need new code.",
+    "Generalised size comp methods" = "Not converted (IO YFT's survey size data are dropped).",
+    "Tag release groups" = "Not converted.",
+    "Growth model (1 vB, 2 Richards, 3 age-K)" = "3: `growth$model = \"ss3_age_k\"` (exact). 1: `\"schnute\"`, which matches von Bertalanffy. 2: Schnute approximation only; check the length-at-age row of `ss3_reconcile()`.",
+    "Growth patterns" = "One expected.",
+    "Platoons per growth pattern" = "One expected. With platoons, `ss3_endgrowth_table()` averages rows without abundance weights and warns.",
+    "Length selectivity patterns" = "Any pattern works for the bridging test (selectivity is read from `ageselex`). For the final model, choose `opal_type_f` to suit SS3's shapes and check the seeding RMSE.",
+    "Age selectivity patterns" = "As above.",
+    "Time-block designs" = "Only one year of selectivity is used (`selectivity$reference_year`). Time-varying selectivity is not represented.",
+    "F method" = "opal removes catch at the start of each step; the bridging test measures the effect.",
+    "Stock-recruit function" = "opal is Beverton–Holt; steepness and σR are read from the par file.",
+    "Report.sso available" = "Required for the `endgrowth` route, selectivity, B0 and the bridging test.")
+ft = cache$features[, .(feature, yft = value, yours = " ", where = notes[feature])]
+# Shorten SS3's full version banner to its number.
+ft[feature == "SS3 version", yft := sub("^SS-V([0-9.]+[A-Za-z]*).*", "\\1", yft)]
+knitr::kable(ft, col.names = c("Feature", "IO YFT", "Your model", "What the converter does / where to look"))
+```
+
+The converter also assumes the following, which are not in the table:
+
+* **Initial conditions.** The converter starts the population unfished:
+  initial F is effectively zero and there are no initial age deviations. If
+  your model starts from a fished equilibrium (initial equilibrium catch or
+  initial F), `ss3_pars_to_opal()` has to set `log_init_F_f` and the map has
+  to estimate it.
+* **Recruitment deviations.** Early and main deviations are read from the par
+  file (`ss3_recdevs()`), and SS3's bias-adjustment ramp from Report.sso.
+  Forecast deviations are ignored.
+* **Parameters with environmental links, time variation or deviations**
+  (other than recruitment) are not converted. Their effects on selectivity
+  and biology are captured only through the single reference year read from
+  Report.sso.
+
+A suggested order for a new model:
+
+1. Run `ss3_model_features()` and fill in the "Your model" column.
+2. Set up `cfg` and get `ss3_to_opal()` to run, extending the converter
+   where the table says it needs to.
+3. Make tests 1 and 2 pass exactly before anything else.
+4. Run the bridging test and make the replay with SS3 timing match SS3.
+5. Only then set up the opal selectivity and fit.
+
+# Credit
+
+The SS3 model used here (`case-studies/io-yft/model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4`)
+was developed by the IATTC analyst team for the Spatial Stock Assessment
+Simulation Experiment: Mark N. Maunder, Haikun Xu and Carolina Minte-Vera
+(Inter-American Tropical Tuna Commission). The yellowfin assessments from the
+experiment, including theirs, are evaluated in Goethel, D.R., et al. (2024).
+'Drivin' with your eyes closed': Results from an international, blinded
+simulation experiment to evaluate spatial stock assessments. *Fish and
+Fisheries* 25(3): 471–490. <https://doi.org/10.1111/faf.12819>
+
+# Session
+
+```{r session}
+sess = cache$session
+knitr::kable(data.table(item = c("cache written", names(sess)),
+                        value = c(cache$created, unlist(sess))),
+             col.names = c("Item", "Value"))
+```

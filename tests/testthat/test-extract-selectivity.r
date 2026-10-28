@@ -8,11 +8,11 @@ library(FLR4MFCL)
 
 # Define project paths
 proj_dir = this.path::this.proj()
-dir_model = file.path(proj_dir, "model-files")
+dir_model = file.path(proj_dir, "case-studies", "wcpo-bet", "model-files")
 dir_ss3 = file.path(dir_model, "ss3")
 dir_mfcl = file.path(dir_model, "mfcl")
-dir_helper_fns_ss3 = file.path(proj_dir, "code", "ss3", "helper-fns")
-dir_helper_fns_mfcl = file.path(proj_dir, "code", "mfcl", "helper-fns")
+dir_helper_fns_ss3 = file.path(proj_dir, "shared", "extractors", "ss3")
+dir_helper_fns_mfcl = file.path(proj_dir, "shared", "extractors", "mfcl")
 
 # Source helper functions
 sapply(file.path(dir_helper_fns_ss3, list.files(dir_helper_fns_ss3)), source)

@@ -1,5 +1,7 @@
 # opal-sandbox
 
+[![tests](https://github.com/N-DucharmeBarth/opal-sandbox/actions/workflows/tests.yaml/badge.svg)](https://github.com/N-DucharmeBarth/opal-sandbox/actions/workflows/tests.yaml)
+
 Case studies and tests for [opal](https://github.com/N-DucharmeBarth-NOAA/opal),
 an RTMB-based, age-structured stock assessment model.
 
@@ -24,7 +26,7 @@ shared/                code used by more than one case study
   extractors/mfcl/     MFCL output extractors and .frq parser
   setup/               install script for R, opal, r4ss and Quarto in a cloud container
 simulations/           simulation studies of opal behaviour (selectivity, catch timing)
-tests/testthat/        unit tests for the shared extractors
+tests/testthat/        unit tests for the shared extractors and converter
 executables/           SS3 (3.30.22.1-3.30.24.1) and MFCL binaries
 ```
 
@@ -73,7 +75,14 @@ R is managed with `renv` (`renv.lock`). Scripts find the project root with `this
 
 ## Unit testing
 
-The tests in `tests/testthat/` check the structure, types and value ranges of the shared extractors' output, and that the SS3 and MFCL extractors are compatible with each other. They use the WCPO bigeye model files. To run them from the project root:
+The tests in `tests/testthat/` cover the shared code:
+
+- The extractors are checked for the structure, types and value ranges of their output, and for compatibility between the SS3 and MFCL versions. These tests use the WCPO bigeye model files.
+- The SS3-to-opal converter is checked on the IO yellowfin case study (`test-ss3-to-opal-io-yft.r`). The test converts the SS3 model and runs the structural checks and the reconciliation with SS3. It then builds the opal object and checks that replaying the converted inputs with SS3's catch timing reproduces SS3's spawning biomass to within 1%.
+
+The SS3 length- and weight-composition tests read `CompReport.sso`, which is not in the repository. Those two test files are skipped until `case-studies/wcpo-bet/model-files/ss3/01-bet-base/CompReport.sso` is added.
+
+The GitHub Actions workflow `.github/workflows/tests.yaml` runs the tests on every pull request and on every push to `main`. To run them locally from the project root:
 
 ```r
 testthat::test_dir("tests/testthat")

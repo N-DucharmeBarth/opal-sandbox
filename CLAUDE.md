@@ -29,7 +29,8 @@ project root with `this.path::this.proj()`, so they still work from anywhere.
 See README.md. Each stock has its own folder under `case-studies/`; code used
 by more than one case study goes in `shared/` (`ss3-to-opal/` converter,
 `extractors/{ss3,mfcl}/`, `setup/`). `simulations/` holds the opal simulation
-studies and `tests/testthat/` the extractor tests.
+studies and `tests/testthat/` the tests of the shared code, which
+`.github/workflows/tests.yaml` runs on pull requests and pushes to `main`.
 
 ## SS3 -> opal (shared/ss3-to-opal, case-studies/io-yft)
 

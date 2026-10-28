@@ -45,6 +45,7 @@
 !*.qmd
 # self-contained HTML of the SS3-to-opal workflow guide
 !case-studies/io-yft/vignettes/ss3-to-opal-workflow.html
+!case-studies/npo-bsh/vignettes/npo-bsh-ss3-to-opal.html
 # stock synthesis
 !control.ss
 !data.ss

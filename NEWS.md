@@ -7,10 +7,15 @@
     deviations, no initial regime offset, no F-ballpark penalty. Every step
     converges with a positive-definite Hessian. Likelihood profiles over
     ln(R0) show that the single-sex models' scale is weakly determined.
-  - The last step (B2e) is converted to opal and fitted with SS3's
-    selectivity (O1) and with opal's own double normals (O2). The vignette
-    `vignettes/npo-bsh-ss3-to-opal.qmd` documents where opal falls short of
-    SS3 or differs from it.
+  - The last step (B2e) is converted to opal. At SS3's values opal differs
+    from SS3 through catch timing (start-of-year removal). Fitted with SS3's
+    selectivity (O1), opal converges but estimates terminal depletion of
+    0.25 against SS3's 0.54; diagnostic refits trace this to opal predicting
+    length compositions from start-of-year lengths (with SS3's mid-year
+    length-at-age, or without the compositions, opal matches SS3). Fitting
+    opal's own double normals (O2) does not converge. The vignette
+    `vignettes/npo-bsh-ss3-to-opal.qmd` documents these and the other places
+    where opal falls short of SS3 or differs from it.
   - The shared converter reads SS3 3.30 models: 3.30 par files and variance
     adjustments (including SS3's additive index CV), fishing fleets numbered
     after the surveys, initial F, early recruitment deviations as the initial

@@ -215,6 +215,27 @@
     if (refit) saveRDS(list(O1 = fit_o1, O2 = fit_o2), fits_file, compress = "xz")
 
 #_____________________________________________________________________________
+# Diagnostics: what moves O1 away from SS3
+    # O1-noLF  O1 without the length compositions (lambda 0)
+    # O1-mid   O1 with SS3's mid-year length-at-age in place of opal's growth
+    #          for the length predictions. SS3 predicts a fishery's
+    #          compositions over the year; opal from start-of-year numbers. This
+    #          uses ss3_patch_opal_external_laa(), which edits opal_model() in
+    #          this R session only, so it runs after the main fits.
+    # (O2 with the same length-at-age did not converge either; it is not run.)
+    eg_mid = as.data.table(converted$ss3$rep$endgrowth)[Sex == 1 & Seas == 1]
+    with_lambdas = function(x, lam) {
+        d = x$data
+        d$lambdas = c(list(prior = 0), lam)
+        opal_update(x, data = d)
+    }
+    o1_nolf = with_lambdas(o1, list(lf = 0)) %>% opal_build()
+    fit_o1_nolf = fit_opal(o1_nolf)
+    ss3_patch_opal_external_laa()
+    o1_mid = ss3_use_external_length_at_age(o1, eg_mid$Len_Mid, eg_mid$SD_Mid) %>% opal_build()
+    fit_o1_mid = fit_opal(o1_mid)
+
+#_____________________________________________________________________________
 # Results
     rep_ss3 = converted$ss3$rep
     n = converted$data$n_year
@@ -222,7 +243,8 @@
     ts_ss3 = as.data.table(rep_ss3$timeseries)[Era == "TIME" & Yr %in% yrs]
     ssb0_ss3 = ss3_derived_value(rep_ss3, c("SSB_Virgin", "SSB_Unfished"))
 
-    models = list(O0 = o0, O1 = fit_o1, O2 = fit_o2)
+    models = list(O0 = o0, O1 = fit_o1, O2 = fit_o2, `O1-noLF` = fit_o1_nolf,
+                  `O1-mid` = fit_o1_mid)
     trajectory = rbind(
         data.table(model = "SS3 B2e", year = yrs, ssb = ts_ss3$SpawnBio,
                    depletion = ts_ss3$SpawnBio / ssb0_ss3,
@@ -262,7 +284,7 @@
     print(summary_dt)
 
     # Index fits
-    cpue = rbindlist(lapply(c("O1", "O2"), function(id) {
+    cpue = rbindlist(lapply(c("O1", "O2", "O1-mid"), function(id) {
         d = as.data.table(models[[id]]$data$cpue_data)
         d[, .(model = id, year, index, obs = value, se, pred = opal_report(models[[id]])$cpue_pred)]
     }))

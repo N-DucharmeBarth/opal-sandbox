@@ -52,7 +52,8 @@ B = bridge$summary
 P = profile$profile
 S = opal_c$summary
 step_lab = setNames(bridge$labels, bridge$steps)
-model_col = c("SS3 B2e" = "grey20", O0 = "#7D3C98", O1 = "#2471A3", O2 = "#C0392B")
+model_col = c("SS3 B2e" = "grey20", O0 = "#7D3C98", O1 = "#2471A3", O2 = "#C0392B",
+              `O1-noLF` = "#CA6F1E", `O1-mid` = "#1E8449")
 ```
 
 # Overview
@@ -95,6 +96,11 @@ In brief:
   indices, compositions, biology, unfished equilibrium, selectivity-at-length).
   opal at SS3's parameter values differs from SS3 mainly through catch timing:
   opal removes each year's catch at the start of the year, SS3 continuously.
+* Fitted with SS3's selectivity (O1), opal converges but estimates a much
+  more depleted stock than SS3. Diagnostic refits trace this to how the length
+  compositions are predicted: with SS3's mid-year length-at-age, or without
+  the compositions, opal's estimate matches SS3's. Fitting opal's own
+  selectivity (O2) does not converge.
 
 # The S6 assessment
 
@@ -123,24 +129,28 @@ knitr::kable(data.table(
 # The SS3 bridge {#sec-bridge}
 
 `scripts/01-build-ss3-bridge.r` builds each step from the previous step's
-estimates and re-estimates it with SS3 3.30.22.1 (with the Hessian).
+estimates and re-estimates it with SS3 3.30.22.1 (with the Hessian). Each
+step makes one change:
+
+* **S6**: as supplied, re-run with 3.30.22.1.
+* **B1**: single sex (`Nsexes = -1`); female growth, M and weight-length;
+  compositions summed over sex; no sex-offset selectivity.
+* **B2a**: F18's cubic spline replaced by a double normal.
+* **B2b**: F8's two selectivity blocks become F8 (1973-81) and a new fleet 32
+  (1982-92).
+* **B2c**: no annual deviations on F19's peak.
+* **B2d**: no initial-equilibrium regime offset.
+* **B2e**: no F-ballpark penalty.
 
 ```{r}
 #| label: tbl-bridge
-#| tbl-cap: "The SS3 bridge. Each step's change is relative to the previous step. All steps converged (maximum gradient below 2e-4) with a positive-definite Hessian and no parameter on a bound."
-change = c("as supplied, re-run with 3.30.22.1",
-           "single sex (Nsexes = -1); female growth, M and weight-length; compositions summed over sex; no sex-offset selectivity",
-           "F18 cubic spline -> double normal",
-           "F8 blocks -> F8 (1973-81) and fleet 32 (1982-92)",
-           "no annual deviations on F19's peak",
-           "no initial-equilibrium regime offset",
-           "no F-ballpark penalty")
-knitr::kable(B[, .(Step = label, Change = change, `Est. par.` = n_par,
-                   NLL = fmt(nll, 2), `Index NLL` = fmt(nll_survey, 2),
-                   `Length NLL` = fmt(nll_length, 2),
-                   `SSB0` = fmt(ssb0, 0), `SSB2020/SSB0` = fmt(depletion, 3),
-                   `F2020` = fmt(f_2020, 3), `Hessian` = ifelse(hessian_ok, "ok", "fail"))],
-             format = "pipe", align = "llrrrrrrrl")
+#| tbl-cap: "The SS3 bridge. All steps converged (maximum gradient below 2e-4) with a positive-definite Hessian and no parameter on a bound."
+stopifnot(all(B$hessian_ok))
+knitr::kable(B[, .(Step = label, `Est. par.` = n_par,
+                   NLL = fmt(nll, 2), SSB0 = fmt(ssb0, 0),
+                   `SSB2020/SSB0` = fmt(depletion, 3), F2020 = fmt(f_2020, 3),
+                   `SSB MSY` = fmt(ssb_msy, 0))],
+             format = "pipe", align = "lrrrrrr")
 ```
 
 ```{r}
@@ -303,11 +313,14 @@ bl = rbind(br[, .(year, series = "SS3 B2e", value = ss3)],
            br[, .(year, series = "replay, SS3 timing", value = replica_ss3)])
 rel = rbind(br[, .(year, series = "opal (O0)", value = rel_opal)],
             br[, .(year, series = "replay, SS3 timing", value = rel_replica_ss3)])
+o0_col = c("SS3 B2e" = "grey20", "opal (O0)" = "#7D3C98", "replay, SS3 timing" = "#CA6F1E")
 p1 = ggplot(bl, aes(year, value, colour = series)) + geom_line(linewidth = 0.7) +
+    scale_colour_manual(values = o0_col) +
     labs(x = NULL, y = "Spawning biomass (pups)", colour = NULL)
 p2 = ggplot(rel, aes(year, value, colour = series)) + geom_hline(yintercept = 0, colour = "grey50") +
-    geom_line(linewidth = 0.7) + labs(x = NULL, y = "Relative to SS3", colour = NULL)
-p1 / p2
+    geom_line(linewidth = 0.7) + scale_colour_manual(values = o0_col) +
+    labs(x = NULL, y = "Relative to SS3", colour = NULL)
+(p1 / p2) + plot_layout(guides = "collect") & theme(legend.position = "bottom")
 ```
 
 The first year agrees to `r fmt(100 * abs(br$rel_opal[1]), 1)`%: the initial
@@ -372,13 +385,45 @@ conv = function(x) if (isTRUE(x$check_passes)) "converged and passes `opal_check
 ```
 
 O1 `r conv(o1)`; its terminal depletion is `r fmt(o1$depletion_2020, 3)`
-against SS3's `r fmt(S[model == "SS3 B2e"]$depletion_2020, 3)`. O2
-`r conv(o2)`, with terminal depletion `r fmt(o2$depletion_2020, 3)`. O2 improves
-the fit to the compositions by `r fmt(o1$lp_lf - o2$lp_lf, 0)` units over O1
-and changes the fit to the indices by `r fmt(o2$lp_cpue - o1$lp_cpue, 1)`.
-Given the flat ln(R~0~) profile of B2e, differences in scale between opal and
-SS3 of this size are possible from small differences in how the two models
-predict the data, and the fits to the data are the better guide.
+against SS3's `r fmt(S[model == "SS3 B2e"]$depletion_2020, 3)`, although it
+uses SS3's selectivity and starts at SS3's values (O0, depletion
+`r fmt(S[model == "O0"]$depletion_2020, 3)`). O2 `r conv(o2)` and is shown for
+completeness only: freeing opal's selectivity improves the fit to the
+compositions by `r fmt(o1$lp_lf - o2$lp_lf, 0)` units over O1 while worsening
+the fit to the indices by `r fmt(o2$lp_cpue - o1$lp_cpue, 1)`, and the
+optimiser does not settle (several widths move to the flat ends of the double
+normal, where the gradient vanishes). Its depletion of
+`r fmt(o2$depletion_2020, 3)` should not be read as an estimate.
+
+## What moves opal away from SS3
+
+```{r}
+#| label: diag-text
+nolf = S[model == "O1-noLF"]
+mid  = S[model == "O1-mid"]
+```
+
+Two diagnostic refits of O1 locate the difference (@tbl-fits, @fig-fits):
+
+* **Without the length compositions** (O1-noLF, lambda 0), opal's estimate
+  matches SS3's: terminal depletion `r fmt(nolf$depletion_2020, 3)`, B~0~
+  `r fmt(nolf$B0, 0)`. opal's dynamics, the indices and the recruitment
+  penalty agree with SS3's; the compositions are what pull O1 down.
+* **With SS3's mid-year length-at-age** in place of opal's growth when the
+  compositions are predicted (O1-mid), depletion is
+  `r fmt(mid$depletion_2020, 3)`, close to SS3's. SS3 predicts a fishery's
+  length composition from its catch over the year, during which an age-0
+  shark grows from 5 cm towards the 35 cm it reaches by age 1; opal predicts it from numbers at
+  the start of the year with start-of-year lengths. With SS3's start-of-year
+  length-at-age instead the fit runs away (B~0~ over 10^7^), and opal's own
+  Schnute growth (fitted to the start-of-year lengths, linear growth below
+  age 1 aside) lands in between.
+
+O1-mid uses `ss3_patch_opal_external_laa()`, a local edit of opal's model
+function that substitutes a supplied length-at-age; it is a diagnostic, not a
+way to fit opal. What opal would need is length-at-age, and the age
+composition of the catch, at the time each observation is made
+(@sec-limitations).
 
 ```{r}
 #| label: fig-fits
@@ -414,7 +459,7 @@ ggplot(cp, aes(year)) +
 ```{r}
 #| label: fig-sel
 #| fig-height: 8
-#| fig-cap: "Selectivity-at-age in 2020: SS3 B2e (black) and opal O2 (red), for the opal fisheries with length data and the two indices."
+#| fig-cap: "Selectivity-at-age in 2020: SS3 B2e (black) and opal O2 (red; not converged), for the opal fisheries with length data and the two indices."
 sel = copy(opal_c$selectivity)
 fl = opal_c$fleets
 keep = c(1, 3, 4, 5, 7, 8, 9, 14, 15, 17, 18, 19, 20, 21, 22, 23)
@@ -461,10 +506,14 @@ ggplot(sel, aes(age, sel, colour = model)) +
   would approximate continuous removal, but opal's single weight-at-age vector
   would still apply start-of-year weights in every season.
 * **Observation timing.** SS3 observes the indices in month 7 and the
-  fishery compositions over the year; opal predicts both from numbers at the
-  start of the season. With fast growth in the first year this shifts the
-  predicted compositions of fleets that catch young sharks, which opal's
-  selectivity then absorbs (@fig-sel).
+  fishery compositions over the year (catch-weighted, with mid-year
+  lengths); opal predicts both from numbers and lengths at the start of the
+  season. For this annual model with fast first-year growth this is the
+  difference that matters most once opal is fitted: it alone moves O1's
+  terminal depletion from about 0.55 to 0.25 (@sec-fits). opal would need
+  observation-time length-at-age (growth evaluated at the fraction of the
+  year or season when the fleet fishes) and catch-weighted predicted
+  compositions; sub-annual seasons would approximate both.
 * **Growth below the first reference age.** SS3 grows fish linearly from age
   0 to age 1; opal's Schnute curve extrapolates von Bertalanffy growth. On
   the endgrowth biology route this only affects the PLA used for selectivity.

@@ -23,6 +23,16 @@
     deviations aligned to SS3's recruitment year when SS3 age 0 is kept.
     `ss3_seed_par_sel_size_dblnorm()` carries SS3's size double normals into
     opal exactly. The IO yellowfin conversion is unchanged.
+  - The vignette summarises the assessment report (ISC 2022, Annex 12): the
+    stock, fisheries, data, data weighting, biology, the three-model ensemble
+    (S6_base has half its weight) and S6_base's diagnostics. It checks the S6
+    files against the report, notes where they differ from the report's text
+    (recruitment settles in month 7, not at the start of the year; sigma_R
+    0.4; the updated growth parameters; constant fecundity, so spawning output
+    is in pups; the F-ballpark penalty and initial regime offset), and
+    compares the S6 re-run with the ensemble's reference points. The bridge
+    table's F2020 column is now labelled F2020/F_MSY, which is what SS3
+    reports with this starter file, and the bridge cache adds F_MSY.
   - New tests: `test-npo-bsh-ss3-bridge.r` (each bridge step's convergence,
     Hessian, structure and data) and `test-ss3-to-opal-npo-bsh.r` (the
     conversion, recruitment alignment, selectivity and opal's dynamics at

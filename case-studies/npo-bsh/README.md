@@ -1,15 +1,19 @@
 # Case study: North Pacific blue shark
 
 The 2022 ISC stock assessment of blue shark (*Prionace glauca*) in the North
-Pacific Ocean (base case S6, Stock Synthesis 3.30.19) bridged to opal. S6 has
+Pacific Ocean (Stock Synthesis 3.30.19) bridged to opal. The assessment's stock
+status comes from an ensemble of three SS3 models (ISC 2022, Annex 12); this
+case study uses the most heavily weighted of them, S6_base (S6 here). S6 has
 two sexes, which opal does not model, so the bridge runs through a sequence of
 SS3 models that end in a single-sex SS3 model opal can represent (B2e), and
 opal is converted from and compared with that model.
 
 Any model runs contained within this case study represent preliminary model
 explorations and should not be used *as is* for the consideration of
-management advice. The assessment accepted by the ISC is S6 as supplied in
-`model-files/ss3/00-s6-base/`.
+management advice. The ISC's stock status advice is based on the three-model
+ensemble, of which S6 as supplied in `model-files/ss3/00-s6-base/` is one
+member. The assessment report is
+<https://isc.fra.go.jp/pdf/ISC22/ISC22_ANNEX12_Stock_Assessment_for_Blue_Shark.pdf>.
 
 ## Contents
 

@@ -1,5 +1,5 @@
 # Converter configuration: the single-sex SS3 bridge model B2e of the 2022 ISC
-# North Pacific blue shark assessment (base case S6) -> opal.
+# North Pacific blue shark assessment (ensemble model S6_base) -> opal.
 #
 # B2e is built from S6 by case-studies/npo-bsh/scripts/01-build-ss3-bridge.r:
 # single sex (Nsexes = -1), F18 double normal, F8 split at its selectivity
@@ -18,7 +18,7 @@ metadata:
   species:     Blue shark
   region:      North Pacific Ocean
   data_type:   assessment
-  note:        Single-sex bridge (B2e) of the 2022 ISC SHARKWG base case S6
+  note:        Single-sex bridge (B2e) of the 2022 ISC SHARKWG ensemble model S6_base
   reference:   "ISC (2022) Stock assessment of blue shark in the North Pacific Ocean through 2020. ISC/22/ANNEX/12"
 
 files:

@@ -57,7 +57,26 @@ div.sourceCode
 @media screen {
 pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
-</style>
+
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+}
+.hanging-indent div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+}</style>
 
 
 <script>/*!
@@ -2210,7 +2229,13 @@ vertical-align: -.125em;
    
   <ul class="collapse">
   <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview"><span class="header-section-number">1</span> Overview</a></li>
-  <li><a href="#the-s6-assessment" id="toc-the-s6-assessment" class="nav-link" data-scroll-target="#the-s6-assessment"><span class="header-section-number">2</span> The S6 assessment</a></li>
+  <li><a href="#sec-assessment" id="toc-sec-assessment" class="nav-link" data-scroll-target="#sec-assessment"><span class="header-section-number">2</span> The 2022 assessment</a>
+  <ul class="collapse">
+  <li><a href="#stock-fisheries-and-data" id="toc-stock-fisheries-and-data" class="nav-link" data-scroll-target="#stock-fisheries-and-data"><span class="header-section-number">2.1</span> Stock, fisheries and data</a></li>
+  <li><a href="#biology" id="toc-biology" class="nav-link" data-scroll-target="#biology"><span class="header-section-number">2.2</span> Biology</a></li>
+  <li><a href="#the-ensemble-and-s6_base" id="toc-the-ensemble-and-s6_base" class="nav-link" data-scroll-target="#the-ensemble-and-s6_base"><span class="header-section-number">2.3</span> The ensemble and S6_base</a></li>
+  <li><a href="#the-files-against-the-report" id="toc-the-files-against-the-report" class="nav-link" data-scroll-target="#the-files-against-the-report"><span class="header-section-number">2.4</span> The files against the report</a></li>
+  </ul></li>
   <li><a href="#sec-bridge" id="toc-sec-bridge" class="nav-link" data-scroll-target="#sec-bridge"><span class="header-section-number">3</span> The SS3 bridge</a>
   <ul class="collapse">
   <li><a href="#how-well-is-scale-determined" id="toc-how-well-is-scale-determined" class="nav-link" data-scroll-target="#how-well-is-scale-determined"><span class="header-section-number">3.1</span> How well is scale determined?</a></li>
@@ -2231,7 +2256,8 @@ vertical-align: -.125em;
   <li><a href="#structural-differences-handled-in-the-conversion" id="toc-structural-differences-handled-in-the-conversion" class="nav-link" data-scroll-target="#structural-differences-handled-in-the-conversion"><span class="header-section-number">6.2</span> Structural differences handled in the conversion</a></li>
   <li><a href="#what-the-bridge-itself-changes" id="toc-what-the-bridge-itself-changes" class="nav-link" data-scroll-target="#what-the-bridge-itself-changes"><span class="header-section-number">6.3</span> What the bridge itself changes</a></li>
   </ul></li>
-  <li><a href="#reproducing-this-document" id="toc-reproducing-this-document" class="nav-link" data-scroll-target="#reproducing-this-document"><span class="header-section-number">7</span> Reproducing this document</a></li>
+  <li><a href="#reproducing-this-document" id="toc-reproducing-this-document" class="nav-link" data-scroll-target="#reproducing-this-document">Reproducing this document</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
   </ul>
 <div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="npo-bsh-ss3-to-opal.pdf"><i class="bi bi-file-pdf"></i>Typst</a></li></ul></div></nav>
 </div>
@@ -2297,7 +2323,7 @@ vertical-align: -.125em;
 </div>
 <section id="overview" class="level1" data-number="1">
 <h1 data-number="1"><span class="header-section-number">1</span> Overview</h1>
-<p>The 2022 ISC stock assessment of North Pacific blue shark (<em>Prionace glauca</em>) uses Stock Synthesis (SS3 3.30.19) with two sexes. Its base case, S6, models sex-specific growth, natural mortality and selectivity, and fits joint sex-by-length compositions. opal tracks one population vector, so S6 cannot be converted directly.</p>
+<p>The 2022 ISC stock assessment of North Pacific blue shark (<em>Prionace glauca</em>) <span class="citation" data-cites="isc2022bsh">(<a href="#ref-isc2022bsh" role="doc-biblioref">ISC Shark Working Group 2022</a>)</span> uses Stock Synthesis (SS3 3.30.19) with two sexes. Stock status comes from an ensemble of three models that differ only in the late-period abundance index and the weighting of one fleet’s length data. This case study uses the most heavily weighted of them, S6_base (S6 here). S6 models sex-specific growth, natural mortality and selectivity, and fits joint sex-by-length compositions. opal tracks one population vector, so S6 cannot be converted directly.</p>
 <p>This case study therefore bridges in two stages:</p>
 <ol type="1">
 <li><strong>Within SS3</strong> (<a href="#sec-bridge" class="quarto-xref">Section 3</a>), from S6 to a single-sex SS3 model (B2e) whose structure opal can represent, one change at a time, so the effect of each change is measured on its own.</li>
@@ -2320,8 +2346,66 @@ vertical-align: -.125em;
 <li>Fitted with SS3’s selectivity (O1), opal converges but estimates a much more depleted stock than SS3. Diagnostic refits trace this to how the length compositions are predicted: with SS3’s mid-year length-at-age, or without the compositions, opal’s estimate matches SS3’s. Fitting opal’s own selectivity (O2) does not converge.</li>
 </ul>
 </section>
-<section id="the-s6-assessment" class="level1" data-number="2">
-<h1 data-number="2"><span class="header-section-number">2</span> The S6 assessment</h1>
+<section id="sec-assessment" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> The 2022 assessment</h1>
+<p>This section summarises the assessment report <span class="citation" data-cites="isc2022bsh">(<a href="#ref-isc2022bsh" role="doc-biblioref">ISC Shark Working Group 2022</a>)</span>; section numbers (§) and “report” tables and figures refer to it.</p>
+<section id="stock-fisheries-and-data" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="stock-fisheries-and-data"><span class="header-section-number">2.1</span> Stock, fisheries and data</h2>
+<p>The ISC Shark Working Group (SHARKWG) assesses two Pacific stocks, north and south of the equator. Blue shark are scarce in the tropics, and no tagged shark has been recorded crossing the equator, although there is no genetic evidence of separate hemispheric populations (§2.1.1). Within the North Pacific the stock mixes widely but is segregated by size and sex. Pupping grounds lie at about 35-40°N in the northwest and 25-50°N in the northeast. Subadult females are found further north (35-50°N) than subadult males (30-40°N) (§2). The model has one area: the North Pacific north of the equator, annually from 1971 to 2020 (§3.1-3.2).</p>
+<p>The catch is total dead removals (landings plus dead discards) (§3.4):</p>
+<ul>
+<li>Japan, Chinese-Taipei, Mexico and the USA take more than 90% of it.</li>
+<li>It peaked at about 70,900 t in 1981.</li>
+<li>It averaged 29,600 t a year over 2011-2020.</li>
+<li>Since the high-seas driftnet ban in 1993, 89-97% of it has come from longlines.</li>
+</ul>
+<p>Most of the catch is taken by three fleets: Japanese offshore shallow-set longline (F4), Japanese distant-water deep-set longline (F7) and Taiwanese small-scale longline (F20). In the 1980s and early 1990s the high-seas driftnet fleets (F8 large mesh, F11 small mesh) also caught large amounts. Two pairs of fleets are new since the 2017 assessment: Japan’s large-mesh driftnet was split at the 1993 move from the high seas into the EEZ (F8 and F9), and the Hawaii longline into deep-set and shallow-set fleets (F17 and F18). F11, F17 and F18 report catch in numbers and all other fleets in weight (report Table 1).</p>
+<p>The 11 candidate abundance indices are listed in report Table 3. Every model in the ensemble fits the Japanese Kinkai shallow-set longline index for the early period (S5, 1976-1993). The models differ in the late-period index (1994-2020):</p>
+<ul>
+<li><strong>S6:</strong> the same fleet’s late-period index, which is what S6_base fits.</li>
+<li><strong>S11:</strong> a dynamic-factor-analysis composite of the Hawaii deep-set (S1), Taiwanese large-scale (S3) and Japanese research and training vessel (S7) indices.</li>
+</ul>
+<p>The other indices have lambda 0 and were used only in sensitivity runs. Sex-specific length compositions (precaudal length, PCL, in 5 cm bins) come from 14 fisheries. F11’s single 1991 sample is sex-combined, on different bins, and enters as generalised size-frequency data (report Table 5, §4.4.3).</p>
+<p>Data weighting was done in two steps (§4.2.3):</p>
+<ul>
+<li><strong>Indices.</strong> Where an index’s mean CV was below the RMSE of a loess fit, its CV was raised by an additive variance adjustment (report Table 6). S5, S6 and S11 were not adjusted.</li>
+<li><strong>Length compositions.</strong> Every fleet’s variance adjustment is 0.002161 = 50/23,142. This scales the input sample sizes so that the fleet with the most fish measured (F4) averages about 50. Francis’s TA1.8 then down-weighted F4 further. The files match: 0.002161 for every length-composition fleet and 0.000652 for F4.</li>
+</ul>
+</section>
+<section id="biology" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="biology"><span class="header-section-number">2.2</span> Biology</h2>
+<p>The biological parameters are fixed (report Table 8, §4.3):</p>
+<ul>
+<li><strong>Growth.</strong> Sex-specific von Bertalanffy growth (SS3’s Richards curve with shape 1), from vertebrae of 620 females and 659 males measuring 33-258 cm PCL (Fujinami et al. 2019, cited in the report). Females reach L<sub>1</sub> = 64.3 cm at age 1 and L<sub>2</sub> = 245.2 cm at age 20, with K = 0.146; males 68.2 cm, 261.5 cm and 0.117. CV of length-at-age 0.25 at age 1 and 0.1 at age 20. Pups are born at about 36 cm PCL (§2.1.3).</li>
+<li><strong>Natural mortality.</strong> Age- and sex-specific, inversely proportional to length, scaled to a meta-analytic constant. For females it falls from 0.79 at age 0 to 0.15 at age 24 (report Table 9).</li>
+<li><strong>Maturity.</strong> Female maturity is length-logistic with 50% at 156.6 cm PCL, about age 5-6; males mature at about 161 cm and age 6 (§2.1.3). Litters of 15-112 pups (mean 35.5) have been observed in the northwestern Pacific, and females reproduce annually after 11-12 months’ gestation (§2.1.2).</li>
+<li><strong>Spawner-recruit relationship.</strong> Beverton-Holt with h = 0.613, from a life-history simulation (Kai and Fujinami 2018, cited in the report), and sigma<sub>R</sub> = 0.4, tuned. It replaces the low-fecundity relationship used in 2017, whose parameters rested on strong assumptions (§4.3.3).</li>
+<li><strong>Initial state.</strong> The stock is not assumed unfished in 1971: the population starts in equilibrium with 40,000 t a year of F4 catch, about the average of the first four years’ catch (§4.3.4, §4.4.2). SSB<sub>1971</sub> is about 70% of unfished (§8.1).</li>
+</ul>
+</section>
+<section id="the-ensemble-and-s6_base" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="the-ensemble-and-s6_base"><span class="header-section-number">2.3</span> The ensemble and S6_base</h2>
+<p>The SHARKWG could not single out a best model on the diagnostics, so stock status comes from a hypothesis tree with three branches (§5.2):</p>
+<ul>
+<li><strong>S6_base</strong> (weight 50%) fits S6 for the late period.</li>
+<li><strong>S11_base</strong> (25%) fits S11 instead.</li>
+<li><strong>S11_ess</strong> (25%) is S11_base with F20’s anomalously large 2018 and 2020 length samples (20,416 and 21,571 fish) down-weighted to 1,513. This removes a retrospective pattern in S11_base.</li>
+</ul>
+<p>Each model’s uncertainty was represented by a multivariate-lognormal bootstrap, and the three bootstraps were combined according to these weights. On the combined distribution (report Table 18):</p>
+<ul>
+<li>SSB<sub>2020</sub>/SSB<sub>MSY</sub> is 1.17 (80% interval 0.57-1.78);</li>
+<li>F<sub>2017-2019</sub>/F<sub>MSY</sub> is 0.45 (0.24-1.01);</li>
+<li>the probability that the stock is neither overfished nor subject to overfishing is 61.9%.</li>
+</ul>
+<p>The report notes that natural mortality and steepness, the most uncertain assumptions, are outside the ensemble.</p>
+<p>The report’s diagnostics for S6_base (§6.1.1) bear on what follows:</p>
+<ul>
+<li>It converged (maximum gradient 9.7 x 10<sup>-5</sup>) with a positive-definite Hessian.</li>
+<li>The ln(R<sub>0</sub>) profile is driven by the recruitment penalty. The index and length data both favour a slightly lower R<sub>0</sub>, and within the indices the early (S5) and late (S6) series conflict (report Figures 11-12).</li>
+<li>There is a three-year retrospective pattern (Mohn’s rho -0.2 for SSB and 0.27 for F/F<sub>MSY</sub>).</li>
+<li>Female selectivity is estimated to be much lower than male selectivity in nearly every fishery. Only F18 approaches full selection of females, and F11 is sex-invariant (report Figure 26, §8.4).</li>
+<li>Recruitment shows a large pulse in 1986-1988 and has been below the stock-recruit curve for the last two decades.</li>
+</ul>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
@@ -2335,18 +2419,18 @@ vertical-align: -.125em;
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;20 fisheries and 11 surveys&quot;</span>,</span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Weight (mt) except fleets 11, 17 and 18 (1000s of fish)&quot;</span>,</span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Sex-specific age-specific M (fixed); Richards growth with shape 1 (von Bertalanffy) by sex, fixed; length-logistic maturity; 45 pups per mature female&quot;</span>,</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Beverton-Holt, h = 0.613 and sigma_R = 0.4 fixed; main deviations 1971-2020, early deviations 1961-1970; regime offset on the initial equilibrium; initial F on F4&quot;</span>,</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Beverton-Holt, h = 0.613 and sigma_R = 0.4 fixed; main deviations 1971-2020, early deviations 1961-1970; regime offset on the initial equilibrium; initial F on F4, fitted to a 40,000 t initial-equilibrium catch&quot;</span>,</span>
 <span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Hybrid (method 3)&quot;</span>,</span>
 <span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Size-based double normal (pattern 24) with female offsets from the male curve; F18 cubic spline with a male dogleg; six fisheries and all surveys mirror another fleet; F8 time blocks (1973-81, 1982-92); annual deviations on F19&#39;s peak&quot;</span>,</span>
 <span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Floating q; extra SD added to the CV; only S5 and S6 (Japanese longline early and late) have lambda 1&quot;</span>,</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Joint sex x length (5 cm bins, 5-300 cm), multinomial with a variance adjustment of about 0.002; one size-frequency observation (F11, 1991)&quot;</span>,</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Joint sex x length (5 cm bins, 5-300 cm), multinomial with a variance adjustment of 0.002161 (F4 0.000652); one size-frequency observation (F11, 1991)&quot;</span>,</span>
 <span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;F-ballpark penalty (F = 0.2 in 2013); initial-equilibrium regime&quot;</span>)),</span>
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div id="tbl-s6" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-s6-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 1: Structure of S6.
+Table 1: Structure of S6, from the model files.
 </figcaption>
 <div aria-describedby="tbl-s6-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -2384,7 +2468,7 @@ Table 1: Structure of S6.
 </tr>
 <tr class="even">
 <td style="text-align: left;">Spawner-recruit</td>
-<td style="text-align: left;">Beverton-Holt, h = 0.613 and sigma_R = 0.4 fixed; main deviations 1971-2020, early deviations 1961-1970; regime offset on the initial equilibrium; initial F on F4</td>
+<td style="text-align: left;">Beverton-Holt, h = 0.613 and sigma_R = 0.4 fixed; main deviations 1971-2020, early deviations 1961-1970; regime offset on the initial equilibrium; initial F on F4, fitted to a 40,000 t initial-equilibrium catch</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Fishing mortality</td>
@@ -2400,7 +2484,7 @@ Table 1: Structure of S6.
 </tr>
 <tr class="even">
 <td style="text-align: left;">Compositions</td>
-<td style="text-align: left;">Joint sex x length (5 cm bins, 5-300 cm), multinomial with a variance adjustment of about 0.002; one size-frequency observation (F11, 1991)</td>
+<td style="text-align: left;">Joint sex x length (5 cm bins, 5-300 cm), multinomial with a variance adjustment of 0.002161 (F4 0.000652); one size-frequency observation (F11, 1991)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Other likelihood terms</td>
@@ -2413,6 +2497,77 @@ Table 1: Structure of S6.
 </figure>
 </div>
 </div>
+</section>
+<section id="the-files-against-the-report" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="the-files-against-the-report"><span class="header-section-number">2.4</span> The files against the report</h2>
+<p>The S6 files are the S6_base control file printed in the report’s appendix, and S6 re-runs with SS3 3.30.22.1 to the same likelihood. The files, which are what this case study converts, differ from the report’s text in a few places:</p>
+<ul>
+<li><strong>Recruitment timing.</strong> §4.3.3 says recruitment occurs at the start of the year. In the files (and in the printed control file) recruits settle in month 7, while spawning is in month 1. This matters for the conversion (<a href="#sec-conversion" class="quarto-xref">Section 4</a>).</li>
+<li><strong>sigma<sub>R</sub>.</strong> Report Table 8 gives 0.3, but §4.3.3, the files and the printed control file use the tuned 0.4.</li>
+<li><strong>Growth.</strong> §4.3.5 quotes the 2017 values (L<sub>1</sub> 64.4 cm, L<sub>2</sub> 244.6 cm, K 0.147 for females). The files use the updated values in report Table 8 (64.3 cm, 245.2 cm, 0.146).</li>
+<li><strong>Fecundity.</strong> Report Table 8 lists litter size proportional to length (-45.54 + 0.46 L). §4.3.7 says length-specific fecundity was not used in the final runs, and the files agree: fecundity option 2 with a = 45 and b = 0, so every mature female produces 45 pups. Spawning output is therefore a number of pups (in thousands) proportional to the number of mature females. The report labels it in tonnes; this document labels it in pups.</li>
+<li><strong>Penalties not described in the report.</strong> The files hold an F-ballpark penalty (F = 0.2 in 2013) and an estimated regime offset on the initial equilibrium recruitment. Both are removed in the bridge (<a href="#sec-bridge" class="quarto-xref">Section 3</a>).</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="fu">data.table</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">Quantity =</span> <span class="fu">c</span>(<span class="st">&quot;SSB0&quot;</span>, <span class="st">&quot;SSB MSY&quot;</span>, <span class="st">&quot;F MSY&quot;</span>, <span class="st">&quot;SSB2020 / SSB MSY&quot;</span>, <span class="st">&quot;F2020 / F MSY&quot;</span>),</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">S6 (this re-run)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="fu">fmt</span>(s6<span class="sc">$</span>ssb0, <span class="dv">0</span>), <span class="fu">fmt</span>(s6<span class="sc">$</span>ssb_msy, <span class="dv">0</span>), <span class="fu">fmt</span>(s6<span class="sc">$</span>f_msy, <span class="dv">2</span>),</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                           <span class="fu">fmt</span>(s6<span class="sc">$</span>ssb_2020 <span class="sc">/</span> s6<span class="sc">$</span>ssb_msy, <span class="dv">2</span>), <span class="fu">fmt</span>(s6<span class="sc">$</span>f_2020, <span class="dv">2</span>)),</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">Ensemble (report)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;222,736&quot;</span>, <span class="st">&quot;83,545&quot;</span>, <span class="st">&quot;0.76&quot;</span>, <span class="st">&quot;1.17&quot;</span>, <span class="st">&quot;0.45 (2017-2019)&quot;</span>)),</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>, <span class="at">align =</span> <span class="st">&quot;lrr&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="tbl-s6-report" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-s6-report-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 2: S6 re-run with SS3 3.30.22.1 against the three-model ensemble (ISC 2022, Tables 17-18). The ensemble’s SSB0, SSB MSY and F MSY are weighted means of the three models; the 2020 ratios are bootstrap medians.
+</figcaption>
+<div aria-describedby="tbl-s6-report-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Quantity</th>
+<th style="text-align: right;">S6 (this re-run)</th>
+<th style="text-align: right;">Ensemble (report)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">SSB0</td>
+<td style="text-align: right;">243,875</td>
+<td style="text-align: right;">222,736</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">SSB MSY</td>
+<td style="text-align: right;">89,706</td>
+<td style="text-align: right;">83,545</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F MSY</td>
+<td style="text-align: right;">0.73</td>
+<td style="text-align: right;">0.76</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">SSB2020 / SSB MSY</td>
+<td style="text-align: right;">1.53</td>
+<td style="text-align: right;">1.17</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F2020 / F MSY</td>
+<td style="text-align: right;">0.34</td>
+<td style="text-align: right;">0.45 (2017-2019)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+<p>S6 alone is more optimistic than the ensemble. Its SSB<sub>2020</sub>/SSB<sub>MSY</sub> of 1.53 is above the ensemble median of 1.17, which is pulled down by the two S11 models. This case study converts S6 alone, so its comparisons say nothing about the ensemble’s stock status.</p>
+</section>
 </section>
 <section id="sec-bridge" class="level1" data-number="3">
 <h1 data-number="3"><span class="header-section-number">3</span> The SS3 bridge</h1>
@@ -2429,28 +2584,28 @@ Table 1: Structure of S6.
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">all</span>(B<span class="sc">$</span>hessian_ok))</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(B[, .(<span class="at">Step =</span> label, <span class="st">`</span><span class="at">Est. par.</span><span class="st">`</span> <span class="ot">=</span> n_par,</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">NLL =</span> <span class="fu">fmt</span>(nll, <span class="dv">2</span>), <span class="at">SSB0 =</span> <span class="fu">fmt</span>(ssb0, <span class="dv">0</span>),</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">SSB2020/SSB0</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(depletion, <span class="dv">3</span>), <span class="at">F2020 =</span> <span class="fu">fmt</span>(f_2020, <span class="dv">3</span>),</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">SSB MSY</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(ssb_msy, <span class="dv">0</span>))],</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>, <span class="at">align =</span> <span class="st">&quot;lrrrrrr&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">all</span>(B<span class="sc">$</span>hessian_ok))</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(B[, .(<span class="at">Step =</span> label, <span class="st">`</span><span class="at">Est. par.</span><span class="st">`</span> <span class="ot">=</span> n_par,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">NLL =</span> <span class="fu">fmt</span>(nll, <span class="dv">2</span>), <span class="at">SSB0 =</span> <span class="fu">fmt</span>(ssb0, <span class="dv">0</span>),</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">SSB2020/SSB0</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(depletion, <span class="dv">3</span>), <span class="st">`</span><span class="at">F2020/F MSY</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(f_2020, <span class="dv">3</span>),</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">SSB MSY</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(ssb_msy, <span class="dv">0</span>))],</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>, <span class="at">align =</span> <span class="st">&quot;lrrrrrr&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div id="tbl-bridge" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-bridge-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 2: The SS3 bridge. All steps converged (maximum gradient below 2e-4) with a positive-definite Hessian and no parameter on a bound.
+Table 3: The SS3 bridge. All steps converged (maximum gradient below 2e-4) with a positive-definite Hessian and no parameter on a bound.
 </figcaption>
 <div aria-describedby="tbl-bridge-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
 <table class="cell caption-top table table-sm table-striped small">
 <colgroup>
-<col style="width: 30%">
-<col style="width: 13%">
-<col style="width: 8%">
+<col style="width: 27%">
+<col style="width: 12%">
+<col style="width: 7%">
 <col style="width: 10%">
-<col style="width: 17%">
-<col style="width: 8%">
+<col style="width: 16%">
+<col style="width: 15%">
 <col style="width: 10%">
 </colgroup>
 <thead>
@@ -2460,7 +2615,7 @@ Table 2: The SS3 bridge. All steps converged (maximum gradient below 2e-4) with
 <th style="text-align: right;">NLL</th>
 <th style="text-align: right;">SSB0</th>
 <th style="text-align: right;">SSB2020/SSB0</th>
-<th style="text-align: right;">F2020</th>
+<th style="text-align: right;">F2020/F MSY</th>
 <th style="text-align: right;">SSB MSY</th>
 </tr>
 </thead>
@@ -2538,15 +2693,15 @@ Table 2: The SS3 bridge. All steps converged (maximum gradient below 2e-4) with
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>ts <span class="ot">=</span> <span class="fu">copy</span>(bridge<span class="sc">$</span>timeseries)</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>ts[, label <span class="sc">:</span><span class="er">=</span> <span class="fu">factor</span>(label, <span class="at">levels =</span> bridge<span class="sc">$</span>labels)]</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>long <span class="ot">=</span> <span class="fu">melt</span>(ts[, .(label, year, <span class="st">`</span><span class="at">Spawning biomass (pups)</span><span class="st">`</span> <span class="ot">=</span> ssb, <span class="st">`</span><span class="at">SSB / SSB0</span><span class="st">`</span> <span class="ot">=</span> depletion)],</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>            <span class="at">id.vars =</span> <span class="fu">c</span>(<span class="st">&quot;label&quot;</span>, <span class="st">&quot;year&quot;</span>))</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(long, <span class="fu">aes</span>(year, value, <span class="at">colour =</span> label)) <span class="sc">+</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>variable, <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>) <span class="sc">+</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="cn">NULL</span>, <span class="at">colour =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">guides</span>(<span class="at">colour =</span> <span class="fu">guide_legend</span>(<span class="at">nrow =</span> <span class="dv">2</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>ts <span class="ot">=</span> <span class="fu">copy</span>(bridge<span class="sc">$</span>timeseries)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>ts[, label <span class="sc">:</span><span class="er">=</span> <span class="fu">factor</span>(label, <span class="at">levels =</span> bridge<span class="sc">$</span>labels)]</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>long <span class="ot">=</span> <span class="fu">melt</span>(ts[, .(label, year, <span class="st">`</span><span class="at">Spawning biomass (pups)</span><span class="st">`</span> <span class="ot">=</span> ssb, <span class="st">`</span><span class="at">SSB / SSB0</span><span class="st">`</span> <span class="ot">=</span> depletion)],</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>            <span class="at">id.vars =</span> <span class="fu">c</span>(<span class="st">&quot;label&quot;</span>, <span class="st">&quot;year&quot;</span>))</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(long, <span class="fu">aes</span>(year, value, <span class="at">colour =</span> label)) <span class="sc">+</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>variable, <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>) <span class="sc">+</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="cn">NULL</span>, <span class="at">colour =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">guides</span>(<span class="at">colour =</span> <span class="fu">guide_legend</span>(<span class="at">nrow =</span> <span class="dv">2</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div id="fig-bridge" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -2563,7 +2718,7 @@ Figure 1: Spawning biomass (top) and depletion (bottom) along the SS3 bridge.
 </div>
 <p>The three groups of steps tell different stories:</p>
 <ul>
-<li><strong>Single sex (B1)</strong> changes the fit to the compositions most: the length NLL falls from 114.8 to 91.5, at least partly because the combined-sex compositions have half the cells of the sex-by-length ones, so the two NLLs are not directly comparable. Its scale is lower and its terminal depletion 0.255 against S6’s 0.564. The single-sex model uses female growth (245 cm at age 20) for males too (261 cm in S6), and each selectivity curve becomes S6’s male curve.</li>
+<li><strong>Single sex (B1)</strong> changes the fit to the compositions most: the length NLL falls from 114.8 to 91.5, at least partly because the combined-sex compositions have half the cells of the sex-by-length ones, so the two NLLs are not directly comparable. Its scale is lower and its terminal depletion 0.255 against S6’s 0.564. The single-sex model uses female growth (245 cm at age 20) for males too (261 cm in S6), and each selectivity curve becomes S6’s male curve. In S6, females are much less selected than males of the same length in nearly every fishery (report §6.1.1). B1 therefore exposes the spawning females to the males’ selectivity, which is one plausible reason for its more depleted spawning stock.</li>
 <li><strong>Structural simplifications (B2a-B2d)</strong> change little: the F18 spline, the F8 split and the regime offset each move the likelihood by less than 0.2 units. Removing F19’s selectivity deviations costs 1.2 units and moves depletion from 0.255 to 0.277.</li>
 <li><strong>No F-ballpark (B2e)</strong> moves the likelihood by 1.6 units but the scale a long way: SSB<sub>0</sub> from 277,490 to 349,989 and depletion to 0.536.</li>
 </ul>
@@ -2573,20 +2728,20 @@ Figure 1: Spawning biomass (top) and depletion (bottom) along the SS3 bridge.
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>pp <span class="ot">=</span> <span class="fu">copy</span>(P)</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>pp[, label <span class="sc">:</span><span class="er">=</span> step_lab[step]]</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>est <span class="ot">=</span> <span class="fu">copy</span>(profile<span class="sc">$</span>estimates)[, label <span class="sc">:</span><span class="er">=</span> step_lab[step]]</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>pl <span class="ot">=</span> <span class="fu">melt</span>(pp[, .(label, ln_r0, converged, <span class="st">`</span><span class="at">Change in NLL</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">pmin</span>(delta_nll, <span class="dv">8</span>),</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>                 <span class="st">`</span><span class="at">SSB2020 / SSB0</span><span class="st">`</span> <span class="ot">=</span> depletion)], <span class="at">id.vars =</span> <span class="fu">c</span>(<span class="st">&quot;label&quot;</span>, <span class="st">&quot;ln_r0&quot;</span>, <span class="st">&quot;converged&quot;</span>))</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(pl, <span class="fu">aes</span>(ln_r0, value, <span class="at">colour =</span> label)) <span class="sc">+</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">data =</span> <span class="fu">data.table</span>(<span class="at">variable =</span> <span class="st">&quot;Change in NLL&quot;</span>, <span class="at">y =</span> <span class="fl">1.92</span>),</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>               <span class="fu">aes</span>(<span class="at">yintercept =</span> y), <span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>, <span class="at">colour =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_vline</span>(<span class="at">data =</span> est, <span class="fu">aes</span>(<span class="at">xintercept =</span> ln_r0, <span class="at">colour =</span> label), <span class="at">linetype =</span> <span class="st">&quot;dotted&quot;</span>) <span class="sc">+</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">data =</span> pl[converged <span class="sc">==</span> <span class="cn">TRUE</span>]) <span class="sc">+</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">shape =</span> converged), <span class="at">size =</span> <span class="fl">1.8</span>) <span class="sc">+</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_shape_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">`</span><span class="at">TRUE</span><span class="st">`</span> <span class="ot">=</span> <span class="dv">16</span>, <span class="st">`</span><span class="at">FALSE</span><span class="st">`</span> <span class="ot">=</span> <span class="dv">1</span>), <span class="at">guide =</span> <span class="st">&quot;none&quot;</span>) <span class="sc">+</span></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>variable, <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>) <span class="sc">+</span></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;ln(R0)&quot;</span>, <span class="at">y =</span> <span class="cn">NULL</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>pp <span class="ot">=</span> <span class="fu">copy</span>(P)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>pp[, label <span class="sc">:</span><span class="er">=</span> step_lab[step]]</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>est <span class="ot">=</span> <span class="fu">copy</span>(profile<span class="sc">$</span>estimates)[, label <span class="sc">:</span><span class="er">=</span> step_lab[step]]</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>pl <span class="ot">=</span> <span class="fu">melt</span>(pp[, .(label, ln_r0, converged, <span class="st">`</span><span class="at">Change in NLL</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">pmin</span>(delta_nll, <span class="dv">8</span>),</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>                 <span class="st">`</span><span class="at">SSB2020 / SSB0</span><span class="st">`</span> <span class="ot">=</span> depletion)], <span class="at">id.vars =</span> <span class="fu">c</span>(<span class="st">&quot;label&quot;</span>, <span class="st">&quot;ln_r0&quot;</span>, <span class="st">&quot;converged&quot;</span>))</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(pl, <span class="fu">aes</span>(ln_r0, value, <span class="at">colour =</span> label)) <span class="sc">+</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">data =</span> <span class="fu">data.table</span>(<span class="at">variable =</span> <span class="st">&quot;Change in NLL&quot;</span>, <span class="at">y =</span> <span class="fl">1.92</span>),</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>               <span class="fu">aes</span>(<span class="at">yintercept =</span> y), <span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>, <span class="at">colour =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_vline</span>(<span class="at">data =</span> est, <span class="fu">aes</span>(<span class="at">xintercept =</span> ln_r0, <span class="at">colour =</span> label), <span class="at">linetype =</span> <span class="st">&quot;dotted&quot;</span>) <span class="sc">+</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">data =</span> pl[converged <span class="sc">==</span> <span class="cn">TRUE</span>]) <span class="sc">+</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">shape =</span> converged), <span class="at">size =</span> <span class="fl">1.8</span>) <span class="sc">+</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_shape_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">`</span><span class="at">TRUE</span><span class="st">`</span> <span class="ot">=</span> <span class="dv">16</span>, <span class="st">`</span><span class="at">FALSE</span><span class="st">`</span> <span class="ot">=</span> <span class="dv">1</span>), <span class="at">guide =</span> <span class="st">&quot;none&quot;</span>) <span class="sc">+</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>variable, <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>) <span class="sc">+</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;ln(R0)&quot;</span>, <span class="at">y =</span> <span class="cn">NULL</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div id="fig-profile" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -2604,12 +2759,16 @@ Figure 2: Likelihood profiles over ln(R0) for S6, B1 and B2e (top: change in to
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>ci <span class="ot">=</span> P[converged <span class="sc">==</span> <span class="cn">TRUE</span>, .(<span class="at">lo =</span> <span class="fu">min</span>(ln_r0[delta_nll <span class="sc">&lt;</span> <span class="fl">1.92</span>]), <span class="at">hi =</span> <span class="fu">max</span>(ln_r0[delta_nll <span class="sc">&lt;</span> <span class="fl">1.92</span>]),</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>                            <span class="at">dep_lo =</span> <span class="fu">min</span>(depletion[delta_nll <span class="sc">&lt;</span> <span class="fl">1.92</span>]),</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>                            <span class="at">dep_hi =</span> <span class="fu">max</span>(depletion[delta_nll <span class="sc">&lt;</span> <span class="fl">1.92</span>])), by <span class="ot">=</span> step]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>ci <span class="ot">=</span> P[converged <span class="sc">==</span> <span class="cn">TRUE</span>, .(<span class="at">lo =</span> <span class="fu">min</span>(ln_r0[delta_nll <span class="sc">&lt;</span> <span class="fl">1.92</span>]), <span class="at">hi =</span> <span class="fu">max</span>(ln_r0[delta_nll <span class="sc">&lt;</span> <span class="fl">1.92</span>]),</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>                            <span class="at">dep_lo =</span> <span class="fu">min</span>(depletion[delta_nll <span class="sc">&lt;</span> <span class="fl">1.92</span>]),</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>                            <span class="at">dep_hi =</span> <span class="fu">max</span>(depletion[delta_nll <span class="sc">&lt;</span> <span class="fl">1.92</span>])), by <span class="ot">=</span> step]</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ln(R0) favoured by each likelihood component in S6</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>p6 <span class="ot">=</span> P[step <span class="sc">==</span> <span class="st">&quot;00-s6-base&quot;</span> <span class="sc">&amp;</span> converged <span class="sc">==</span> <span class="cn">TRUE</span>]</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>fav <span class="ot">=</span> <span class="fu">sapply</span>(<span class="fu">c</span>(<span class="st">&quot;survey&quot;</span>, <span class="st">&quot;length_comp&quot;</span>, <span class="st">&quot;recruitment&quot;</span>), <span class="cf">function</span>(v) p6<span class="sc">$</span>ln_r0[<span class="fu">which.min</span>(p6[[v]])])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p>Each model’s estimate sits at the minimum of its profile, so none is a local optimum. In S6 the approximate 95% interval (change in NLL below 1.92) spans ln(R<sub>0</sub>) 9.4-10.1, depletion 0.42-0.73. In B2e the profile is almost flat towards larger stocks: the interval reaches the edge of the grid (ln(R<sub>0</sub>) = 10.8, depletion 0.82). The index and length components pull in opposite directions and nearly balance. The F-ballpark penalty, worth less than one likelihood unit at the optimum, was what held B1’s scale down.</p>
+<p>The S6 profile reproduces the report’s (report Figures 11-12). The index component is smallest at ln(R<sub>0</sub>) = 9.2 and the length component at 9.4, both below the estimate of 9.65. The recruitment penalty, smallest at 10.1, holds the estimate up. S6’s scale is therefore set largely by the stock-recruit assumptions (h and sigma<sub>R</sub> are fixed), and so is the scale of the bridge models built from it.</p>
 <p>This matters for everything that follows. Small differences between opal and SS3, or between two opal configurations, can move the estimated scale a long way without changing the fit to the data much, so the comparisons below look at the fits to the data as well as at the trajectories.</p>
 </section>
 </section>
@@ -2627,15 +2786,15 @@ Figure 2: Likelihood profiles over ln(R0) for S6, B1 and B2e (top: change in to
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>R <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>recon)[<span class="sc">!</span><span class="fu">is.na</span>(pass)]</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>R[, group <span class="sc">:</span><span class="er">=</span> <span class="fu">ifelse</span>(<span class="fu">grepl</span>(<span class="st">&quot;^catch total&quot;</span>, quantity), <span class="st">&quot;catch totals, 21 fishing fleets&quot;</span>, quantity)]</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(R[, .(<span class="at">n =</span> .N, <span class="st">`</span><span class="at">max relative difference</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sci</span>(<span class="fu">max</span>(rel_diff, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">1</span>),</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>                   <span class="at">pass =</span> <span class="fu">all</span>(pass)), <span class="at">by =</span> .(<span class="at">Quantity =</span> group)], <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>R <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>recon)[<span class="sc">!</span><span class="fu">is.na</span>(pass)]</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>R[, group <span class="sc">:</span><span class="er">=</span> <span class="fu">ifelse</span>(<span class="fu">grepl</span>(<span class="st">&quot;^catch total&quot;</span>, quantity), <span class="st">&quot;catch totals, 21 fishing fleets&quot;</span>, quantity)]</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(R[, .(<span class="at">n =</span> .N, <span class="st">`</span><span class="at">max relative difference</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sci</span>(<span class="fu">max</span>(rel_diff, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">1</span>),</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>                   <span class="at">pass =</span> <span class="fu">all</span>(pass)), <span class="at">by =</span> .(<span class="at">Quantity =</span> group)], <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div id="tbl-recon" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-recon-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 3: Reconciliation with SS3 (exact comparisons). The 21 catch totals are summarised in one row.
+Table 4: Reconciliation with SS3 (exact comparisons). The 21 catch totals are summarised in one row.
 </figcaption>
 <div aria-describedby="tbl-recon-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -2706,15 +2865,15 @@ Table 3: Reconciliation with SS3 (exact comparisons). The 21 catch totals are s
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>sc <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>seed_check)</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(sc[, .(<span class="st">`</span><span class="at">opal fishery</span><span class="st">`</span> <span class="ot">=</span> fishery, <span class="st">`</span><span class="at">SS3 fleet</span><span class="st">`</span> <span class="ot">=</span> ss3_fleet, name,</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>                    <span class="st">`</span><span class="at">parameters from</span><span class="st">`</span> <span class="ot">=</span> source, <span class="st">`</span><span class="at">max |diff|</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sci</span>(max_abs_diff, <span class="dv">1</span>))],</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>sc <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>seed_check)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(sc[, .(<span class="st">`</span><span class="at">opal fishery</span><span class="st">`</span> <span class="ot">=</span> fishery, <span class="st">`</span><span class="at">SS3 fleet</span><span class="st">`</span> <span class="ot">=</span> ss3_fleet, name,</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>                    <span class="st">`</span><span class="at">parameters from</span><span class="st">`</span> <span class="ot">=</span> source, <span class="st">`</span><span class="at">max |diff|</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sci</span>(max_abs_diff, <span class="dv">1</span>))],</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div id="tbl-seed" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-seed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 4: Largest difference between opal’s starting double normal and SS3’s selectivity-at-length, by opal fishery (mirrors and indices take their source fleet’s parameters).
+Table 5: Largest difference between opal’s starting double normal and SS3’s selectivity-at-length, by opal fishery (mirrors and indices take their source fleet’s parameters).
 </figcaption>
 <div aria-describedby="tbl-seed-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -2908,13 +3067,13 @@ Table 4: Largest difference between opal’s starting double normal and SS3’s
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(opal_c<span class="sc">$</span>sel_start_diff[, .(fishery, name, <span class="st">`</span><span class="at">max |diff|</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(max_abs_diff, <span class="dv">3</span>))],</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>             <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(opal_c<span class="sc">$</span>sel_start_diff[, .(fishery, name, <span class="st">`</span><span class="at">max |diff|</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(max_abs_diff, <span class="dv">3</span>))],</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>             <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div id="tbl-sel-age" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sel-age-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 5: Largest difference between opal’s starting selectivity-at-age and SS3’s, by opal fishery.
+Table 6: Largest difference between opal’s starting selectivity-at-age and SS3’s, by opal fishery.
 </figcaption>
 <div aria-describedby="tbl-sel-age-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -3056,21 +3215,21 @@ Table 5: Largest difference between opal’s starting selectivity-at-age and SS
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>br <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>bridge)</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>br[, year <span class="sc">:</span><span class="er">=</span> <span class="dv">1970</span> <span class="sc">+</span> ts]</span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>bl <span class="ot">=</span> <span class="fu">rbind</span>(br[, .(year, <span class="at">series =</span> <span class="st">&quot;SS3 B2e&quot;</span>, <span class="at">value =</span> ss3)],</span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>           br[, .(year, <span class="at">series =</span> <span class="st">&quot;opal (O0)&quot;</span>, <span class="at">value =</span> opal)],</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>           br[, .(year, <span class="at">series =</span> <span class="st">&quot;replay, SS3 timing&quot;</span>, <span class="at">value =</span> replica_ss3)])</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>rel <span class="ot">=</span> <span class="fu">rbind</span>(br[, .(year, <span class="at">series =</span> <span class="st">&quot;opal (O0)&quot;</span>, <span class="at">value =</span> rel_opal)],</span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>            br[, .(year, <span class="at">series =</span> <span class="st">&quot;replay, SS3 timing&quot;</span>, <span class="at">value =</span> rel_replica_ss3)])</span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>o0_col <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;SS3 B2e&quot;</span> <span class="ot">=</span> <span class="st">&quot;grey20&quot;</span>, <span class="st">&quot;opal (O0)&quot;</span> <span class="ot">=</span> <span class="st">&quot;#7D3C98&quot;</span>, <span class="st">&quot;replay, SS3 timing&quot;</span> <span class="ot">=</span> <span class="st">&quot;#CA6F1E&quot;</span>)</span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">=</span> <span class="fu">ggplot</span>(bl, <span class="fu">aes</span>(year, value, <span class="at">colour =</span> series)) <span class="sc">+</span> <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> o0_col) <span class="sc">+</span></span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;Spawning biomass (pups)&quot;</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">=</span> <span class="fu">ggplot</span>(rel, <span class="fu">aes</span>(year, value, <span class="at">colour =</span> series)) <span class="sc">+</span> <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span> <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> o0_col) <span class="sc">+</span></span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;Relative to SS3&quot;</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>(p1 <span class="sc">/</span> p2) <span class="sc">+</span> <span class="fu">plot_layout</span>(<span class="at">guides =</span> <span class="st">&quot;collect&quot;</span>) <span class="sc">&amp;</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>br <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>bridge)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>br[, year <span class="sc">:</span><span class="er">=</span> <span class="dv">1970</span> <span class="sc">+</span> ts]</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>bl <span class="ot">=</span> <span class="fu">rbind</span>(br[, .(year, <span class="at">series =</span> <span class="st">&quot;SS3 B2e&quot;</span>, <span class="at">value =</span> ss3)],</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>           br[, .(year, <span class="at">series =</span> <span class="st">&quot;opal (O0)&quot;</span>, <span class="at">value =</span> opal)],</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>           br[, .(year, <span class="at">series =</span> <span class="st">&quot;replay, SS3 timing&quot;</span>, <span class="at">value =</span> replica_ss3)])</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>rel <span class="ot">=</span> <span class="fu">rbind</span>(br[, .(year, <span class="at">series =</span> <span class="st">&quot;opal (O0)&quot;</span>, <span class="at">value =</span> rel_opal)],</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>            br[, .(year, <span class="at">series =</span> <span class="st">&quot;replay, SS3 timing&quot;</span>, <span class="at">value =</span> rel_replica_ss3)])</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>o0_col <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;SS3 B2e&quot;</span> <span class="ot">=</span> <span class="st">&quot;grey20&quot;</span>, <span class="st">&quot;opal (O0)&quot;</span> <span class="ot">=</span> <span class="st">&quot;#7D3C98&quot;</span>, <span class="st">&quot;replay, SS3 timing&quot;</span> <span class="ot">=</span> <span class="st">&quot;#CA6F1E&quot;</span>)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">=</span> <span class="fu">ggplot</span>(bl, <span class="fu">aes</span>(year, value, <span class="at">colour =</span> series)) <span class="sc">+</span> <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> o0_col) <span class="sc">+</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;Spawning biomass (pups)&quot;</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">=</span> <span class="fu">ggplot</span>(rel, <span class="fu">aes</span>(year, value, <span class="at">colour =</span> series)) <span class="sc">+</span> <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span> <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> o0_col) <span class="sc">+</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;Relative to SS3&quot;</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>(p1 <span class="sc">/</span> p2) <span class="sc">+</span> <span class="fu">plot_layout</span>(<span class="at">guides =</span> <span class="st">&quot;collect&quot;</span>) <span class="sc">&amp;</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div id="fig-o0" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -3103,20 +3262,20 @@ Figure 3: O0: opal at SS3’s values against SS3 B2e (top: spawning biomass; bo
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(S[, .(<span class="at">Model =</span> model, <span class="st">`</span><span class="at">Est. par.</span><span class="st">`</span> <span class="ot">=</span> n_par,</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">Objective =</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(objective), <span class="st">&quot;&quot;</span>, <span class="fu">fmt</span>(objective, <span class="dv">2</span>)),</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">Max gradient</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(max_gradient), <span class="st">&quot;&quot;</span>, <span class="fu">sci</span>(max_gradient, <span class="dv">1</span>)),</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">opal_check()</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(check_passes), <span class="st">&quot;&quot;</span>, <span class="fu">ifelse</span>(check_passes, <span class="st">&quot;pass&quot;</span>, <span class="st">&quot;fail&quot;</span>)),</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>                   <span class="at">B0 =</span> <span class="fu">fmt</span>(B0, <span class="dv">0</span>), <span class="st">`</span><span class="at">SSB 2020</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(ssb_2020, <span class="dv">0</span>),</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">SSB2020/B0</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(depletion_2020, <span class="dv">3</span>),</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">Index NLL</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(lp_cpue), <span class="st">&quot;&quot;</span>, <span class="fu">fmt</span>(lp_cpue, <span class="dv">2</span>)),</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">Length NLL</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(lp_lf), <span class="st">&quot;&quot;</span>, <span class="fu">fmt</span>(lp_lf, <span class="dv">1</span>)))],</span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>             <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>, <span class="at">align =</span> <span class="st">&quot;lrrrlrrrrr&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(S[, .(<span class="at">Model =</span> model, <span class="st">`</span><span class="at">Est. par.</span><span class="st">`</span> <span class="ot">=</span> n_par,</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">Objective =</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(objective), <span class="st">&quot;&quot;</span>, <span class="fu">fmt</span>(objective, <span class="dv">2</span>)),</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">Max gradient</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(max_gradient), <span class="st">&quot;&quot;</span>, <span class="fu">sci</span>(max_gradient, <span class="dv">1</span>)),</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">opal_check()</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(check_passes), <span class="st">&quot;&quot;</span>, <span class="fu">ifelse</span>(check_passes, <span class="st">&quot;pass&quot;</span>, <span class="st">&quot;fail&quot;</span>)),</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>                   <span class="at">B0 =</span> <span class="fu">fmt</span>(B0, <span class="dv">0</span>), <span class="st">`</span><span class="at">SSB 2020</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(ssb_2020, <span class="dv">0</span>),</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">SSB2020/B0</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(depletion_2020, <span class="dv">3</span>),</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">Index NLL</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(lp_cpue), <span class="st">&quot;&quot;</span>, <span class="fu">fmt</span>(lp_cpue, <span class="dv">2</span>)),</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>                   <span class="st">`</span><span class="at">Length NLL</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">ifelse</span>(<span class="fu">is.na</span>(lp_lf), <span class="st">&quot;&quot;</span>, <span class="fu">fmt</span>(lp_lf, <span class="dv">1</span>)))],</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>             <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>, <span class="at">align =</span> <span class="st">&quot;lrrrlrrrrr&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div id="tbl-fits" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-fits-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 6: Fits. The objective values are opal’s and are not comparable with SS3’s likelihood (different constants, and opal’s compositions are predicted differently).
+Table 7: Fits. The objective values are opal’s and are not comparable with SS3’s likelihood (different constants, and opal’s compositions are predicted differently).
 </figcaption>
 <div aria-describedby="tbl-fits-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -3230,10 +3389,10 @@ Table 6: Fits. The objective values are opal’s and are not comparable with SS
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>o1 <span class="ot">=</span> S[model <span class="sc">==</span> <span class="st">&quot;O1&quot;</span>]</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>o2 <span class="ot">=</span> S[model <span class="sc">==</span> <span class="st">&quot;O2&quot;</span>]</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>conv <span class="ot">=</span> <span class="cf">function</span>(x) <span class="cf">if</span> (<span class="fu">isTRUE</span>(x<span class="sc">$</span>check_passes)) <span class="st">&quot;converged and passes `opal_check()`&quot;</span> <span class="cf">else</span></span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;did not converge (maximum gradient %s)&quot;</span>, <span class="fu">sci</span>(x<span class="sc">$</span>max_gradient, <span class="dv">1</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>o1 <span class="ot">=</span> S[model <span class="sc">==</span> <span class="st">&quot;O1&quot;</span>]</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>o2 <span class="ot">=</span> S[model <span class="sc">==</span> <span class="st">&quot;O2&quot;</span>]</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>conv <span class="ot">=</span> <span class="cf">function</span>(x) <span class="cf">if</span> (<span class="fu">isTRUE</span>(x<span class="sc">$</span>check_passes)) <span class="st">&quot;converged and passes `opal_check()`&quot;</span> <span class="cf">else</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sprintf</span>(<span class="st">&quot;did not converge (maximum gradient %s)&quot;</span>, <span class="fu">sci</span>(x<span class="sc">$</span>max_gradient, <span class="dv">1</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p>O1 converged and passes <code>opal_check()</code>; its terminal depletion is 0.253 against SS3’s 0.536, although it uses SS3’s selectivity and starts at SS3’s values (O0, depletion 0.566). O2 did not converge (maximum gradient 3.1e-01) and is shown for completeness only: freeing opal’s selectivity improves the fit to the compositions by 109 units over O1 while worsening the fit to the indices by 4.9, and the optimiser does not settle (several widths move to the flat ends of the double normal, where the gradient vanishes). Its depletion of 0.143 should not be read as an estimate.</p>
@@ -3242,11 +3401,11 @@ Table 6: Fits. The objective values are opal’s and are not comparable with SS
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>nolf <span class="ot">=</span> S[model <span class="sc">==</span> <span class="st">&quot;O1-noLF&quot;</span>]</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>mid  <span class="ot">=</span> S[model <span class="sc">==</span> <span class="st">&quot;O1-mid&quot;</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>nolf <span class="ot">=</span> S[model <span class="sc">==</span> <span class="st">&quot;O1-noLF&quot;</span>]</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>mid  <span class="ot">=</span> S[model <span class="sc">==</span> <span class="st">&quot;O1-mid&quot;</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<p>Two diagnostic refits of O1 locate the difference (<a href="#tbl-fits" class="quarto-xref">Table 6</a>, <a href="#fig-fits" class="quarto-xref">Figure 4</a>):</p>
+<p>Two diagnostic refits of O1 locate the difference (<a href="#tbl-fits" class="quarto-xref">Table 7</a>, <a href="#fig-fits" class="quarto-xref">Figure 4</a>):</p>
 <ul>
 <li><strong>Without the length compositions</strong> (O1-noLF, lambda 0), opal’s estimate matches SS3’s: terminal depletion 0.534, B<sub>0</sub> 336,369. opal’s dynamics, the indices and the recruitment penalty agree with SS3’s; the compositions are what pull O1 down.</li>
 <li><strong>With SS3’s mid-year length-at-age</strong> in place of opal’s growth when the compositions are predicted (O1-mid), depletion is 0.549, close to SS3’s. SS3 predicts a fishery’s length composition from its catch over the year; opal predicts it from numbers at the start of the year with start-of-year lengths. Because recruits settle in month 7, SS3’s age-1 class is only half a year past settlement at the start of the year (34.7 cm) and reaches L1 (64.3 cm, age 1 post-settlement) at mid-year; the gap is 13 cm at age 2 and shrinks with age. With SS3’s start-of-year length-at-age instead the fit runs away (B<sub>0</sub> over 10<sup>7</sup>), and opal’s own Schnute growth (fitted to the start-of-year lengths, linear growth below age 1 aside) lands in between.</li>
@@ -3255,15 +3414,15 @@ Table 6: Fits. The objective values are opal’s and are not comparable with SS
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>tr <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>trajectory)</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>tr[, model <span class="sc">:</span><span class="er">=</span> <span class="fu">factor</span>(model, <span class="at">levels =</span> <span class="fu">names</span>(model_col))]</span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>tl <span class="ot">=</span> <span class="fu">melt</span>(tr[, .(model, year, <span class="st">`</span><span class="at">Spawning biomass (pups)</span><span class="st">`</span> <span class="ot">=</span> ssb, <span class="st">`</span><span class="at">SSB / B0</span><span class="st">`</span> <span class="ot">=</span> depletion,</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>                 <span class="st">`</span><span class="at">Age-0 recruitment</span><span class="st">`</span> <span class="ot">=</span> recruits)], <span class="at">id.vars =</span> <span class="fu">c</span>(<span class="st">&quot;model&quot;</span>, <span class="st">&quot;year&quot;</span>))</span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(tl, <span class="fu">aes</span>(year, value, <span class="at">colour =</span> model)) <span class="sc">+</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>variable, <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>) <span class="sc">+</span></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> model_col) <span class="sc">+</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="cn">NULL</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>tr <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>trajectory)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>tr[, model <span class="sc">:</span><span class="er">=</span> <span class="fu">factor</span>(model, <span class="at">levels =</span> <span class="fu">names</span>(model_col))]</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>tl <span class="ot">=</span> <span class="fu">melt</span>(tr[, .(model, year, <span class="st">`</span><span class="at">Spawning biomass (pups)</span><span class="st">`</span> <span class="ot">=</span> ssb, <span class="st">`</span><span class="at">SSB / B0</span><span class="st">`</span> <span class="ot">=</span> depletion,</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>                 <span class="st">`</span><span class="at">Age-0 recruitment</span><span class="st">`</span> <span class="ot">=</span> recruits)], <span class="at">id.vars =</span> <span class="fu">c</span>(<span class="st">&quot;model&quot;</span>, <span class="st">&quot;year&quot;</span>))</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(tl, <span class="fu">aes</span>(year, value, <span class="at">colour =</span> model)) <span class="sc">+</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>variable, <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>) <span class="sc">+</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> model_col) <span class="sc">+</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="cn">NULL</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div id="fig-fits" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -3281,16 +3440,16 @@ Figure 4: Spawning biomass, depletion and age-0 recruitment: SS3 B2e and the op
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>cp <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>cpue)</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>cp[, index <span class="sc">:</span><span class="er">=</span> <span class="fu">c</span>(<span class="st">&quot;S5 JPN early&quot;</span>, <span class="st">&quot;S6 JPN late&quot;</span>)[index]]</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>obs <span class="ot">=</span> <span class="fu">unique</span>(cp[model <span class="sc">==</span> <span class="st">&quot;SS3 B2e&quot;</span>, .(index, year, obs, se)])</span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(cp, <span class="fu">aes</span>(year)) <span class="sc">+</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_pointrange</span>(<span class="at">data =</span> obs, <span class="fu">aes</span>(<span class="at">y =</span> obs, <span class="at">ymin =</span> obs <span class="sc">*</span> <span class="fu">exp</span>(<span class="sc">-</span><span class="fl">1.96</span> <span class="sc">*</span> se), <span class="at">ymax =</span> obs <span class="sc">*</span> <span class="fu">exp</span>(<span class="fl">1.96</span> <span class="sc">*</span> se)),</span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>                    <span class="at">colour =</span> <span class="st">&quot;grey40&quot;</span>, <span class="at">size =</span> <span class="fl">0.2</span>) <span class="sc">+</span></span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> pred, <span class="at">colour =</span> model), <span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>index, <span class="at">scales =</span> <span class="st">&quot;free&quot;</span>) <span class="sc">+</span></span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> model_col) <span class="sc">+</span></span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;Index&quot;</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>cp <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>cpue)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>cp[, index <span class="sc">:</span><span class="er">=</span> <span class="fu">c</span>(<span class="st">&quot;S5 JPN early&quot;</span>, <span class="st">&quot;S6 JPN late&quot;</span>)[index]]</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>obs <span class="ot">=</span> <span class="fu">unique</span>(cp[model <span class="sc">==</span> <span class="st">&quot;SS3 B2e&quot;</span>, .(index, year, obs, se)])</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(cp, <span class="fu">aes</span>(year)) <span class="sc">+</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_pointrange</span>(<span class="at">data =</span> obs, <span class="fu">aes</span>(<span class="at">y =</span> obs, <span class="at">ymin =</span> obs <span class="sc">*</span> <span class="fu">exp</span>(<span class="sc">-</span><span class="fl">1.96</span> <span class="sc">*</span> se), <span class="at">ymax =</span> obs <span class="sc">*</span> <span class="fu">exp</span>(<span class="fl">1.96</span> <span class="sc">*</span> se)),</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>                    <span class="at">colour =</span> <span class="st">&quot;grey40&quot;</span>, <span class="at">size =</span> <span class="fl">0.2</span>) <span class="sc">+</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> pred, <span class="at">colour =</span> model), <span class="at">linewidth =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>index, <span class="at">scales =</span> <span class="st">&quot;free&quot;</span>) <span class="sc">+</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> model_col) <span class="sc">+</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;Index&quot;</span>, <span class="at">colour =</span> <span class="cn">NULL</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div id="fig-cpue" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -3308,18 +3467,18 @@ Figure 5: Fits to the two indices (points: observed, with 95% intervals from th
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>sel <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>selectivity)</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>fl <span class="ot">=</span> opal_c<span class="sc">$</span>fleets</span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>keep <span class="ot">=</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">9</span>, <span class="dv">14</span>, <span class="dv">15</span>, <span class="dv">17</span>, <span class="dv">18</span>, <span class="dv">19</span>, <span class="dv">20</span>, <span class="dv">21</span>, <span class="dv">22</span>, <span class="dv">23</span>)</span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>sel <span class="ot">=</span> sel[fishery <span class="sc">%in%</span> keep]</span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>sel[, panel <span class="sc">:</span><span class="er">=</span> <span class="fu">factor</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%d: %s&quot;</span>, fishery, fl<span class="sc">$</span>name[fishery]),</span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>                      <span class="at">levels =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%d: %s&quot;</span>, keep, fl<span class="sc">$</span>name[keep]))]</span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(sel, <span class="fu">aes</span>(age, sel, <span class="at">colour =</span> model)) <span class="sc">+</span></span>
-<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
-<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>panel, <span class="at">ncol =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
-<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">&quot;SS3 B2e&quot;</span> <span class="ot">=</span> <span class="st">&quot;grey20&quot;</span>, <span class="at">O2 =</span> <span class="st">&quot;#C0392B&quot;</span>)) <span class="sc">+</span></span>
-<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;Age&quot;</span>, <span class="at">y =</span> <span class="st">&quot;Selectivity&quot;</span>, <span class="at">colour =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
-<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">7</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>sel <span class="ot">=</span> <span class="fu">copy</span>(opal_c<span class="sc">$</span>selectivity)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>fl <span class="ot">=</span> opal_c<span class="sc">$</span>fleets</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>keep <span class="ot">=</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">9</span>, <span class="dv">14</span>, <span class="dv">15</span>, <span class="dv">17</span>, <span class="dv">18</span>, <span class="dv">19</span>, <span class="dv">20</span>, <span class="dv">21</span>, <span class="dv">22</span>, <span class="dv">23</span>)</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>sel <span class="ot">=</span> sel[fishery <span class="sc">%in%</span> keep]</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>sel[, panel <span class="sc">:</span><span class="er">=</span> <span class="fu">factor</span>(<span class="fu">sprintf</span>(<span class="st">&quot;%d: %s&quot;</span>, fishery, fl<span class="sc">$</span>name[fishery]),</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>                      <span class="at">levels =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%d: %s&quot;</span>, keep, fl<span class="sc">$</span>name[keep]))]</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(sel, <span class="fu">aes</span>(age, sel, <span class="at">colour =</span> model)) <span class="sc">+</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">facet_wrap</span>(<span class="sc">~</span>panel, <span class="at">ncol =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_colour_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">&quot;SS3 B2e&quot;</span> <span class="ot">=</span> <span class="st">&quot;grey20&quot;</span>, <span class="at">O2 =</span> <span class="st">&quot;#C0392B&quot;</span>)) <span class="sc">+</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;Age&quot;</span>, <span class="at">y =</span> <span class="st">&quot;Selectivity&quot;</span>, <span class="at">colour =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">7</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div id="fig-sel" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -3362,11 +3521,11 @@ Figure 6: Selectivity-at-age in 2020: SS3 B2e (black) and opal O2 (red; not con
 </section>
 <section id="what-the-bridge-itself-changes" class="level2" data-number="6.3">
 <h2 data-number="6.3" class="anchored" data-anchor-id="what-the-bridge-itself-changes"><span class="header-section-number">6.3</span> What the bridge itself changes</h2>
-<p>The single-sex step is not neutral: B1’s stock is smaller and more depleted than S6’s. Female growth is applied to males (who are larger), each selectivity curve becomes S6’s male curve, and the compositions lose their sex information. A sex-averaged biology (the planned sensitivity B1b) would show how much of the change comes from growth and M rather than from the selectivity and the compositions.</p>
+<p>The single-sex step is not neutral: B1’s stock is smaller and more depleted than S6’s. Female growth is applied to males (who are larger), each selectivity curve becomes S6’s male curve, and the compositions lose their sex information. Because S6 estimates female selectivity to be well below male selectivity in nearly every fishery (with no spatial structure, selectivity absorbs the females’ lower availability to the gear; report §8.4), the single-sex model fishes the spawning stock harder than S6 does. A bridge that keeps one sex but uses S6’s female selectivity, or a selectivity averaged over the catch’s sex ratio, would separate this effect from growth. A sex-averaged biology (the planned sensitivity B1b) would show how much of the change comes from growth and M rather than from the selectivity and the compositions.</p>
 </section>
 </section>
-<section id="reproducing-this-document" class="level1" data-number="7">
-<h1 data-number="7"><span class="header-section-number">7</span> Reproducing this document</h1>
+<section id="reproducing-this-document" class="level1 unnumbered">
+<h1 class="unnumbered">Reproducing this document</h1>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 33%">
@@ -3406,12 +3565,20 @@ Figure 6: Selectivity-at-age in 2020: SS3 B2e (black) and opal O2 (red; not con
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Caches: bridge %s (SS3 %s); opal %s (opal %s, r4ss %s, R %s).</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>            bridge<span class="sc">$</span>made_at, bridge<span class="sc">$</span>ss3_version, opal_c<span class="sc">$</span>created,</span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>            opal_c<span class="sc">$</span>session<span class="sc">$</span>opal, opal_c<span class="sc">$</span>session<span class="sc">$</span>r4ss, opal_c<span class="sc">$</span>session<span class="sc">$</span>r))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Caches: bridge %s (SS3 %s); opal %s (opal %s, r4ss %s, R %s).</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>            bridge<span class="sc">$</span>made_at, bridge<span class="sc">$</span>ss3_version, opal_c<span class="sc">$</span>created,</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>            opal_c<span class="sc">$</span>session<span class="sc">$</span>opal, opal_c<span class="sc">$</span>session<span class="sc">$</span>r4ss, opal_c<span class="sc">$</span>session<span class="sc">$</span>r))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Caches: bridge 2026-10-28 03:24:48 UTC (SS3 3.30.22.1); opal 2026-10-28 04:46:45 UTC (opal 0.1.1, r4ss 1.56.0, R 4.5.3).</code></pre>
+<pre><code>Caches: bridge 2026-10-28 05:33:40 UTC (SS3 3.30.22.1); opal 2026-10-28 04:46:45 UTC (opal 0.1.1, r4ss 1.56.0, R 4.5.3).</code></pre>
+</div>
+</div>
+</section>
+<section id="references" class="level1 unnumbered">
+<h1 class="unnumbered">References</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-isc2022bsh" class="csl-entry" role="listitem">
+ISC Shark Working Group. 2022. <em>Stock Assessment and Future Projections of Blue Sharks in the <span>North Pacific Ocean</span> Through 2020</em>. Report of the 22nd Meeting of the ISC, Annex 12. International Scientific Committee for Tuna; Tuna-Like Species in the North Pacific Ocean. <a href="https://isc.fra.go.jp/pdf/ISC22/ISC22_ANNEX12_Stock_Assessment_for_Blue_Shark.pdf">https://isc.fra.go.jp/pdf/ISC22/ISC22_ANNEX12_Stock_Assessment_for_Blue_Shark.pdf</a>.
 </div>
 </div>
 </section>

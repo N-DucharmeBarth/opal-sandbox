@@ -1,7 +1,7 @@
 # Nicholas Ducharme-Barth
 # 2026/10/28
 # Build and run the SS3 bridge from the 2022 ISC North Pacific blue shark
-# assessment (base case S6, two sexes) to a single-sex SS3 model whose
+# assessment (ensemble model S6_base, two sexes) to a single-sex SS3 model whose
 # structure opal can represent.
 #
 # Each step changes one thing, starting from the previous step's estimates
@@ -268,7 +268,9 @@
             ssb0          = dq(rep, "SSB_Virgin"),
             ssb_2020      = dq(rep, "SSB_2020"),
             depletion     = dq(rep, "Bratio_2020"),
+            # F_2020 is F / F_MSY (starter F_report_basis 2; F = sum of full Fs)
             f_2020        = dq(rep, "F_2020"),
+            f_msy         = dq(rep, "annF_MSY"),
             ssb_msy       = dq(rep, "SSB_MSY"),
             n_on_bounds   = sum(grepl("LO|HI", rep$parameters$Status))
         )

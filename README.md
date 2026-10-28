@@ -49,7 +49,7 @@ Each case study is laid out the same way, with only the folders it needs:
 |---|---|---|
 | [`wcpo-bet`](case-studies/wcpo-bet) | 2020 WCPFC bigeye tuna, simplified to one region in MFCL, then rebuilt in SS3 (from a southwest Pacific striped marlin base file) | SS3 bridge complete; data prepared for RTMB; no opal model yet |
 | [`io-yft`](case-studies/io-yft) | IATTC team's SS3 model of simulated Indian Ocean yellowfin (Spatial Stock Assessment Simulation Experiment) | Converted to opal, tested and fitted; source of opal's `io_yft_*` data and articles |
-| [`npo-bsh`](case-studies/npo-bsh) | 2022 ISC North Pacific blue shark assessment (SS3 3.30, two sexes, base case S6) | SS3 bridge to a single-sex model; converted to opal, tested and fitted; vignette documents opal's limitations against SS3 |
+| [`npo-bsh`](case-studies/npo-bsh) | 2022 ISC North Pacific blue shark assessment (SS3 3.30, two sexes; S6_base, one of the three ensemble models) | SS3 bridge to a single-sex model; converted to opal, tested and fitted; vignette documents opal's limitations against SS3 |
 
 ### Adding a case study
 

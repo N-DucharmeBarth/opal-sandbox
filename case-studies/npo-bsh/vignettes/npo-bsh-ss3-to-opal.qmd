@@ -27,6 +27,7 @@ execute:
   echo: true
   warning: false
   message: false
+bibliography: references.bib
 ---
 
 ```{r}
@@ -59,7 +60,10 @@ model_col = c("SS3 B2e" = "grey20", O0 = "#7D3C98", O1 = "#2471A3", O2 = "#C0392
 # Overview
 
 The 2022 ISC stock assessment of North Pacific blue shark (*Prionace glauca*)
-uses Stock Synthesis (SS3 3.30.19) with two sexes. Its base case, S6, models
+[@isc2022bsh] uses Stock Synthesis (SS3 3.30.19) with two sexes. Stock status
+comes from an ensemble of three models that differ only in the late-period
+abundance index and the weighting of one fleet's length data. This case study
+uses the most heavily weighted of them, S6_base (S6 here). S6 models
 sex-specific growth, natural mortality and selectivity, and fits joint
 sex-by-length compositions. opal tracks one population vector, so S6 cannot
 be converted directly.
@@ -102,11 +106,133 @@ In brief:
   the compositions, opal's estimate matches SS3's. Fitting opal's own
   selectivity (O2) does not converge.
 
-# The S6 assessment
+# The 2022 assessment {#sec-assessment}
+
+This section summarises the assessment report [@isc2022bsh]; section numbers
+(§) and "report" tables and figures refer to it.
+
+## Stock, fisheries and data
+
+The ISC Shark Working Group (SHARKWG) assesses two Pacific stocks, north and
+south of the equator. Blue shark are scarce in the tropics, and no tagged
+shark has been recorded crossing the equator, although there is no genetic
+evidence of separate hemispheric populations (§2.1.1). Within the North
+Pacific the stock mixes widely but is segregated by size and sex. Pupping
+grounds lie at about 35-40°N in the northwest and 25-50°N in the northeast.
+Subadult females are found further north (35-50°N) than subadult males
+(30-40°N) (§2). The model has one area: the North Pacific north of the
+equator, annually from 1971 to 2020 (§3.1-3.2).
+
+The catch is total dead removals (landings plus dead discards) (§3.4):
+
+* Japan, Chinese-Taipei, Mexico and the USA take more than 90% of it.
+* It peaked at about 70,900 t in 1981.
+* It averaged 29,600 t a year over 2011-2020.
+* Since the high-seas driftnet ban in 1993, 89-97% of it has come from
+  longlines.
+
+Most of the catch is taken by three fleets: Japanese offshore shallow-set
+longline (F4), Japanese distant-water deep-set longline (F7) and Taiwanese
+small-scale longline (F20). In the 1980s and early 1990s the high-seas
+driftnet fleets (F8 large mesh, F11 small mesh) also caught large amounts. Two
+pairs of fleets are new since the 2017 assessment: Japan's large-mesh driftnet
+was split at the 1993 move from the high seas into the EEZ (F8 and F9), and
+the Hawaii longline into deep-set and shallow-set fleets (F17 and F18). F11,
+F17 and F18 report catch in numbers and all other fleets in weight (report Table 1).
+
+The 11 candidate abundance indices are listed in report Table 3. Every model in the
+ensemble fits the Japanese Kinkai shallow-set longline index for the early
+period (S5, 1976-1993). The models differ in the late-period index
+(1994-2020):
+
+* **S6:** the same fleet's late-period index, which is what S6_base fits.
+* **S11:** a dynamic-factor-analysis composite of the Hawaii deep-set (S1),
+  Taiwanese large-scale (S3) and Japanese research and training vessel (S7)
+  indices.
+
+The other indices have lambda 0 and were used only in sensitivity runs.
+Sex-specific length compositions (precaudal length, PCL, in 5 cm bins) come
+from 14 fisheries. F11's single 1991 sample is sex-combined, on different
+bins, and enters as generalised size-frequency data (report Table 5, §4.4.3).
+
+Data weighting was done in two steps (§4.2.3):
+
+* **Indices.** Where an index's mean CV was below the RMSE of a loess fit,
+  its CV was raised by an additive variance adjustment (report Table 6). S5, S6 and
+  S11 were not adjusted.
+* **Length compositions.** Every fleet's variance adjustment is
+  0.002161 = 50/23,142. This scales the input sample sizes so that the fleet
+  with the most fish measured (F4) averages about 50. Francis's TA1.8 then
+  down-weighted F4 further. The files match: 0.002161 for every
+  length-composition fleet and 0.000652 for F4.
+
+## Biology
+
+The biological parameters are fixed (report Table 8, §4.3):
+
+* **Growth.** Sex-specific von Bertalanffy growth (SS3's Richards curve with
+  shape 1), from vertebrae of 620 females and 659 males measuring 33-258 cm
+  PCL (Fujinami et al. 2019, cited in the report). Females reach L~1~ = 64.3 cm at age 1 and
+  L~2~ = 245.2 cm at age 20, with K = 0.146; males 68.2 cm, 261.5 cm and
+  0.117. CV of length-at-age 0.25 at age 1 and 0.1 at age 20. Pups are born
+  at about 36 cm PCL (§2.1.3).
+* **Natural mortality.** Age- and sex-specific, inversely proportional to
+  length, scaled to a meta-analytic constant. For females it falls from 0.79
+  at age 0 to 0.15 at age 24 (report Table 9).
+* **Maturity.** Female maturity is length-logistic with 50% at 156.6 cm PCL,
+  about age 5-6; males mature at about 161 cm and age 6 (§2.1.3). Litters of
+  15-112 pups (mean 35.5) have been observed in the northwestern Pacific, and
+  females reproduce annually after 11-12 months' gestation (§2.1.2).
+* **Spawner-recruit relationship.** Beverton-Holt with h = 0.613, from a
+  life-history simulation (Kai and Fujinami 2018, cited in the report), and sigma~R~ = 0.4, tuned. It replaces
+  the low-fecundity relationship used in 2017, whose parameters rested on
+  strong assumptions (§4.3.3).
+* **Initial state.** The stock is not assumed unfished in 1971: the
+  population starts in equilibrium with 40,000 t a year of F4 catch, about
+  the average of the first four years' catch (§4.3.4, §4.4.2). SSB~1971~ is
+  about 70% of unfished (§8.1).
+
+## The ensemble and S6_base
+
+The SHARKWG could not single out a best model on the diagnostics, so stock
+status comes from a hypothesis tree with three branches (§5.2):
+
+* **S6_base** (weight 50%) fits S6 for the late period.
+* **S11_base** (25%) fits S11 instead.
+* **S11_ess** (25%) is S11_base with F20's anomalously large 2018 and 2020
+  length samples (20,416 and 21,571 fish) down-weighted to 1,513. This
+  removes a retrospective pattern in S11_base.
+
+Each model's uncertainty was represented by a multivariate-lognormal
+bootstrap, and the three bootstraps were combined according to these weights.
+On the combined distribution (report Table 18):
+
+* SSB~2020~/SSB~MSY~ is 1.17 (80% interval 0.57-1.78);
+* F~2017-2019~/F~MSY~ is 0.45 (0.24-1.01);
+* the probability that the stock is neither overfished nor subject to
+  overfishing is 61.9%.
+
+The report notes that natural mortality and steepness, the most uncertain
+assumptions, are outside the ensemble.
+
+The report's diagnostics for S6_base (§6.1.1) bear on what follows:
+
+* It converged (maximum gradient 9.7 x 10^-5^) with a positive-definite
+  Hessian.
+* The ln(R~0~) profile is driven by the recruitment penalty. The index and
+  length data both favour a slightly lower R~0~, and within the indices the
+  early (S5) and late (S6) series conflict (report Figures 11-12).
+* There is a three-year retrospective pattern (Mohn's rho -0.2 for SSB and
+  0.27 for F/F~MSY~).
+* Female selectivity is estimated to be much lower than male selectivity in
+  nearly every fishery. Only F18 approaches full selection of females, and
+  F11 is sex-invariant (report Figure 26, §8.4).
+* Recruitment shows a large pulse in 1986-1988 and has been below the
+  stock-recruit curve for the last two decades.
 
 ```{r}
 #| label: tbl-s6
-#| tbl-cap: "Structure of S6."
+#| tbl-cap: "Structure of S6, from the model files."
 knitr::kable(data.table(
     Feature = c("Time", "Sexes and ages", "Fleets", "Catch", "Biology",
                 "Spawner-recruit", "Fishing mortality", "Selectivity",
@@ -117,14 +243,56 @@ knitr::kable(data.table(
         "20 fisheries and 11 surveys",
         "Weight (mt) except fleets 11, 17 and 18 (1000s of fish)",
         "Sex-specific age-specific M (fixed); Richards growth with shape 1 (von Bertalanffy) by sex, fixed; length-logistic maturity; 45 pups per mature female",
-        "Beverton-Holt, h = 0.613 and sigma_R = 0.4 fixed; main deviations 1971-2020, early deviations 1961-1970; regime offset on the initial equilibrium; initial F on F4",
+        "Beverton-Holt, h = 0.613 and sigma_R = 0.4 fixed; main deviations 1971-2020, early deviations 1961-1970; regime offset on the initial equilibrium; initial F on F4, fitted to a 40,000 t initial-equilibrium catch",
         "Hybrid (method 3)",
         "Size-based double normal (pattern 24) with female offsets from the male curve; F18 cubic spline with a male dogleg; six fisheries and all surveys mirror another fleet; F8 time blocks (1973-81, 1982-92); annual deviations on F19's peak",
         "Floating q; extra SD added to the CV; only S5 and S6 (Japanese longline early and late) have lambda 1",
-        "Joint sex x length (5 cm bins, 5-300 cm), multinomial with a variance adjustment of about 0.002; one size-frequency observation (F11, 1991)",
+        "Joint sex x length (5 cm bins, 5-300 cm), multinomial with a variance adjustment of 0.002161 (F4 0.000652); one size-frequency observation (F11, 1991)",
         "F-ballpark penalty (F = 0.2 in 2013); initial-equilibrium regime")),
     format = "pipe")
 ```
+
+## The files against the report
+
+The S6 files are the S6_base control file printed in the report's appendix,
+and S6 re-runs with SS3 3.30.22.1 to the same likelihood. The files, which
+are what this case study converts, differ from the report's text in a few
+places:
+
+* **Recruitment timing.** §4.3.3 says recruitment occurs at the start of the
+  year. In the files (and in the printed control file) recruits settle in
+  month 7, while spawning is in month 1. This matters for the conversion
+  (@sec-conversion).
+* **sigma~R~.** Report Table 8 gives 0.3, but §4.3.3, the files and the printed
+  control file use the tuned 0.4.
+* **Growth.** §4.3.5 quotes the 2017 values (L~1~ 64.4 cm, L~2~ 244.6 cm,
+  K 0.147 for females). The files use the updated values in report Table 8 (64.3 cm,
+  245.2 cm, 0.146).
+* **Fecundity.** Report Table 8 lists litter size proportional to length (-45.54 +
+  0.46 L). §4.3.7 says length-specific fecundity was not used in the final
+  runs, and the files agree: fecundity option 2 with a = 45 and b = 0, so
+  every mature female produces 45 pups. Spawning output is therefore a
+  number of pups (in thousands) proportional to the number of mature females.
+  The report labels it in tonnes; this document labels it in pups.
+* **Penalties not described in the report.** The files hold an F-ballpark
+  penalty (F = 0.2 in 2013) and an estimated regime offset on the initial
+  equilibrium recruitment. Both are removed in the bridge (@sec-bridge).
+
+```{r}
+#| label: tbl-s6-report
+#| tbl-cap: "S6 re-run with SS3 3.30.22.1 against the three-model ensemble (ISC 2022, Tables 17-18). The ensemble's SSB0, SSB MSY and F MSY are weighted means of the three models; the 2020 ratios are bootstrap medians."
+knitr::kable(data.table(
+    Quantity = c("SSB0", "SSB MSY", "F MSY", "SSB2020 / SSB MSY", "F2020 / F MSY"),
+    `S6 (this re-run)` = c(fmt(s6$ssb0, 0), fmt(s6$ssb_msy, 0), fmt(s6$f_msy, 2),
+                           fmt(s6$ssb_2020 / s6$ssb_msy, 2), fmt(s6$f_2020, 2)),
+    `Ensemble (report)` = c("222,736", "83,545", "0.76", "1.17", "0.45 (2017-2019)")),
+    format = "pipe", align = "lrr")
+```
+
+S6 alone is more optimistic than the ensemble. Its SSB~2020~/SSB~MSY~ of
+`r fmt(s6$ssb_2020 / s6$ssb_msy, 2)` is above the ensemble median of 1.17,
+which is pulled down by the two S11 models. This case study converts S6
+alone, so its comparisons say nothing about the ensemble's stock status.
 
 # The SS3 bridge {#sec-bridge}
 
@@ -148,7 +316,7 @@ step makes one change:
 stopifnot(all(B$hessian_ok))
 knitr::kable(B[, .(Step = label, `Est. par.` = n_par,
                    NLL = fmt(nll, 2), SSB0 = fmt(ssb0, 0),
-                   `SSB2020/SSB0` = fmt(depletion, 3), F2020 = fmt(f_2020, 3),
+                   `SSB2020/SSB0` = fmt(depletion, 3), `F2020/F MSY` = fmt(f_2020, 3),
                    `SSB MSY` = fmt(ssb_msy, 0))],
              format = "pipe", align = "lrrrrrr")
 ```
@@ -177,7 +345,10 @@ The three groups of steps tell different stories:
   scale is lower and its terminal depletion `r fmt(b1$depletion, 3)` against
   S6's `r fmt(s6$depletion, 3)`. The single-sex model uses female growth
   (245 cm at age 20) for males too (261 cm in S6), and each selectivity curve
-  becomes S6's male curve.
+  becomes S6's male curve. In S6, females are much less selected than males
+  of the same length in nearly every fishery (report §6.1.1). B1 therefore
+  exposes the spawning females to the males' selectivity, which is one
+  plausible reason for its more depleted spawning stock.
 * **Structural simplifications (B2a-B2d)** change little: the F18 spline, the
   F8 split and the regime offset each move the likelihood by less than 0.2
   units. Removing F19's selectivity deviations costs 1.2 units and moves
@@ -216,6 +387,9 @@ ggplot(pl, aes(ln_r0, value, colour = label)) +
 ci = P[converged == TRUE, .(lo = min(ln_r0[delta_nll < 1.92]), hi = max(ln_r0[delta_nll < 1.92]),
                             dep_lo = min(depletion[delta_nll < 1.92]),
                             dep_hi = max(depletion[delta_nll < 1.92])), by = step]
+# ln(R0) favoured by each likelihood component in S6
+p6 = P[step == "00-s6-base" & converged == TRUE]
+fav = sapply(c("survey", "length_comp", "recruitment"), function(v) p6$ln_r0[which.min(p6[[v]])])
 ```
 
 Each model's estimate sits at the minimum of its profile, so none is a local
@@ -228,6 +402,14 @@ the edge of the grid (ln(R~0~) = `r fmt(max(profile$ln_r0), 1)`, depletion
 components pull in opposite directions and nearly balance. The F-ballpark
 penalty, worth less than one likelihood unit at the optimum, was what held
 B1's scale down.
+
+The S6 profile reproduces the report's (report Figures 11-12). The index
+component is smallest at ln(R~0~) = `r fmt(fav[["survey"]], 1)` and the
+length component at `r fmt(fav[["length_comp"]], 1)`, both below the estimate
+of `r fmt(profile$estimates[step == "00-s6-base"]$ln_r0, 2)`. The recruitment
+penalty, smallest at `r fmt(fav[["recruitment"]], 1)`, holds the estimate up.
+S6's scale is therefore set largely by the stock-recruit assumptions (h and
+sigma~R~ are fixed), and so is the scale of the bridge models built from it.
 
 This matters for everything that follows. Small differences between opal and
 SS3, or between two opal configurations, can move the estimated scale a long
@@ -540,11 +722,17 @@ ggplot(sel, aes(age, sel, colour = model)) +
 The single-sex step is not neutral: B1's stock is smaller and more depleted
 than S6's. Female growth is applied to males (who are larger), each
 selectivity curve becomes S6's male curve, and the compositions lose their
-sex information. A sex-averaged biology (the planned sensitivity B1b) would
+sex information. Because S6 estimates female selectivity to be well below
+male selectivity in nearly every fishery (with no spatial structure,
+selectivity absorbs the females' lower availability to the gear; report
+§8.4), the single-sex model
+fishes the spawning stock harder than S6 does. A bridge that keeps one sex
+but uses S6's female selectivity, or a selectivity averaged over the catch's
+sex ratio, would separate this effect from growth. A sex-averaged biology (the planned sensitivity B1b) would
 show how much of the change comes from growth and M rather than from the
 selectivity and the compositions.
 
-# Reproducing this document
+# Reproducing this document {.unnumbered}
 
 | Step | Script | Writes |
 |---|---|---|
@@ -559,3 +747,10 @@ cat(sprintf("Caches: bridge %s (SS3 %s); opal %s (opal %s, r4ss %s, R %s).\n",
             bridge$made_at, bridge$ss3_version, opal_c$created,
             opal_c$session$opal, opal_c$session$r4ss, opal_c$session$r))
 ```
+
+::: {.content-visible when-format="html"}
+# References {.unnumbered}
+:::
+
+::: {#refs}
+:::

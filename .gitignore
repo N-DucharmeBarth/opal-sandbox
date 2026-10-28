@@ -56,6 +56,10 @@
 !forecast.ss_new
 !starter.ss_new
 !ss3.par
+# the supplied S6 run of the NPO blue shark assessment (SS3 3.30.19) names its par file ss.par
+!case-studies/npo-bsh/model-files/ss3/00-s6-base/ss.par
+# composition fits for the NPO blue shark SS3 bridge models (read by r4ss for the vignette)
+!case-studies/npo-bsh/model-files/ss3/*/CompReport.sso
 !warning.sso
 !Report.sso
 # devcontainer

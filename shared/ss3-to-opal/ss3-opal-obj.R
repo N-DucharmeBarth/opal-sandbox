@@ -502,3 +502,59 @@ ss3_use_estimated_selectivity = function(x, par_sel, cfg, fix = NULL) {
     opal::opal_update(x, data = data, parameters = parameters, map = map,
                       metadata = list(selectivity_route = "opal_estimated"))
 }
+
+#_____________________________________________________________________________
+#' opal double-normal parameters from SS3 size-based double normals
+#'
+#' For SS3 size selectivity pattern 24 the conversion is direct:
+#' \code{opal::convert_ss3_selex_to_rtmb()} maps peak, top, ascending and
+#' descending widths onto opal's scale. SS3's -999 start or end value means
+#' "no rescaling of that limb"; opal always rescales each limb between its
+#' end value and 1, so the end value is set to the logit of the value SS3's
+#' unscaled limb takes at the first (or last) length bin, which makes opal's
+#' curve identical to SS3's at these parameters. Those end values should stay
+#' fixed, as SS3 fixes them.
+#'
+#' Fleets that mirror another (pattern 5) copy their source's row; opal
+#' fisheries that are not size double normals keep \code{start}'s row.
+#'
+#' @param ss3 output of \code{ss3_read_model} (needs \code{rep} and \code{ctl}).
+#' @param fish output of \code{ss3_fisheries_to_opal}.
+#' @param len_mid opal length-bin midpoints.
+#' @param start \code{[n_fishery, n_par]} matrix of starting values.
+#' @return a \code{list} with \code{par_sel} and, per opal fishery, the SS3
+#'   fleet whose parameters the row holds (\code{source_fleet}, NA if none).
+ss3_seed_par_sel_size_dblnorm = function(ss3, fish, len_mid, start) {
+    par_sel = as.matrix(start)
+    pars  = data.table::as.data.table(ss3$rep$parameters)
+    types = as.data.frame(ss3$ctl$size_selex_types)
+    ss3_fleets = c(fish$extract_fleets, fish$index_map$ss3_fleet)
+    source_fleet = rep(NA_integer_, length(ss3_fleets))
+
+    # follow pattern 5 mirrors to the fleet that carries the parameters
+    resolve = function(sf) {
+        for (i in seq_len(nrow(types))) {
+            if (types$Pattern[sf] != 5L) return(sf)
+            sf = as.integer(types$Special[sf])
+        }
+        NA_integer_
+    }
+    x = len_mid
+    mu = mean(x)
+    s = stats::sd(x)
+    w = x[2] - x[1]
+    for (i in seq_along(ss3_fleets)) {
+        sf = resolve(ss3_fleets[i])
+        if (is.na(sf) || types$Pattern[sf] != 24L) next
+        p = pars[grepl("^Size_DblN_", Label) & grepl(sprintf("\\(%d\\)$", sf), Label)]$Value
+        if (length(p) != 6L) next
+        row = opal::convert_ss3_selex_to_rtmb(matrix(p, 1L), 2L, len_mid)[1, ]
+        peak  = mu + row[1] * s
+        peak2 = peak + w + (0.99 * x[length(x)] - peak - w) / (1 + exp(-row[2]))
+        if (p[5] <= -999) row[5] = stats::qlogis(exp(-(x[1] - peak)^2 / (exp(row[3]) * s^2)))
+        if (p[6] <= -999) row[6] = stats::qlogis(exp(-(x[length(x)] - peak2)^2 / (exp(row[4]) * s^2)))
+        par_sel[i, seq_along(row)] = row
+        source_fleet[i] = sf
+    }
+    list(par_sel = par_sel, source_fleet = source_fleet)
+}

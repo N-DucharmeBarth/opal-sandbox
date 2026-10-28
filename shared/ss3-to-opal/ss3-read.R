@@ -138,13 +138,16 @@ ss3_read_model = function(dir_ss3,
 
     par = NULL
     if (!is.na(par_file) && file.exists(file.path(dir_ss3, par_file))) {
-        # SS_readpar_3.24 needs the dat/ctl lists to know the parameter layout.
-        # Pass the lists already read: given paths, it re-reads the control
-        # file with use_datlist = TRUE and hits the Do_AgeKey failure above.
-        par = r4ss::SS_readpar_3.24(parfile   = file.path(dir_ss3, par_file),
-                                    datsource = dat,
-                                    ctlsource = ctl,
-                                    verbose   = FALSE)
+        # The par readers need the dat/ctl lists to know the parameter layout.
+        # Pass the lists already read: given paths, SS_readpar_3.24 re-reads
+        # the control file with use_datlist = TRUE and hits the Do_AgeKey
+        # failure above.
+        read_par = if (as.numeric(version) >= 3.3) r4ss::SS_readpar_3.30 else
+            r4ss::SS_readpar_3.24
+        par = read_par(parfile   = file.path(dir_ss3, par_file),
+                       datsource = dat,
+                       ctlsource = ctl,
+                       verbose   = FALSE)
     }
 
     rep = NULL

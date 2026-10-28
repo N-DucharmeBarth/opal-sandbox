@@ -117,15 +117,22 @@ ss3_dims_to_opal = function(ss3, cfg) {
 ss3_fisheries_to_opal = function(ss3, cfg, dims) {
 
     dat = ss3$dat
-    n_extract = as.integer(ss3_pick(dat, c("Nfleet", "Nfleets"), what = "Nfleet"))
 
-    # Units of catch for extraction fleets: SS3 codes 1 = biomass, 2 = numbers.
-    # opal uses the same codes, so this passes through unchanged.
-    units_extract = ss3_pick(dat, c("units_of_catch", "fleetinfo"),
-                             default = rep(1, n_extract))
-    units_extract = if (is.data.frame(units_extract))
-        as.numeric(units_extract$units) else as.numeric(units_extract)
-    units_extract = units_extract[seq_len(n_extract)]
+    # Extraction fleets become opal fisheries 1..n_extract, in SS3 order. In
+    # SS3 3.24 they are fleets 1..Nfleet; in 3.30 fleets of any type can be in
+    # any order, so they are the fleets of type 1 (catch) or 2 (bycatch).
+    fi = ss3_pick(dat, c("fleetinfo"), default = NULL)
+    if (is.data.frame(fi) && "type" %in% names(fi)) {
+        extract_fleets = which(as.integer(fi$type) %in% c(1L, 2L))
+        units_extract  = as.numeric(fi$units[extract_fleets])
+    } else {
+        extract_fleets = seq_len(as.integer(ss3_pick(dat, c("Nfleet", "Nfleets"), what = "Nfleet")))
+        # Units of catch: SS3 codes 1 = biomass, 2 = numbers, as in opal.
+        units_extract = as.numeric(ss3_pick(dat, c("units_of_catch"),
+                                            default = rep(1, length(extract_fleets))))
+        units_extract = units_extract[extract_fleets]
+    }
+    n_extract = length(extract_fleets)
 
     # Index fleets, after any splitting.
     split_spec = cfg$index$split %||% list()
@@ -170,11 +177,37 @@ ss3_fisheries_to_opal = function(ss3, cfg, dims) {
 
     list(
         n_extract     = n_extract,
+        extract_fleets = extract_fleets,
         n_index       = n_index,
         n_fishery     = n_fishery,
         catch_units_f = unname(c(units_extract, units_index)),
         index_map     = idx_map
     )
+}
+
+#_____________________________________________________________________________
+#' opal fishery for each observation of an SS3 fleet
+#'
+#' Extraction fleets map to their position among the extraction fleets; index
+#' fleets to their opal fishery, through any split. NA for fleets opal does
+#' not carry.
+#'
+#' @param ss3_fleet \code{integer} vector of SS3 fleet ids.
+#' @param ts \code{integer} vector of opal timesteps (1-based).
+#' @param cfg converter configuration list.
+#' @param fish output of \code{ss3_fisheries_to_opal}.
+#' @return \code{integer} vector of opal fishery ids.
+ss3_opal_fishery = function(ss3_fleet, ts, cfg, fish) {
+    ss3_fleet = as.integer(ss3_fleet)
+    out = match(ss3_fleet, fish$extract_fleets)
+    split_fleets = vapply(cfg$index$split %||% list(), function(s) as.integer(s$fleet), integer(1L))
+    is_split = ss3_fleet %in% split_fleets
+    out[is_split] = ss3_apply_index_split(ss3_fleet[is_split], ts[is_split], cfg)
+    im = fish$index_map
+    unsplit = im[!im$ss3_fleet %in% split_fleets, ]
+    hit = match(ss3_fleet, unsplit$ss3_fleet)
+    out[is.na(out) & !is.na(hit)] = unsplit$opal_fleet[hit[is.na(out) & !is.na(hit)]]
+    out
 }
 
 #_____________________________________________________________________________
@@ -234,6 +267,8 @@ ss3_catch_to_opal = function(ss3, cfg, dims, fish) {
 
     long = long[year >= dims$.first_ts & year <= dims$.last_ts]
     long[, ts := year - dims$.first_ts + 1L]
+    long[, fleet := match(fleet, fish$extract_fleets)]
+    long = long[!is.na(fleet)]
 
     catch_obs_ysf = array(0, dim = c(dims$n_year, dims$n_season, fish$n_fishery))
     for (r in seq_len(nrow(long))) {
@@ -268,12 +303,19 @@ ss3_index_to_opal = function(ss3, cfg, dims, fish) {
 
     cpue = cpue[year >= dims$.first_ts & year <= dims$.last_ts]
     cpue[, ts := year - dims$.first_ts + 1L]
-    cpue[, fishery := ss3_apply_index_split(ss3_fleet, ts, cfg)]
+    cpue[, fishery := ss3_opal_fishery(ss3_fleet, ts, cfg, fish)]
     cpue = cpue[fishery %in% fish$index_map$opal_fleet]
 
     # Index number is the position within the opal index set, not the fishery id.
     cpue[, index := match(fishery, fish$index_map$opal_fleet)]
     cpue[, units := fish$catch_units_f[fishery]]
+
+    # SS3 adds the control file's add_to_survey_CV (variance adjustment factor
+    # 1) to each observation's log-scale SE. opal combines its own tau in
+    # quadrature, so the SS3 adjustment is added to the input SE here.
+    if (isTRUE(cfg$index$add_survey_var_adjust)) {
+        cpue[, se := se + ss3_survey_se_add(ss3, ss3_fleet)]
+    }
 
     if (identical(cfg$index$normalise %||% "mean1", "mean1")) {
         cpue[, obs := obs / mean(obs), by = fishery]
@@ -330,7 +372,8 @@ ss3_lencomp_to_opal = function(ss3, cfg, dims, fish) {
     if (!isTRUE(cfg$lf$keep_negative_fleets)) wide = wide[ss3_fleet > 0]
     wide = wide[year >= dims$.first_ts & year <= dims$.last_ts]
     wide[, ts := year - dims$.first_ts + 1L]
-    wide[, fishery := ss3_apply_index_split(ss3_fleet, ts, cfg)]
+    wide[, fishery := ss3_opal_fishery(ss3_fleet, ts, cfg, fish)]
+    wide = wide[!is.na(fishery)]
 
     long = data.table::melt(
         wide[, c("year", "ts", "fishery", "Nsamp", bin_cols), with = FALSE],
@@ -371,13 +414,17 @@ ss3_lencomp_to_opal = function(ss3, cfg, dims, fish) {
 #' @keywords internal
 ss3_lencomp_n_mult = function(ss3, fish) {
     n_fishery = fish$n_fishery
-    ss3_fleet = c(seq_len(fish$n_extract), fish$index_map$ss3_fleet)
+    ss3_fleet = c(fish$extract_fleets, fish$index_map$ss3_fleet)
     va = ss3_pick(ss3$ctl, c("Variance_adjustments", "Variance_adjustment_list",
                              "var_adjust", "Variance_adjustment"), default = NULL)
     out = rep(NA_real_, n_fishery)
     if (is.null(va)) return(out)
     if (!isTRUE(as.integer(ss3$ctl$DoVar_adjust %||% 1L) == 1L)) return(out)
-    if (is.matrix(va) || is.data.frame(va)) {
+    if (is.data.frame(va) && all(c("factor", "fleet", "value") %in% names(va))) {
+        # 3.30 layout: one row per (factor, fleet); factor 4 is mult_by_lencomp_N
+        v = va[va$factor == 4, ]
+        out = as.numeric(v$value[match(ss3_fleet, v$fleet)])
+    } else if (is.matrix(va) || is.data.frame(va)) {
         m = as.matrix(va)
         # 3.24 layout: 6 rows x Nfleet columns. Find the mult_by_lencomp_N row
         # by name (r4ss keeps the control-file comment as the row name), falling
@@ -389,6 +436,26 @@ ss3_lencomp_n_mult = function(ss3, fish) {
             out = v[ss3_fleet]
         }
     }
+    out
+}
+
+#' SS3 add_to_survey_CV (variance adjustment factor 1) for each SS3 fleet id
+#' @keywords internal
+ss3_survey_se_add = function(ss3, ss3_fleet) {
+    va = ss3_pick(ss3$ctl, c("Variance_adjustment_list", "Variance_adjustments"), default = NULL)
+    out = rep(0, length(ss3_fleet))
+    if (is.null(va) || !isTRUE(as.integer(ss3$ctl$DoVar_adjust %||% 1L) == 1L)) return(out)
+    if (is.data.frame(va) && all(c("factor", "fleet", "value") %in% names(va))) {
+        v = va[va$factor == 1, ]
+        hit = match(ss3_fleet, v$fleet)
+    } else {
+        m = as.matrix(va)
+        row = grep("add_to_survey_CV", rownames(m))[1]
+        if (is.na(row)) row = 1L
+        v = list(value = as.numeric(m[row, ]))
+        hit = ss3_fleet
+    }
+    out[!is.na(hit)] = as.numeric(v$value[hit[!is.na(hit)]])
     out
 }
 
@@ -544,7 +611,7 @@ ss3_age_selex_matrix = function(rep, dims, fish, cfg) {
     out = matrix(NA_real_, nrow = fish$n_fishery, ncol = dims$n_age)
     used = rep(NA_character_, fish$n_fishery)
     for (f in seq_len(fish$n_fishery)) {
-        ss3_f = if (f <= fish$n_extract) f else
+        ss3_f = if (f <= fish$n_extract) fish$extract_fleets[f] else
             fish$index_map$ss3_fleet[match(f, fish$index_map$opal_fleet)]
         for (fac in factors) {
             rows = as_dt[get(factor_col) == fac & get(fleet_col) == ss3_f]
@@ -631,14 +698,35 @@ ss3_pars_to_opal = function(ss3, cfg, dims, fish, bio) {
     }
     log_B0 = log(ssb0)
 
-    # Recruitment deviations, aligned to the opal timestep window.
+    # Recruitment deviations, aligned to the opal timestep window. opal's
+    # rdev_y[y] sets the first age class at the start of timestep y + 1. When
+    # SS3 age 0 is kept that class is SS3's recruitment of y + 1; when age 0
+    # is dropped it is SS3's age 1, recruited (and given its deviation) in y.
+    # See ss3_recdev_shift().
+    shift  = ss3_recdev_shift(dims)
     rdev_y = rep(0, dims$n_year)
-    if (!is.null(ss3$par)) {
-        dev = ss3_recdevs(ss3$par, ss3$ctl)
-        if (!is.null(dev)) {
-            hit = match(dims$.first_ts:dims$.last_ts, dev$year)
-            rdev_y = ifelse(is.na(hit), 0, dev$value[hit])
+    init_rdev_a = rep(0, dims$n_age)
+    dev = if (is.null(ss3$par)) NULL else ss3_recdevs(ss3$par, ss3$ctl)
+    if (!is.null(dev)) {
+        hit = match(dims$.first_ts:dims$.last_ts + shift, dev$year)
+        rdev_y = ifelse(is.na(hit), 0, dev$value[hit])
+        # The initial age structure: SS3 age s at the start of the first
+        # timestep was recruited in first_ts - s, with that year's deviation
+        # (the early deviations, and for age 0 the first main deviation).
+        # Only applied with cfg$recdev$initial: true.
+        if (isTRUE(cfg$recdev$initial)) {
+            hit = match(dims$.first_ts - dims$.ss3_ages, dev$year)
+            init_rdev_a = ifelse(is.na(hit), 0, dev$value[hit])
         }
+    }
+
+    # Initial-equilibrium fishing mortality (SS3 init_F, annual and by fleet)
+    log_init_F_f = rep(log(1e-8), fish$n_fishery)
+    init_F = ss3_init_F(ss3)
+    if (length(init_F)) {
+        f = match(init_F$fleet, fish$extract_fleets)
+        ok = !is.na(f)
+        log_init_F_f[f[ok]] = log(pmax(init_F$value[ok], 1e-8))
     }
 
     n_index = fish$n_index
@@ -653,8 +741,8 @@ ss3_pars_to_opal = function(ss3, cfg, dims, fish, bio) {
         log_cpue_omega = rep(0, n_index),
         log_lf_tau     = rep(log(0.1), fish$n_fishery),
         rdev_y         = rdev_y,
-        init_rdev_a    = rep(0, dims$n_age),
-        log_init_F_f   = rep(log(1e-8), fish$n_fishery),
+        init_rdev_a    = init_rdev_a,
+        log_init_F_f   = log_init_F_f,
         par_sel        = matrix(0, nrow = fish$n_fishery,
                                 ncol = as.integer(cfg$selectivity$n_par %||% 6L)),
         log_L1         = log(bio$L1),
@@ -667,6 +755,30 @@ ss3_pars_to_opal = function(ss3, cfg, dims, fish, bio) {
     # Assigning NULL adds nothing, so the Schnute path is unchanged.
     pars$log_k_mult = bio$log_k_mult
     pars
+}
+
+#' Year offset between opal's rdev_y index and SS3's recruitment year
+#'
+#' 1 when SS3 age 0 is the first opal age (opal's first age class at t + 1 is
+#' SS3's recruitment of t + 1), 0 when age 0 is dropped (that class is SS3's
+#' age 1, recruited in t).
+#' @keywords internal
+ss3_recdev_shift = function(dims) as.integer(dims$.ss3_ages[1] == 0L)
+
+#' Initial-equilibrium F by fleet from the par file (or the control file)
+#' @keywords internal
+ss3_init_F = function(ss3) {
+    ctl_if = ss3_pick(ss3$ctl, c("init_F"), default = NULL)
+    if (is.null(ctl_if) || !NROW(ctl_if)) return(NULL)
+    # 3.30 names the rows InitF_seas_<s>_flt_<f><name>; 3.24 models (whose
+    # conversions predate this) are left at opal's default of no initial F
+    is_330 = grepl("_flt_[0-9]+", rownames(ctl_if))
+    if (!any(is_330)) return(NULL)
+    fleet = as.integer(sub(".*_flt_([0-9]+).*", "\\1", rownames(ctl_if)))
+    value = as.numeric(ctl_if[, "INIT"])
+    par_if = ss3_pick(ss3$par %||% list(), c("init_F"), default = NULL)
+    if (!is.null(par_if) && length(par_if) == length(value)) value = as.numeric(par_if)
+    data.frame(fleet = fleet, value = value)
 }
 
 #' Recruitment deviations from the SS3 par file, with their years
@@ -797,7 +909,8 @@ ss3_to_opal = function(cfg, dir_root = getwd()) {
 
         # SS3's recruitment bias-adjustment ramp (Report.sso only). Without it
         # opal applies the full lognormal correction in every timestep.
-        bias_adj_y     = ss3_bias_adj(ss3$rep, dims)
+        bias_adj_y     = ss3_bias_adj(ss3$rep, dims),
+        init_bias_adj_a = if (isTRUE(cfg$recdev$initial)) ss3_init_bias_adj(ss3$rep, dims) else NULL
     )
     data = data[!vapply(data, is.null, logical(1L))]
 

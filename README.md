@@ -21,6 +21,7 @@ Any model runs contained within this repository represent preliminary model expl
 case-studies/          one folder per stock; nothing in it is used by another case study
   wcpo-bet/            WCPO bigeye tuna: MFCL single-region model rebuilt in SS3
   io-yft/              Indian Ocean yellowfin (simulated data): SS3 -> opal
+  npo-bsh/             North Pacific blue shark: two-sex SS3 -> single-sex SS3 bridge -> opal
 shared/                code used by more than one case study
   ss3-to-opal/         SS3-to-opal converter, validation and fit helpers
   extractors/ss3/      SS3 output extractors and plotting helpers
@@ -48,6 +49,7 @@ Each case study is laid out the same way, with only the folders it needs:
 |---|---|---|
 | [`wcpo-bet`](case-studies/wcpo-bet) | 2020 WCPFC bigeye tuna, simplified to one region in MFCL, then rebuilt in SS3 (from a southwest Pacific striped marlin base file) | SS3 bridge complete; data prepared for RTMB; no opal model yet |
 | [`io-yft`](case-studies/io-yft) | IATTC team's SS3 model of simulated Indian Ocean yellowfin (Spatial Stock Assessment Simulation Experiment) | Converted to opal, tested and fitted; source of opal's `io_yft_*` data and articles |
+| [`npo-bsh`](case-studies/npo-bsh) | 2022 ISC North Pacific blue shark assessment (SS3 3.30, two sexes, base case S6) | SS3 bridge to a single-sex model; converted to opal, tested and fitted; vignette documents opal's limitations against SS3 |
 
 ### Adding a case study
 

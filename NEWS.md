@@ -1,5 +1,28 @@
 # opal-sandbox (development)
 
+- 2026/10/28: North Pacific blue shark case study (`case-studies/npo-bsh/`).
+  - An SS3 bridge from the 2022 ISC assessment (S6, two sexes) to a
+    single-sex SS3 model, one change per step: single sex, F18 spline to
+    double normal, F8's selectivity blocks as two fleets, no F19 selectivity
+    deviations, no initial regime offset, no F-ballpark penalty. Every step
+    converges with a positive-definite Hessian. Likelihood profiles over
+    ln(R0) show that the single-sex models' scale is weakly determined.
+  - The last step (B2e) is converted to opal and fitted with SS3's
+    selectivity (O1) and with opal's own double normals (O2). The vignette
+    `vignettes/npo-bsh-ss3-to-opal.qmd` documents where opal falls short of
+    SS3 or differs from it.
+  - The shared converter reads SS3 3.30 models: 3.30 par files and variance
+    adjustments (including SS3's additive index CV), fishing fleets numbered
+    after the surveys, initial F, early recruitment deviations as the initial
+    age structure, the female fraction of `Nsexes = -1`, and recruitment
+    deviations aligned to SS3's recruitment year when SS3 age 0 is kept.
+    `ss3_seed_par_sel_size_dblnorm()` carries SS3's size double normals into
+    opal exactly. The IO yellowfin conversion is unchanged.
+  - New tests: `test-npo-bsh-ss3-bridge.r` (each bridge step's convergence,
+    Hessian, structure and data) and `test-ss3-to-opal-npo-bsh.r` (the
+    conversion, recruitment alignment, selectivity and opal's dynamics at
+    SS3's values).
+
 - 2026/10/28 ([#8](https://github.com/N-DucharmeBarth/opal-sandbox/pull/8)):
   Continuous integration.
   - `.github/workflows/tests.yaml` runs `tests/testthat` on every pull

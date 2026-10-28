@@ -133,6 +133,26 @@
         factor(as.vector(m))
     }
 
+    # Bounds for the estimated selectivity parameters: SS3's own bounds on
+    # opal's scale (opal's default of +/-7 is narrower than SS3's +/-15 on
+    # the widths once they are rescaled by the spread of the length bins)
+    sel_bounds = function() {
+        x = converted$data$len_mid
+        mu = mean(x)
+        sd_x = stats::sd(x)
+        to_opal = function(v, col) switch(col, (v - mu) / sd_x, v, v - 2 * log(sd_x), v - 2 * log(sd_x))
+        out = list(lower = numeric(), upper = numeric())
+        for (f in seq_along(est_cols)) {
+            sf = seed$source_fleet[f]
+            for (col in est_cols[[f]]) {
+                p = pars_ss3[grepl("^Size_DblN_", Label) & grepl(sprintf("\\(%d\\)$", sf), Label)][col]
+                out$lower = c(out$lower, to_opal(p$Min, col))
+                out$upper = c(out$upper, to_opal(p$Max, col))
+            }
+        }
+        out
+    }
+
 #_____________________________________________________________________________
 # O0: bridge at SS3's values
     o0 = ss3_use_external_selectivity(assessment, converted$selectivity$sel_fa_external) %>%
@@ -175,6 +195,13 @@
     m2 = base_map(o2)
     m2$par_sel = sel_map(seed$par_sel)
     o2 = opal_update(o2, map = m2) %>% opal_build()
+    b = o2$bounds
+    i_sel = which(names(opal_rtmb(o2, fresh = TRUE)$par) == "par_sel")
+    sb = sel_bounds()
+    stopifnot(length(i_sel) == length(sb$lower))
+    b$lower[i_sel] = sb$lower
+    b$upper[i_sel] = sb$upper
+    o2 = opal_update(o2, bounds = list(lower = b$lower, upper = b$upper)) %>% opal_build()
     fit_o2 = fit_opal(o2)
 
 #_____________________________________________________________________________

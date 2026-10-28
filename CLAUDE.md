@@ -2,13 +2,13 @@
 
 ## R environment in cloud containers
 
-R is not preinstalled. `code/rtmb/setup/install-r-opal.sh` installs R 4.5,
+R is not preinstalled. `shared/setup/install-r-opal.sh` installs R 4.5,
 opal (dev), r4ss and Quarto into `/opt/renv45` through conda-forge and
 `git clone` (CRAN and GitHub HTTP are blocked). It takes 20-30 minutes, so run
 it in the background:
 
 ```bash
-bash code/rtmb/setup/install-r-opal.sh > /tmp/install-r.log 2>&1
+bash shared/setup/install-r-opal.sh > /tmp/install-r.log 2>&1
 ```
 
 In each new shell afterwards:
@@ -24,19 +24,29 @@ The repository's `.Rprofile` activates renv, which tries to reach CRAN. Run R
 with `--no-init-file` or from outside the repository root. Scripts find the
 project root with `this.path::this.proj()`, so they still work from anywhere.
 
-## SS3 -> opal (code/rtmb)
+## Layout
 
-* `helper-fns/`: the SS3-to-opal converter and fit helpers.
-* `scripts/01`-`03`: fits that write the caches in `vignettes/data/`.
-* `scripts/04-export-io-yft-for-opal.r`: exports fit C2 as package data
-  (including SS3's `age_selex` parameters in `io_yft_reference`), a stored
+See README.md. Each stock has its own folder under `case-studies/`; code used
+by more than one case study goes in `shared/` (`ss3-to-opal/` converter,
+`extractors/{ss3,mfcl}/`, `setup/`). `simulations/` holds the opal simulation
+studies and `tests/testthat/` the extractor tests.
+
+## SS3 -> opal (shared/ss3-to-opal, case-studies/io-yft)
+
+* `shared/ss3-to-opal/`: the SS3-to-opal converter and fit helpers.
+* `case-studies/io-yft/scripts/01`-`03`: fits that write the caches in
+  `case-studies/io-yft/vignettes/data/`.
+* `case-studies/io-yft/scripts/04-export-io-yft-for-opal.r`: exports fit C2 as
+  package data (including SS3's `age_selex` parameters in `io_yft_reference`), a stored
   fit and data docs for the opal package, under `opal-export/` (laid out
   like the opal repository; see its README). The age-based fits, the
   vignette cache and the two vignettes there are made inside opal's
   `age-selex` branch by its `data-raw/` scripts and copied back;
   `opal-export/patches/` holds the same changes as `git am` patches.
-* `scripts/05-io-yft-ss3-to-opal-workflow.r`: end-to-end conversion, tests
-  and fit C2 with the settings as an R list; companion to the step-by-step
+  Files in `opal-export/` and `opal-patches/` are snapshots of opal and still
+  name the pre-reorganisation paths (`code/rtmb/...`).
+* `case-studies/io-yft/scripts/05-io-yft-ss3-to-opal-workflow.r`: end-to-end
+  conversion, tests and fit C2 with the settings as an R list; companion to the step-by-step
   guide `vignettes/ss3-to-opal-workflow.qmd` (HTML + PDF), which shows its
   chunks via `knitr::read_chunk()` and reads the cache it writes.
 * `.gitignore` ignores everything not explicitly whitelisted; add new file

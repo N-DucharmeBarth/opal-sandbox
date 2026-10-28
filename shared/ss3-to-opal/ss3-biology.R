@@ -412,10 +412,19 @@ ss3_m_rate_divisor = function(cfg, dims) {
 #' overrides the choice when set.
 #' @keywords internal
 ss3_spawning_female_fraction = function(ss3, cfg) {
+    # Nsexes = 2 splits the numbers by sex upstream; Nsexes = -1 (SS3 3.30) is
+    # a single sex whose spawning biomass SS3 multiplies by the female fraction
     apply = cfg$bio$endgrowth$apply_frac_female %||%
-        (as.integer(ss3$dat$Nsexes %||% 1L) == 2L)
+        (as.integer(ss3$dat$Nsexes %||% 1L) %in% c(2L, -1L))
     if (!isTRUE(apply)) return(1)
-    as.numeric(ss3_pick(ss3$ctl, c("fracfemale", "fracfem"), default = 1))
+    ff = ss3_pick(ss3$ctl, c("fracfemale", "fracfem"), default = NULL)
+    if (is.null(ff)) {
+        mg = ss3_pick(ss3$ctl, c("MG_parms"), default = NULL)
+        if (!is.null(mg) && any(grepl("^FracFemale", rownames(mg)))) {
+            ff = ss3_parm_value(mg, "^FracFemale", n_expected = 1L)
+        }
+    }
+    as.numeric(ff %||% 1)
 }
 
 #' One value from SS3's derived quantities, by label
@@ -473,9 +482,25 @@ ss3_spr0 = function(rep, dims = NULL) {
 ss3_bias_adj = function(rep, dims) {
     rc = if (is.null(rep)) NULL else rep$recruit
     if (is.null(rc) || !all(c("Yr", "biasadjuster") %in% names(rc))) return(NULL)
-    hit = match(dims$.first_ts:dims$.last_ts, rc$Yr)
-    if (anyNA(hit)) return(NULL)
-    as.numeric(rc$biasadjuster[hit])
+    # aligned like rdev_y (see ss3_recdev_shift()); a year past the end of
+    # SS3's table (the first forecast year) takes no bias adjustment
+    yrs = dims$.first_ts:dims$.last_ts + ss3_recdev_shift(dims)
+    hit = match(yrs, rc$Yr)
+    if (anyNA(hit[-length(hit)])) return(NULL)
+    out = as.numeric(rc$biasadjuster[hit])
+    out[is.na(out)] = 0
+    out
+}
+
+#' SS3's bias adjustment for the initial age structure (cfg$recdev$initial)
+#' @keywords internal
+ss3_init_bias_adj = function(rep, dims) {
+    rc = if (is.null(rep)) NULL else rep$recruit
+    if (is.null(rc) || !all(c("Yr", "biasadjuster") %in% names(rc))) return(NULL)
+    hit = match(dims$.first_ts - dims$.ss3_ages, rc$Yr)
+    out = as.numeric(rc$biasadjuster[hit])
+    out[is.na(out)] = 0
+    out
 }
 
 #_____________________________________________________________________________

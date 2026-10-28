@@ -190,13 +190,22 @@ ss3_reconcile = function(x, tol = 1e-6, spr0_tol = 1e-4) {
     catch_ss3 = data.table::as.data.table(ss3$dat$catch)
     yr_col = intersect(c("year", "Yr", "yr"), names(catch_ss3))[1]
     se_col = intersect(c("seas", "Seas", "season"), names(catch_ss3))[1]
-    fleet_cols = setdiff(names(catch_ss3), c(yr_col, se_col))
     in_win = catch_ss3[[yr_col]] >= dims$.first_ts & catch_ss3[[yr_col]] <= dims$.last_ts
-
-    for (f in seq_along(fleet_cols)) {
-        add(sprintf("catch total, fleet %d (%s)", f, fleet_cols[f]),
-            sum(as.numeric(catch_ss3[[fleet_cols[f]]][in_win])),
-            sum(d$catch_obs_ysf[, , f]))
+    if (all(c("fleet", "catch") %in% names(catch_ss3))) {
+        # SS 3.30 long format
+        for (f in seq_len(fish$n_extract)) {
+            sf = fish$extract_fleets[f]
+            add(sprintf("catch total, fleet %d (%s)", sf, dims$.fleet_names[sf]),
+                sum(as.numeric(catch_ss3$catch[in_win & catch_ss3$fleet == sf])),
+                sum(d$catch_obs_ysf[, , f]))
+        }
+    } else {
+        fleet_cols = setdiff(names(catch_ss3), c(yr_col, se_col))
+        for (f in seq_along(fleet_cols)) {
+            add(sprintf("catch total, fleet %d (%s)", f, fleet_cols[f]),
+                sum(as.numeric(catch_ss3[[fleet_cols[f]]][in_win])),
+                sum(d$catch_obs_ysf[, , f]))
+        }
     }
 
     # ---- CPUE: observation counts, and values before normalisation ---------
@@ -204,10 +213,10 @@ ss3_reconcile = function(x, tol = 1e-6, spr0_tol = 1e-4) {
     data.table::setnames(cpue_ss3, tolower(names(cpue_ss3)))
     fl_col = intersect(c("index", "fleet"), names(cpue_ss3))[1]
     yr_col = intersect(c("year", "yr"), names(cpue_ss3))[1]
-    n_ss3 = sum(cpue_ss3[[fl_col]] > 0 &
+    n_ss3 = sum(cpue_ss3[[fl_col]] %in% fish$index_map$ss3_fleet &
                     cpue_ss3[[yr_col]] >= dims$.first_ts &
                     cpue_ss3[[yr_col]] <= dims$.last_ts)
-    add("CPUE observation count", n_ss3, nrow(d$cpue_data),
+    add("CPUE observation count (kept SS3 index fleets)", n_ss3, nrow(d$cpue_data),
         "index splitting preserves observation count")
 
     # ---- Length compositions: observation-years and total sample size ------
@@ -421,7 +430,24 @@ ss3_bridge_replica = function(x, catch = c("start", "baranov"), sr = c("opal", "
     num    = d$catch_units_f != 1
     wt     = d$weight %||% stop("ss3_bridge_replica() needs age-basis weight.", call. = FALSE)
 
-    N   = R0 * rel
+    # Initial age structure: equilibrium under the initial F (as opal's
+    # get_initial_numbers(), one season), then the initial deviations
+    N = R0 * rel
+    init_F = exp(p$log_init_F_f %||% rep(-Inf, nrow(sel)))
+    if (any(init_F > 1e-6)) {
+        S_init = S * (1 - colSums((1 - exp(-init_F)) * sel))
+        rel_f = cumprod(c(1, S_init[-n_age]))
+        rel_f[n_age] = rel_f[n_age] / (1 - S_init[n_age])
+        R_eq = alpha - beta / sum(sp * rel_f)
+        N = R_eq * rel_f
+    }
+    init_dev = p$init_rdev_a %||% rep(0, n_age)
+    init_badj = d$init_bias_adj_a %||% rep(0, n_age)
+    N = N * exp(init_dev - init_badj * 0.5 * sig^2)
+    # SS3 recruits age 0 from the same year's spawning biomass, which is opal's
+    # timing when age 0 is the first opal age
+    age0 = isTRUE(x$meta$dims$.ss3_ages[1] == 0L)
+
     ssb = numeric(n_yr)
     for (y in seq_len(n_yr)) {
         ssb[y] = sum(N * sp)
@@ -449,7 +475,7 @@ ss3_bridge_replica = function(x, catch = c("start", "baranov"), sr = c("opal", "
         }
         N_next = c(0, N_end[-n_age])
         N_next[n_age] = N_next[n_age] + N_end[n_age]
-        sb_R = if (sr == "ss3") ssb[y] else sum(N_next * sp)
+        sb_R = if (sr == "ss3" && !age0) ssb[y] else sum(N_next * sp)
         N_next[1] = alpha * sb_R / (beta + sb_R) *
             exp(p$rdev_y[y] - badj[y] * 0.5 * sig^2)
         N = N_next

@@ -1,0 +1,756 @@
+---
+title: "SS3 to opal: North Pacific blue shark"
+subtitle: "Bridging the 2022 ISC two-sex assessment to a single-sex Stock Synthesis model, and from it to opal"
+author: "Nicholas Ducharme-Barth"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    embed-resources: true
+    fig-width: 9
+    fig-height: 5
+    code-fold: true
+    code-summary: "Code"
+  typst:
+    toc: true
+    toc-depth: 2
+    section-numbering: "1.1"
+    fig-width: 8
+    fig-height: 5
+    papersize: a4
+    margin:
+      x: 2cm
+      y: 2cm
+execute:
+  echo: true
+  warning: false
+  message: false
+bibliography: references.bib
+---
+
+```{r}
+#| label: setup
+#| code-summary: "Setup: read the caches"
+#| echo: !expr knitr::is_html_output()
+# Code is shown (folded) in the HTML version and hidden in the PDF.
+knitr::opts_chunk$set(echo = knitr::is_html_output())
+library(data.table)
+library(ggplot2)
+library(patchwork)
+
+bridge  = readRDS(file.path("data", "npo-bsh-ss3-bridge-cache.rds"))
+profile = readRDS(file.path("data", "npo-bsh-ss3-r0-profile-cache.rds"))
+opal_c  = readRDS(file.path("data", "npo-bsh-opal-cache.rds"))
+
+theme_set(theme_bw(base_size = 11) +
+          theme(legend.position = "bottom", panel.grid.minor = element_blank()))
+fmt = function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
+sci = function(x, d = 1) formatC(x, format = "e", digits = d)
+
+B = bridge$summary
+P = profile$profile
+S = opal_c$summary
+step_lab = setNames(bridge$labels, bridge$steps)
+model_col = c("SS3 B2e" = "grey20", O0 = "#7D3C98", O1 = "#2471A3", O2 = "#C0392B",
+              `O1-noLF` = "#CA6F1E", `O1-mid` = "#1E8449")
+```
+
+# Overview
+
+The 2022 ISC stock assessment of North Pacific blue shark (*Prionace glauca*)
+[@isc2022bsh] uses Stock Synthesis (SS3 3.30.19) with two sexes. Stock status
+comes from an ensemble of three models that differ only in the late-period
+abundance index and the weighting of one fleet's length data. This case study
+uses the most heavily weighted of them, S6_base (S6 here). S6 models
+sex-specific growth, natural mortality and selectivity, and fits joint
+sex-by-length compositions. opal tracks one population vector, so S6 cannot
+be converted directly.
+
+This case study therefore bridges in two stages:
+
+1. **Within SS3** (@sec-bridge), from S6 to a single-sex SS3 model (B2e) whose
+   structure opal can represent, one change at a time, so the effect of each
+   change is measured on its own.
+2. **SS3 to opal** (@sec-conversion), converting B2e with the shared
+   converter in `shared/ss3-to-opal/`, checking the conversion, then fitting
+   opal (@sec-fits).
+
+@sec-limitations lists where opal falls short of SS3 or differs from it, and
+what opal would need to model S6 itself.
+
+```{r}
+#| label: headline
+s6  = B[step == "00-s6-base"]
+b1  = B[step == "01-single-sex"]
+b2e = B[step == "02e-no-f-ballpark"]
+```
+
+In brief:
+
+* S6 re-runs exactly with SS3 3.30.22.1 (NLL `r fmt(s6$nll, 4)`,
+  SSB~2020~/SSB~0~ `r fmt(s6$depletion, 3)`).
+* The single-sex model B1 fits the data comparably but estimates a much more
+  depleted stock (`r fmt(b1$depletion, 3)`); switching off the F-ballpark
+  penalty (B2e) moves it back to `r fmt(b2e$depletion, 3)`. Profiles over
+  ln(R~0~) show why: the stock's scale is weakly determined, and in the
+  single-sex models almost undetermined towards larger stocks.
+* The conversion of B2e is exact where opal and SS3 share structure (catch,
+  indices, compositions, biology, unfished equilibrium, selectivity-at-length).
+  opal at SS3's parameter values differs from SS3 mainly through catch timing:
+  opal removes each year's catch at the start of the year, SS3 continuously.
+* Fitted with SS3's selectivity (O1), opal converges but estimates a much
+  more depleted stock than SS3. Diagnostic refits trace this to how the length
+  compositions are predicted: with SS3's mid-year length-at-age, or without
+  the compositions, opal's estimate matches SS3's. Fitting opal's own
+  selectivity (O2) does not converge.
+
+# The 2022 assessment {#sec-assessment}
+
+This section summarises the assessment report [@isc2022bsh]; section numbers
+(§) and "report" tables and figures refer to it.
+
+## Stock, fisheries and data
+
+The ISC Shark Working Group (SHARKWG) assesses two Pacific stocks, north and
+south of the equator. Blue shark are scarce in the tropics, and no tagged
+shark has been recorded crossing the equator, although there is no genetic
+evidence of separate hemispheric populations (§2.1.1). Within the North
+Pacific the stock mixes widely but is segregated by size and sex. Pupping
+grounds lie at about 35-40°N in the northwest and 25-50°N in the northeast.
+Subadult females are found further north (35-50°N) than subadult males
+(30-40°N) (§2). The model has one area: the North Pacific north of the
+equator, annually from 1971 to 2020 (§3.1-3.2).
+
+The catch is total dead removals (landings plus dead discards) (§3.4):
+
+* Japan, Chinese-Taipei, Mexico and the USA take more than 90% of it.
+* It peaked at about 70,900 t in 1981.
+* It averaged 29,600 t a year over 2011-2020.
+* Since the high-seas driftnet ban in 1993, 89-97% of it has come from
+  longlines.
+
+Most of the catch is taken by three fleets: Japanese offshore shallow-set
+longline (F4), Japanese distant-water deep-set longline (F7) and Taiwanese
+small-scale longline (F20). In the 1980s and early 1990s the high-seas
+driftnet fleets (F8 large mesh, F11 small mesh) also caught large amounts. Two
+pairs of fleets are new since the 2017 assessment: Japan's large-mesh driftnet
+was split at the 1993 move from the high seas into the EEZ (F8 and F9), and
+the Hawaii longline into deep-set and shallow-set fleets (F17 and F18). F11,
+F17 and F18 report catch in numbers and all other fleets in weight (report Table 1).
+
+The 11 candidate abundance indices are listed in report Table 3. Every model in the
+ensemble fits the Japanese Kinkai shallow-set longline index for the early
+period (S5, 1976-1993). The models differ in the late-period index
+(1994-2020):
+
+* **S6:** the same fleet's late-period index, which is what S6_base fits.
+* **S11:** a dynamic-factor-analysis composite of the Hawaii deep-set (S1),
+  Taiwanese large-scale (S3) and Japanese research and training vessel (S7)
+  indices.
+
+The other indices have lambda 0 and were used only in sensitivity runs.
+Sex-specific length compositions (precaudal length, PCL, in 5 cm bins) come
+from 14 fisheries. F11's single 1991 sample is sex-combined, on different
+bins, and enters as generalised size-frequency data (report Table 5, §4.4.3).
+
+Data weighting was done in two steps (§4.2.3):
+
+* **Indices.** Where an index's mean CV was below the RMSE of a loess fit,
+  its CV was raised by an additive variance adjustment (report Table 6). S5, S6 and
+  S11 were not adjusted.
+* **Length compositions.** Every fleet's variance adjustment is
+  0.002161 = 50/23,142. This scales the input sample sizes so that the fleet
+  with the most fish measured (F4) averages about 50. Francis's TA1.8 then
+  down-weighted F4 further. The files match: 0.002161 for every
+  length-composition fleet and 0.000652 for F4.
+
+## Biology
+
+The biological parameters are fixed (report Table 8, §4.3):
+
+* **Growth.** Sex-specific von Bertalanffy growth (SS3's Richards curve with
+  shape 1), from vertebrae of 620 females and 659 males measuring 33-258 cm
+  PCL (Fujinami et al. 2019, cited in the report). Females reach L~1~ = 64.3 cm at age 1 and
+  L~2~ = 245.2 cm at age 20, with K = 0.146; males 68.2 cm, 261.5 cm and
+  0.117. CV of length-at-age 0.25 at age 1 and 0.1 at age 20. Pups are born
+  at about 36 cm PCL (§2.1.3).
+* **Natural mortality.** Age- and sex-specific, inversely proportional to
+  length, scaled to a meta-analytic constant. For females it falls from 0.79
+  at age 0 to 0.15 at age 24 (report Table 9).
+* **Maturity.** Female maturity is length-logistic with 50% at 156.6 cm PCL,
+  about age 5-6; males mature at about 161 cm and age 6 (§2.1.3). Litters of
+  15-112 pups (mean 35.5) have been observed in the northwestern Pacific, and
+  females reproduce annually after 11-12 months' gestation (§2.1.2).
+* **Spawner-recruit relationship.** Beverton-Holt with h = 0.613, from a
+  life-history simulation (Kai and Fujinami 2018, cited in the report), and sigma~R~ = 0.4, tuned. It replaces
+  the low-fecundity relationship used in 2017, whose parameters rested on
+  strong assumptions (§4.3.3).
+* **Initial state.** The stock is not assumed unfished in 1971: the
+  population starts in equilibrium with 40,000 t a year of F4 catch, about
+  the average of the first four years' catch (§4.3.4, §4.4.2). SSB~1971~ is
+  about 70% of unfished (§8.1).
+
+## The ensemble and S6_base
+
+The SHARKWG could not single out a best model on the diagnostics, so stock
+status comes from a hypothesis tree with three branches (§5.2):
+
+* **S6_base** (weight 50%) fits S6 for the late period.
+* **S11_base** (25%) fits S11 instead.
+* **S11_ess** (25%) is S11_base with F20's anomalously large 2018 and 2020
+  length samples (20,416 and 21,571 fish) down-weighted to 1,513. This
+  removes a retrospective pattern in S11_base.
+
+Each model's uncertainty was represented by a multivariate-lognormal
+bootstrap, and the three bootstraps were combined according to these weights.
+On the combined distribution (report Table 18):
+
+* SSB~2020~/SSB~MSY~ is 1.17 (80% interval 0.57-1.78);
+* F~2017-2019~/F~MSY~ is 0.45 (0.24-1.01);
+* the probability that the stock is neither overfished nor subject to
+  overfishing is 61.9%.
+
+The report notes that natural mortality and steepness, the most uncertain
+assumptions, are outside the ensemble.
+
+The report's diagnostics for S6_base (§6.1.1) bear on what follows:
+
+* It converged (maximum gradient 9.7 x 10^-5^) with a positive-definite
+  Hessian.
+* The ln(R~0~) profile is driven by the recruitment penalty. The index and
+  length data both favour a slightly lower R~0~, and within the indices the
+  early (S5) and late (S6) series conflict (report Figures 11-12).
+* There is a three-year retrospective pattern (Mohn's rho -0.2 for SSB and
+  0.27 for F/F~MSY~).
+* Female selectivity is estimated to be much lower than male selectivity in
+  nearly every fishery. Only F18 approaches full selection of females, and
+  F11 is sex-invariant (report Figure 26, §8.4).
+* Recruitment shows a large pulse in 1986-1988 and has been below the
+  stock-recruit curve for the last two decades.
+
+```{r}
+#| label: tbl-s6
+#| tbl-cap: "Structure of S6, from the model files."
+knitr::kable(data.table(
+    Feature = c("Time", "Sexes and ages", "Fleets", "Catch", "Biology",
+                "Spawner-recruit", "Fishing mortality", "Selectivity",
+                "Indices", "Compositions", "Other likelihood terms"),
+    `S6 setting` = c(
+        "1971-2020, annual, one season (two subseasons), spawning in month 1",
+        "Two sexes, ages 0-24",
+        "20 fisheries and 11 surveys",
+        "Weight (mt) except fleets 11, 17 and 18 (1000s of fish)",
+        "Sex-specific age-specific M (fixed); Richards growth with shape 1 (von Bertalanffy) by sex, fixed; length-logistic maturity; 45 pups per mature female",
+        "Beverton-Holt, h = 0.613 and sigma_R = 0.4 fixed; main deviations 1971-2020, early deviations 1961-1970; regime offset on the initial equilibrium; initial F on F4, fitted to a 40,000 t initial-equilibrium catch",
+        "Hybrid (method 3)",
+        "Size-based double normal (pattern 24) with female offsets from the male curve; F18 cubic spline with a male dogleg; six fisheries and all surveys mirror another fleet; F8 time blocks (1973-81, 1982-92); annual deviations on F19's peak",
+        "Floating q; extra SD added to the CV; only S5 and S6 (Japanese longline early and late) have lambda 1",
+        "Joint sex x length (5 cm bins, 5-300 cm), multinomial with a variance adjustment of 0.002161 (F4 0.000652); one size-frequency observation (F11, 1991)",
+        "F-ballpark penalty (F = 0.2 in 2013); initial-equilibrium regime")),
+    format = "pipe")
+```
+
+## The files against the report
+
+The S6 files are the S6_base control file printed in the report's appendix,
+and S6 re-runs with SS3 3.30.22.1 to the same likelihood. The files, which
+are what this case study converts, differ from the report's text in a few
+places:
+
+* **Recruitment timing.** §4.3.3 says recruitment occurs at the start of the
+  year. In the files (and in the printed control file) recruits settle in
+  month 7, while spawning is in month 1. This matters for the conversion
+  (@sec-conversion).
+* **sigma~R~.** Report Table 8 gives 0.3, but §4.3.3, the files and the printed
+  control file use the tuned 0.4.
+* **Growth.** §4.3.5 quotes the 2017 values (L~1~ 64.4 cm, L~2~ 244.6 cm,
+  K 0.147 for females). The files use the updated values in report Table 8 (64.3 cm,
+  245.2 cm, 0.146).
+* **Fecundity.** Report Table 8 lists litter size proportional to length (-45.54 +
+  0.46 L). §4.3.7 says length-specific fecundity was not used in the final
+  runs, and the files agree: fecundity option 2 with a = 45 and b = 0, so
+  every mature female produces 45 pups. Spawning output is therefore a
+  number of pups (in thousands) proportional to the number of mature females.
+  The report labels it in tonnes; this document labels it in pups.
+* **Penalties not described in the report.** The files hold an F-ballpark
+  penalty (F = 0.2 in 2013) and an estimated regime offset on the initial
+  equilibrium recruitment. Both are removed in the bridge (@sec-bridge).
+
+```{r}
+#| label: tbl-s6-report
+#| tbl-cap: "S6 re-run with SS3 3.30.22.1 against the three-model ensemble (ISC 2022, Tables 17-18). The ensemble's SSB0, SSB MSY and F MSY are weighted means of the three models; the 2020 ratios are bootstrap medians."
+knitr::kable(data.table(
+    Quantity = c("SSB0", "SSB MSY", "F MSY", "SSB2020 / SSB MSY", "F2020 / F MSY"),
+    `S6 (this re-run)` = c(fmt(s6$ssb0, 0), fmt(s6$ssb_msy, 0), fmt(s6$f_msy, 2),
+                           fmt(s6$ssb_2020 / s6$ssb_msy, 2), fmt(s6$f_2020, 2)),
+    `Ensemble (report)` = c("222,736", "83,545", "0.76", "1.17", "0.45 (2017-2019)")),
+    format = "pipe", align = "lrr")
+```
+
+S6 alone is more optimistic than the ensemble. Its SSB~2020~/SSB~MSY~ of
+`r fmt(s6$ssb_2020 / s6$ssb_msy, 2)` is above the ensemble median of 1.17,
+which is pulled down by the two S11 models. This case study converts S6
+alone, so its comparisons say nothing about the ensemble's stock status.
+
+# The SS3 bridge {#sec-bridge}
+
+`scripts/01-build-ss3-bridge.r` builds each step from the previous step's
+estimates and re-estimates it with SS3 3.30.22.1 (with the Hessian). Each
+step makes one change:
+
+* **S6**: as supplied, re-run with 3.30.22.1.
+* **B1**: single sex (`Nsexes = -1`); female growth, M and weight-length;
+  compositions summed over sex; no sex-offset selectivity.
+* **B2a**: F18's cubic spline replaced by a double normal.
+* **B2b**: F8's two selectivity blocks become F8 (1973-81) and a new fleet 32
+  (1982-92).
+* **B2c**: no annual deviations on F19's peak.
+* **B2d**: no initial-equilibrium regime offset.
+* **B2e**: no F-ballpark penalty.
+
+```{r}
+#| label: tbl-bridge
+#| tbl-cap: "The SS3 bridge. All steps converged (maximum gradient below 2e-4) with a positive-definite Hessian and no parameter on a bound."
+stopifnot(all(B$hessian_ok))
+knitr::kable(B[, .(Step = label, `Est. par.` = n_par,
+                   NLL = fmt(nll, 2), SSB0 = fmt(ssb0, 0),
+                   `SSB2020/SSB0` = fmt(depletion, 3), `F2020/F MSY` = fmt(f_2020, 3),
+                   `SSB MSY` = fmt(ssb_msy, 0))],
+             format = "pipe", align = "lrrrrrr")
+```
+
+```{r}
+#| label: fig-bridge
+#| fig-height: 6
+#| fig-cap: "Spawning biomass (top) and depletion (bottom) along the SS3 bridge."
+ts = copy(bridge$timeseries)
+ts[, label := factor(label, levels = bridge$labels)]
+long = melt(ts[, .(label, year, `Spawning biomass (pups)` = ssb, `SSB / SSB0` = depletion)],
+            id.vars = c("label", "year"))
+ggplot(long, aes(year, value, colour = label)) +
+    geom_line(linewidth = 0.7) +
+    facet_wrap(~variable, ncol = 1, scales = "free_y") +
+    labs(x = NULL, y = NULL, colour = NULL) +
+    guides(colour = guide_legend(nrow = 2))
+```
+
+The three groups of steps tell different stories:
+
+* **Single sex (B1)** changes the fit to the compositions most: the length
+  NLL falls from `r fmt(s6$nll_length, 1)` to `r fmt(b1$nll_length, 1)`,
+  at least partly because the combined-sex compositions have half the cells
+  of the sex-by-length ones, so the two NLLs are not directly comparable. Its
+  scale is lower and its terminal depletion `r fmt(b1$depletion, 3)` against
+  S6's `r fmt(s6$depletion, 3)`. The single-sex model uses female growth
+  (245 cm at age 20) for males too (261 cm in S6), and each selectivity curve
+  becomes S6's male curve. In S6, females are much less selected than males
+  of the same length in nearly every fishery (report §6.1.1). B1 therefore
+  exposes the spawning females to the males' selectivity, which is one
+  plausible reason for its more depleted spawning stock.
+* **Structural simplifications (B2a-B2d)** change little: the F18 spline, the
+  F8 split and the regime offset each move the likelihood by less than 0.2
+  units. Removing F19's selectivity deviations costs 1.2 units and moves
+  depletion from 0.255 to 0.277.
+* **No F-ballpark (B2e)** moves the likelihood by 1.6 units but the scale a
+  long way: SSB~0~ from `r fmt(B[step == "02d-no-regime"]$ssb0, 0)` to
+  `r fmt(b2e$ssb0, 0)` and depletion to `r fmt(b2e$depletion, 3)`.
+
+## How well is scale determined?
+
+`scripts/02-profile-ss3-r0.r` fixes ln(R~0~) on a grid and re-estimates every
+other parameter.
+
+```{r}
+#| label: fig-profile
+#| fig-height: 6
+#| fig-cap: "Likelihood profiles over ln(R0) for S6, B1 and B2e (top: change in total NLL, capped at 8, with the 1.92 line of an approximate 95% interval; bottom: terminal depletion). Open points did not converge. The vertical lines are each model's estimate."
+pp = copy(P)
+pp[, label := step_lab[step]]
+est = copy(profile$estimates)[, label := step_lab[step]]
+pl = melt(pp[, .(label, ln_r0, converged, `Change in NLL` = pmin(delta_nll, 8),
+                 `SSB2020 / SSB0` = depletion)], id.vars = c("label", "ln_r0", "converged"))
+ggplot(pl, aes(ln_r0, value, colour = label)) +
+    geom_hline(data = data.table(variable = "Change in NLL", y = 1.92),
+               aes(yintercept = y), linetype = "dashed", colour = "grey50") +
+    geom_vline(data = est, aes(xintercept = ln_r0, colour = label), linetype = "dotted") +
+    geom_line(data = pl[converged == TRUE]) +
+    geom_point(aes(shape = converged), size = 1.8) +
+    scale_shape_manual(values = c(`TRUE` = 16, `FALSE` = 1), guide = "none") +
+    facet_wrap(~variable, ncol = 1, scales = "free_y") +
+    labs(x = "ln(R0)", y = NULL, colour = NULL)
+```
+
+```{r}
+#| label: profile-ci
+ci = P[converged == TRUE, .(lo = min(ln_r0[delta_nll < 1.92]), hi = max(ln_r0[delta_nll < 1.92]),
+                            dep_lo = min(depletion[delta_nll < 1.92]),
+                            dep_hi = max(depletion[delta_nll < 1.92])), by = step]
+# ln(R0) favoured by each likelihood component in S6
+p6 = P[step == "00-s6-base" & converged == TRUE]
+fav = sapply(c("survey", "length_comp", "recruitment"), function(v) p6$ln_r0[which.min(p6[[v]])])
+```
+
+Each model's estimate sits at the minimum of its profile, so none is a local
+optimum. In S6 the approximate 95% interval (change in NLL below 1.92) spans
+ln(R~0~) `r fmt(ci[step == "00-s6-base"]$lo, 1)`-`r fmt(ci[step == "00-s6-base"]$hi, 1)`,
+depletion `r fmt(ci[step == "00-s6-base"]$dep_lo, 2)`-`r fmt(ci[step == "00-s6-base"]$dep_hi, 2)`.
+In B2e the profile is almost flat towards larger stocks: the interval reaches
+the edge of the grid (ln(R~0~) = `r fmt(max(profile$ln_r0), 1)`, depletion
+`r fmt(ci[step == "02e-no-f-ballpark"]$dep_hi, 2)`). The index and length
+components pull in opposite directions and nearly balance. The F-ballpark
+penalty, worth less than one likelihood unit at the optimum, was what held
+B1's scale down.
+
+The S6 profile reproduces the report's (report Figures 11-12). The index
+component is smallest at ln(R~0~) = `r fmt(fav[["survey"]], 1)` and the
+length component at `r fmt(fav[["length_comp"]], 1)`, both below the estimate
+of `r fmt(profile$estimates[step == "00-s6-base"]$ln_r0, 2)`. The recruitment
+penalty, smallest at `r fmt(fav[["recruitment"]], 1)`, holds the estimate up.
+S6's scale is therefore set largely by the stock-recruit assumptions (h and
+sigma~R~ are fixed), and so is the scale of the bridge models built from it.
+
+This matters for everything that follows. Small differences between opal and
+SS3, or between two opal configurations, can move the estimated scale a long
+way without changing the fit to the data much, so the comparisons below look
+at the fits to the data as well as at the trajectories.
+
+# Converting B2e to opal {#sec-conversion}
+
+`config/npo-bsh-b2e.yaml` records the choices the SS3 files do not determine.
+The opal model has:
+
+* 50 annual time steps, one season, ages 0-24;
+* 23 fisheries: SS3's 21 fishing fleets in SS3 order (F1-F20, then fleet 32,
+  which SS3 numbers after the surveys) and one fishery for each of the two
+  indices kept (S5 and S6; the other nine have lambda 0 in SS3);
+* SS3's age-basis biology (M, weight, maturity, and spawning output as
+  Mat x Fecund x 0.5) from the endgrowth table, at the start of the year.
+  Recruits settle in month 7 (settlement assignment `1 7 1 0`), so at the
+  start of the year SS3's age-a class is a - 0.5 years past settlement: age 0
+  is at the 5 cm minimum population size, age 1 at 34.7 cm, and L1 = 64.3 cm
+  (age 1 post-settlement) is reached at mid-year;
+* SS3's parameter values: B~0~ (opal's scale parameter, SS3's SSB~0~), h,
+  sigma~R~, recruitment deviations, the ten early deviations and the 1971
+  recruitment as the initial age structure, and F4's initial F.
+
+## Reconciliation
+
+```{r}
+#| label: tbl-recon
+#| tbl-cap: "Reconciliation with SS3 (exact comparisons). The 21 catch totals are summarised in one row."
+R = copy(opal_c$recon)[!is.na(pass)]
+R[, group := ifelse(grepl("^catch total", quantity), "catch totals, 21 fishing fleets", quantity)]
+knitr::kable(R[, .(n = .N, `max relative difference` = sci(max(rel_diff, na.rm = TRUE), 1),
+                   pass = all(pass)), by = .(Quantity = group)], format = "pipe")
+```
+
+All `r nrow(opal_c$checks)` structural checks pass. The unfished spawning
+potential per recruit reconciles to `r sci(R[grepl("unfished", quantity)]$rel_diff, 1)`,
+which confirms in one number the units of M, the female fraction (0.5 for
+`Nsexes = -1`) and the plus group. opal's unfished numbers-at-age equal SS3's.
+
+## Selectivity
+
+SS3's selectivity here is size-based, like opal's, so its double normals carry
+over exactly rather than being fitted. Where SS3 sets a start or end parameter
+to -999 ("no rescaling of that limb"), opal's end value is set to the value
+SS3's unscaled limb takes at the first or last bin, which makes the two
+curves identical.
+
+```{r}
+#| label: tbl-seed
+#| tbl-cap: "Largest difference between opal's starting double normal and SS3's selectivity-at-length, by opal fishery (mirrors and indices take their source fleet's parameters)."
+sc = copy(opal_c$seed_check)
+knitr::kable(sc[, .(`opal fishery` = fishery, `SS3 fleet` = ss3_fleet, name,
+                    `parameters from` = source, `max |diff|` = sci(max_abs_diff, 1))],
+             format = "pipe")
+```
+
+opal applies the length curves to ages through its own growth (a Schnute
+curve fitted to SS3's length-at-age; RMSE `r fmt(opal_c$growth_fit$rmse, 1)` cm,
+largest error `r fmt(opal_c$growth_fit$max_abs_error, 1)` cm). SS3 grows fish
+linearly below age 1 and evaluates fishery selectivity on the
+mid-year size distribution, so opal's starting selectivity-at-age differs from
+SS3's even though the curves at length are identical:
+
+```{r}
+#| label: tbl-sel-age
+#| tbl-cap: "Largest difference between opal's starting selectivity-at-age and SS3's, by opal fishery."
+knitr::kable(opal_c$sel_start_diff[, .(fishery, name, `max |diff|` = fmt(max_abs_diff, 3))],
+             format = "pipe")
+```
+
+## opal at SS3's values
+
+O0 runs opal at SS3's parameter values with SS3's own selectivity-at-age.
+Nothing is estimated, so any difference from SS3 comes from the two models'
+dynamics.
+
+```{r}
+#| label: fig-o0
+#| fig-height: 6
+#| fig-cap: "O0: opal at SS3's values against SS3 B2e (top: spawning biomass; bottom: relative difference). 'Replay, SS3 timing' replays the converted inputs with SS3's Baranov catch equation."
+br = copy(opal_c$bridge)
+br[, year := 1970 + ts]
+bl = rbind(br[, .(year, series = "SS3 B2e", value = ss3)],
+           br[, .(year, series = "opal (O0)", value = opal)],
+           br[, .(year, series = "replay, SS3 timing", value = replica_ss3)])
+rel = rbind(br[, .(year, series = "opal (O0)", value = rel_opal)],
+            br[, .(year, series = "replay, SS3 timing", value = rel_replica_ss3)])
+o0_col = c("SS3 B2e" = "grey20", "opal (O0)" = "#7D3C98", "replay, SS3 timing" = "#CA6F1E")
+p1 = ggplot(bl, aes(year, value, colour = series)) + geom_line(linewidth = 0.7) +
+    scale_colour_manual(values = o0_col) +
+    labs(x = NULL, y = "Spawning biomass (pups)", colour = NULL)
+p2 = ggplot(rel, aes(year, value, colour = series)) + geom_hline(yintercept = 0, colour = "grey50") +
+    geom_line(linewidth = 0.7) + scale_colour_manual(values = o0_col) +
+    labs(x = NULL, y = "Relative to SS3", colour = NULL)
+(p1 / p2) + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+```
+
+The first year agrees to `r fmt(100 * abs(br$rel_opal[1]), 1)`%: the initial
+equilibrium, initial F and initial deviations are converted directly.
+Recruitment then tracks SS3 to within a few percent, but spawning biomass
+drifts up to `r fmt(100 * max(abs(br$rel_opal)), 0)`% above SS3 in the
+high-catch years around 1990-1995. Two timing differences account for this:
+
+* **Catch.** opal removes each year's catch at the start of the year, before
+  natural mortality, as a harvest rate; SS3 removes it continuously (hybrid
+  F). With F~2020~ about 0.34 and M of 0.79 at age 0, the start-of-year
+  removal leaves more fish alive.
+* **Catch weight.** SS3 converts catch in weight to numbers with mid-year
+  weights; opal with its single weight-at-age vector (start of year). For the
+  same tonnage opal removes more, smaller fish.
+
+The replay with SS3's catch equation but opal's start-of-year weights
+overshoots the other way (`r fmt(100 * max(abs(br$rel_replica_ss3)), 0)`%);
+with SS3's mid-year weights it is within 8% of SS3 (tested in
+`tests/testthat/test-ss3-to-opal-npo-bsh.r`), which places the remaining gap
+in SS3's subseason and initial-equilibrium details rather than in the
+conversion. In opal itself the two effects partly cancel, which is why opal
+uses start-of-year weights here: mid-year weights would double the gap.
+`simulations/timing/` studies the catch-timing difference in general.
+
+# opal fits {#sec-fits}
+
+Two fits. Growth, h, sigma~R~, the biology and F4's initial F stay at SS3's
+values; opal's default priors are switched off, as SS3 has no parameter
+priors. SS3 ties the initial F to an initial-equilibrium catch of 40,000 t
+(SE 0.05) through a likelihood term opal does not have; left free in opal, the
+initial F doubled (0.11 to 0.22) and depleted the 1971 stock to 0.37 of B~0~.
+
+* **O1** keeps SS3's selectivity-at-age and estimates B~0~, the recruitment
+  deviations, the initial age structure (1971 recruitment and the ten early
+  deviations) and the two catchabilities, starting at SS3's values.
+* **O2** uses opal's own length-based double normals, started at SS3's
+  curves, and also estimates the selectivity parameters SS3 estimated
+  (peak and widths, within SS3's bounds on opal's scale); mirrored fleets
+  share their source's parameters, as in SS3. It starts from O1's estimates.
+
+```{r}
+#| label: tbl-fits
+#| tbl-cap: "Fits. The objective values are opal's and are not comparable with SS3's likelihood (different constants, and opal's compositions are predicted differently)."
+knitr::kable(S[, .(Model = model, `Est. par.` = n_par,
+                   Objective = ifelse(is.na(objective), "", fmt(objective, 2)),
+                   `Max gradient` = ifelse(is.na(max_gradient), "", sci(max_gradient, 1)),
+                   `opal_check()` = ifelse(is.na(check_passes), "", ifelse(check_passes, "pass", "fail")),
+                   B0 = fmt(B0, 0), `SSB 2020` = fmt(ssb_2020, 0),
+                   `SSB2020/B0` = fmt(depletion_2020, 3),
+                   `Index NLL` = ifelse(is.na(lp_cpue), "", fmt(lp_cpue, 2)),
+                   `Length NLL` = ifelse(is.na(lp_lf), "", fmt(lp_lf, 1)))],
+             format = "pipe", align = "lrrrlrrrrr")
+```
+
+```{r}
+#| label: fits-text
+o1 = S[model == "O1"]
+o2 = S[model == "O2"]
+conv = function(x) if (isTRUE(x$check_passes)) "converged and passes `opal_check()`" else
+    sprintf("did not converge (maximum gradient %s)", sci(x$max_gradient, 1))
+```
+
+O1 `r conv(o1)`; its terminal depletion is `r fmt(o1$depletion_2020, 3)`
+against SS3's `r fmt(S[model == "SS3 B2e"]$depletion_2020, 3)`, although it
+uses SS3's selectivity and starts at SS3's values (O0, depletion
+`r fmt(S[model == "O0"]$depletion_2020, 3)`). O2 `r conv(o2)` and is shown for
+completeness only: freeing opal's selectivity improves the fit to the
+compositions by `r fmt(o1$lp_lf - o2$lp_lf, 0)` units over O1 while worsening
+the fit to the indices by `r fmt(o2$lp_cpue - o1$lp_cpue, 1)`, and the
+optimiser does not settle (several widths move to the flat ends of the double
+normal, where the gradient vanishes). Its depletion of
+`r fmt(o2$depletion_2020, 3)` should not be read as an estimate.
+
+## What moves opal away from SS3
+
+```{r}
+#| label: diag-text
+nolf = S[model == "O1-noLF"]
+mid  = S[model == "O1-mid"]
+```
+
+Two diagnostic refits of O1 locate the difference (@tbl-fits, @fig-fits):
+
+* **Without the length compositions** (O1-noLF, lambda 0), opal's estimate
+  matches SS3's: terminal depletion `r fmt(nolf$depletion_2020, 3)`, B~0~
+  `r fmt(nolf$B0, 0)`. opal's dynamics, the indices and the recruitment
+  penalty agree with SS3's; the compositions are what pull O1 down.
+* **With SS3's mid-year length-at-age** in place of opal's growth when the
+  compositions are predicted (O1-mid), depletion is
+  `r fmt(mid$depletion_2020, 3)`, close to SS3's. SS3 predicts a fishery's
+  length composition from its catch over the year; opal predicts it from
+  numbers at the start of the year with start-of-year lengths. Because
+  recruits settle in month 7, SS3's age-1 class is only half a year past
+  settlement at the start of the year (34.7 cm) and reaches L1 (64.3 cm, age 1
+  post-settlement) at mid-year; the gap is 13 cm at age 2 and shrinks with
+  age. With SS3's start-of-year
+  length-at-age instead the fit runs away (B~0~ over 10^7^), and opal's own
+  Schnute growth (fitted to the start-of-year lengths, linear growth below
+  age 1 aside) lands in between.
+
+O1-mid uses `ss3_patch_opal_external_laa()`, a local edit of opal's model
+function that substitutes a supplied length-at-age; it is a diagnostic, not a
+way to fit opal. What opal would need is length-at-age, and the age
+composition of the catch, at the time each observation is made
+(@sec-limitations).
+
+```{r}
+#| label: fig-fits
+#| fig-height: 7
+#| fig-cap: "Spawning biomass, depletion and age-0 recruitment: SS3 B2e and the opal models."
+tr = copy(opal_c$trajectory)
+tr[, model := factor(model, levels = names(model_col))]
+tl = melt(tr[, .(model, year, `Spawning biomass (pups)` = ssb, `SSB / B0` = depletion,
+                 `Age-0 recruitment` = recruits)], id.vars = c("model", "year"))
+ggplot(tl, aes(year, value, colour = model)) +
+    geom_line(linewidth = 0.7) +
+    facet_wrap(~variable, ncol = 1, scales = "free_y") +
+    scale_colour_manual(values = model_col) +
+    labs(x = NULL, y = NULL, colour = NULL)
+```
+
+```{r}
+#| label: fig-cpue
+#| fig-height: 5
+#| fig-cap: "Fits to the two indices (points: observed, with 95% intervals from the input SE)."
+cp = copy(opal_c$cpue)
+cp[, index := c("S5 JPN early", "S6 JPN late")[index]]
+obs = unique(cp[model == "SS3 B2e", .(index, year, obs, se)])
+ggplot(cp, aes(year)) +
+    geom_pointrange(data = obs, aes(y = obs, ymin = obs * exp(-1.96 * se), ymax = obs * exp(1.96 * se)),
+                    colour = "grey40", size = 0.2) +
+    geom_line(aes(y = pred, colour = model), linewidth = 0.7) +
+    facet_wrap(~index, scales = "free") +
+    scale_colour_manual(values = model_col) +
+    labs(x = NULL, y = "Index", colour = NULL)
+```
+
+```{r}
+#| label: fig-sel
+#| fig-height: 8
+#| fig-cap: "Selectivity-at-age in 2020: SS3 B2e (black) and opal O2 (red; not converged), for the opal fisheries with length data and the two indices."
+sel = copy(opal_c$selectivity)
+fl = opal_c$fleets
+keep = c(1, 3, 4, 5, 7, 8, 9, 14, 15, 17, 18, 19, 20, 21, 22, 23)
+sel = sel[fishery %in% keep]
+sel[, panel := factor(sprintf("%d: %s", fishery, fl$name[fishery]),
+                      levels = sprintf("%d: %s", keep, fl$name[keep]))]
+ggplot(sel, aes(age, sel, colour = model)) +
+    geom_line(linewidth = 0.6) +
+    facet_wrap(~panel, ncol = 4) +
+    scale_colour_manual(values = c("SS3 B2e" = "grey20", O2 = "#C0392B")) +
+    labs(x = "Age", y = "Selectivity", colour = NULL) +
+    theme(strip.text = element_text(size = 7))
+```
+
+# Limitations and differences from SS3 {#sec-limitations}
+
+## Not available in opal
+
+* **Two sexes.** opal tracks one population vector and scales spawning
+  potential by a sex ratio. Modelling S6 needs a sex dimension in the numbers
+  at age, sex-specific growth, M and selectivity (including SS3's offset
+  parameterisations), sex-specific or joint sex-by-length compositions, and
+  spawning biomass from females only.
+* **Cubic-spline selectivity** (S6's F18). opal has logistic, double normal
+  and double Richards curves, or a fixed external matrix.
+* **Time-varying selectivity.** Blocks (F8) and deviations (F19) cannot be
+  estimated. Blocks that replace parameters are reproduced exactly by
+  splitting the fleet (B2b); deviations have no equivalent (B2c).
+* **Initial-equilibrium catch.** SS3 fits the catch implied by the initial F
+  (40,000 t for F4 here) as data; opal has no such term, so its initial F is
+  fixed at SS3's value.
+* **Regime offset on the initial equilibrium recruitment**, and SS3's
+  **F-ballpark** penalty. opal fits catch exactly with harvest rates, so it
+  does not need the latter for convergence, but as @sec-bridge shows the
+  penalty carried information on scale.
+* **Generalised size-frequency data** on irregular bins as a separate data
+  type with its own weighting (one F11 observation here, not carried).
+
+## Structural differences handled in the conversion
+
+* **Catch timing.** opal removes each season's catch at its start; SS3 here
+  removes it continuously (hybrid F). This is the largest difference at SS3's
+  values (@fig-o0). Sub-annual opal seasons with the catch split across them
+  would approximate continuous removal, but opal's single weight-at-age vector
+  would still apply start-of-year weights in every season.
+* **Observation timing.** SS3 observes the indices in month 7 and the
+  fishery compositions over the year (catch-weighted, with mid-year
+  lengths); opal predicts both from numbers and lengths at the start of the
+  season. For this annual model, with recruits settling in month 7 and
+  start-of-year lengths 30 cm below mid-year lengths at age 1, this is the
+  difference that matters most once opal is fitted: it alone moves O1's
+  terminal depletion from about 0.55 to 0.25 (@sec-fits). opal would need
+  observation-time length-at-age (growth evaluated at the fraction of the
+  year or season when the fleet fishes) and catch-weighted predicted
+  compositions; sub-annual seasons would approximate both.
+* **Growth below the first reference age and settlement timing.** SS3 grows
+  fish linearly from settlement (month 7, at the 5 cm minimum size) to age 1
+  post-settlement; opal has no settlement time and its Schnute curve, fitted
+  to SS3's start-of-year lengths, extrapolates von Bertalanffy growth below
+  age 1. On the endgrowth biology route this only affects the PLA used for
+  selectivity.
+* **Extra index SD.** SS3 adds it to the input SE; opal combines its own tau
+  in quadrature. The converter adds SS3's value to the input SE and opal's
+  tau stays at zero.
+* **Catchability.** SS3 solves it analytically (floating q); opal estimates it.
+* **Fleet layout.** SS3 3.30 allows fishing fleets after surveys (fleet 32
+  here); the converter maps SS3 fleets to opal fisheries by fleet type.
+
+## What the bridge itself changes
+
+The single-sex step is not neutral: B1's stock is smaller and more depleted
+than S6's. Female growth is applied to males (who are larger), each
+selectivity curve becomes S6's male curve, and the compositions lose their
+sex information. Because S6 estimates female selectivity to be well below
+male selectivity in nearly every fishery (with no spatial structure,
+selectivity absorbs the females' lower availability to the gear; report
+§8.4), the single-sex model
+fishes the spawning stock harder than S6 does. A bridge that keeps one sex
+but uses S6's female selectivity, or a selectivity averaged over the catch's
+sex ratio, would separate this effect from growth. A sex-averaged biology (the planned sensitivity B1b) would
+show how much of the change comes from growth and M rather than from the
+selectivity and the compositions.
+
+# Reproducing this document {.unnumbered}
+
+| Step | Script | Writes |
+|---|---|---|
+| 1 | `scripts/01-build-ss3-bridge.r` | the SS3 bridge models and `vignettes/data/npo-bsh-ss3-bridge-cache.rds` |
+| 2 | `scripts/02-profile-ss3-r0.r` | `vignettes/data/npo-bsh-ss3-r0-profile-cache.rds` |
+| 3 | `scripts/03-convert-fit-npo-bsh-opal.r` | `vignettes/data/npo-bsh-opal-cache.rds` and the fitted models |
+| 4 | `quarto render vignettes/npo-bsh-ss3-to-opal.qmd` | this document |
+
+```{r}
+#| label: session
+cat(sprintf("Caches: bridge %s (SS3 %s); opal %s (opal %s, r4ss %s, R %s).\n",
+            bridge$made_at, bridge$ss3_version, opal_c$created,
+            opal_c$session$opal, opal_c$session$r4ss, opal_c$session$r))
+```
+
+::: {.content-visible when-format="html"}
+# References {.unnumbered}
+:::
+
+::: {#refs}
+:::

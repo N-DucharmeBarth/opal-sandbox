@@ -72,7 +72,7 @@ test_that("B1 is single sex with female biology and no sex offsets", {
     ctl = inputs[["01-single-sex"]]$ctl
     expect_equal(dat$Nsexes, -1)
     expect_true(all(dat$lencomp$sex == 0))
-    expect_false(any(grepl("^m[0-9]", names(dat$lencomp))))
+    expect_false(any(grepl("^[fm][0-9]", names(dat$lencomp))))
     expect_equal(nrow(ctl$natM), 1L)
     expect_equal(as.numeric(ctl$natM[1, ]), as.numeric(inputs[["00-s6-base"]]$ctl$natM[1, ]))
     expect_false(any(grepl("_Mal_", rownames(ctl$MG_parms))))
@@ -90,7 +90,9 @@ test_that("B1 sums the sex x length compositions over sex", {
     lc0 = as.data.table(inputs[["00-s6-base"]]$dat$lencomp)
     lc1 = as.data.table(inputs[["01-single-sex"]]$dat$lencomp)
     f = grep("^f[0-9]", names(lc0), value = TRUE)
-    expect_equal(sum(as.matrix(lc1[, ..f])),
+    # r4ss names single-sex bins l<bin>
+    l = sub("^f", "l", f)
+    expect_equal(sum(as.matrix(lc1[, ..l])),
                  sum(as.matrix(lc0[, ..f])) + sum(as.matrix(lc0[, sub("^f", "m", f), with = FALSE])))
     expect_equal(lc1$Nsamp, lc0$Nsamp)
 })

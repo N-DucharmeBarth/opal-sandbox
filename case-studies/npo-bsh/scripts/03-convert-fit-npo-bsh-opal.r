@@ -184,11 +184,17 @@
         fit
     }
 
+    # The fits take tens of minutes; they are saved as soon as they finish and
+    # reused on later runs unless NPO_BSH_REFIT=true
+    fits_file = file.path(dir_cache, "npo-bsh-opal-fits.rds")
+    refit = !file.exists(fits_file) || identical(Sys.getenv("NPO_BSH_REFIT"), "true")
+    saved = if (refit) list() else readRDS(fits_file)
+
     # O1: SS3 selectivity fixed
     o1 = o0
     m1 = base_map(o1)
     o1 = opal_update(o1, map = m1) %>% opal_build()
-    fit_o1 = fit_opal(o1)
+    fit_o1 = if (refit) fit_opal(o1) else saved$O1
 
     # O2: opal length-based selectivity, started at SS3's curves
     o2 = ss3_use_opal_selectivity(assessment, par_sel = seed$par_sel)
@@ -202,7 +208,8 @@
     b$lower[i_sel] = sb$lower
     b$upper[i_sel] = sb$upper
     o2 = opal_update(o2, bounds = list(lower = b$lower, upper = b$upper)) %>% opal_build()
-    fit_o2 = fit_opal(o2)
+    fit_o2 = if (refit) fit_opal(o2) else saved$O2
+    if (refit) saveRDS(list(O1 = fit_o1, O2 = fit_o2), fits_file, compress = "xz")
 
 #_____________________________________________________________________________
 # Results
@@ -228,7 +235,7 @@
     summary_dt = rbindlist(lapply(names(models), function(id) {
         x = models[[id]]
         r = opal_report(x)
-        fitted = !is.null(x$fit)
+        fitted = !is.null(x$fit$opt)
         data.table(
             model        = id,
             n_par        = if (fitted) length(x$fit$opt$par) else 0L,
@@ -297,5 +304,3 @@
         selectivity = selectivity
     )
     saveRDS(cache, file.path(dir_cache, "npo-bsh-opal-cache.rds"), compress = "xz")
-    saveRDS(list(O1 = fit_o1, O2 = fit_o2), file.path(dir_cache, "npo-bsh-opal-fits.rds"),
-            compress = "xz")

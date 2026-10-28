@@ -7,9 +7,9 @@ library(FLR4MFCL)
 
 # Define project paths
 proj_dir = this.path::this.proj()
-dir_model = file.path(proj_dir, "model-files")
+dir_model = file.path(proj_dir, "case-studies", "wcpo-bet", "model-files")
 dir_mfcl = file.path(dir_model, "mfcl")
-dir_mfcl_helper_fns = file.path(proj_dir, "code", "mfcl", "helper-fns")
+dir_mfcl_helper_fns = file.path(proj_dir, "shared", "extractors", "mfcl")
 
 # Source helper functions
 sapply(file.path(dir_mfcl_helper_fns, list.files(dir_mfcl_helper_fns)), source)

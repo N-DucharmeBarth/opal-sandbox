@@ -7,9 +7,9 @@ library(r4ss)
 
 # Define project paths
 proj_dir = this.path::this.proj()
-dir_model = file.path(proj_dir, "model-files")
+dir_model = file.path(proj_dir, "case-studies", "wcpo-bet", "model-files")
 dir_ss3 = file.path(dir_model, "ss3")
-dir_helper_fns = file.path(proj_dir, "code", "ss3", "helper-fns")
+dir_helper_fns = file.path(proj_dir, "shared", "extractors", "ss3")
 
 # Source helper functions
 sapply(file.path(dir_helper_fns, list.files(dir_helper_fns)), source)

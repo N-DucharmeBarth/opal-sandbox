@@ -1,0 +1,207 @@
+# Converter configuration: the IATTC team's SS3 model of the IO yellowfin
+# simulated data (Spatial Stock Assessment Simulation Experiment, replicate 4)
+# -> opal. SS3 model by Mark N. Maunder, Haikun Xu and Carolina Minte-Vera
+# (IATTC); see case-studies/io-yft/model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4/README.md.
+#
+# Everything here is a decision that CANNOT be read out of the SS3 files.
+# If a value can be derived from data.ss / control.ss, it is not in this file.
+
+model:        io-yft-sim-iattc-sample-tree-4
+ss3_dir:      case-studies/io-yft/model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4
+ss3_version:  "3.24"
+out_dir:      opal_data/io-yft-ss3
+prefix:       ioyft
+
+# Free-form labels merged into the opal_obj's $provenance$metadata, alongside
+# the SS3 paths, file checksums and converter diagnostics the converter adds.
+metadata:
+  species:     Yellowfin tuna
+  region:      Indian Ocean
+  data_type:   simulated
+  note:        SS3 estimation model by the IATTC team (M.N. Maunder, H. Xu, C. Minte-Vera) for the Spatial Stock Assessment Simulation Experiment, fitted to replicate 4
+  reference:   "Goethel et al. (2024) Fish and Fisheries 25(3): 471-490, doi:10.1111/faf.12819"
+
+files:
+  dat:         data.ss_new
+  ctl:         control.ss_new
+  par:         ss3.par
+  read_report: true          # Report.sso is the preferred source for M-at-age,
+                             # length-at-age, selectivity-at-age, unfished SSB
+                             # (opal's B0) and the recruitment bias ramp.
+
+# --- Time --------------------------------------------------------------------
+# This model runs 256 SS3 "years" of 3 months each (nseas = 1,
+# months_per_seas = 3), so the SS3 year is the quarter. opal takes
+# n_year = 256, n_season = 1. SS3 still reads M as an annual rate and applies
+# it over the 3-month season, so M (control file and Report.sso alike) is
+# divided by 12 / (nseas * months_per_seas) = 4; see bio.m_rate_divisor.
+time:
+  first_ts: 1
+  last_ts:  256
+
+# --- Ages --------------------------------------------------------------------
+# SS3 has ages 0-28. Keeping 1-28 makes the opal age index identical to the
+# SS3 age, which is the self-documenting choice and reproduces the original
+# script's behaviour. Set keep_ss3_ages: [0, 28] and min_age: 0 to carry the
+# full SS3 age range instead.
+age:
+  keep_ss3_ages: [1, 28]
+  min_age:       1
+
+# --- Growth ------------------------------------------------------------------
+# SS3 uses GrowthModel 3 (age-specific K, 9 multipliers for ages 2-10), which
+# opal's Schnute form cannot represent. L1 and L2 are pinned to SS3's mean
+# length at A1 and A2; k is fitted by least squares to the full SS3
+# length-at-age vector, and CV1/CV2 to SS3's SD-at-age. Both residuals are
+# reported by ss3_reconcile().
+#
+# How much the residual matters depends on bio.source below. With
+# source: endgrowth, growth is used only for the PLA that maps length-based
+# selectivity onto ages - and with sel_fa_external it is used for nothing at
+# all, in which case map the growth parameters off.
+growth:
+  A1:      1
+  A2:      28
+  fit_cv:  true
+  # model: schnute    opal's single-k Schnute curve, fitted to SS3's
+  #                   length-at-age (endgrowth route) or taken from the
+  #                   control file (control route), as described above.
+  # model: ss3_age_k  SS3's own GrowthModel 3 (age-specific K), read from the
+  #                   SS3 files; needs opal >= 0.1.1. opal's length-at-age then
+  #                   equals SS3's Len_Beg, on either biology route.
+  model:   schnute
+  plus_group_adjust: true   # ss3_age_k only: SS3's plus-group length approximation
+
+# --- Biology -----------------------------------------------------------------
+# source: endgrowth  take length, SD, weight, maturity, Mat*Fecund and M at age
+#                    straight from SS3's endgrowth table. Biology is then exact
+#                    and independent of the Schnute approximation. Requires
+#                    Report.sso. This is the right choice for a bridging
+#                    exercise against a known operating model.
+#
+# source: control    derive biology from the control file as a conventional
+#                    SS3 translation. Weight and maturity are length-basis
+#                    vectors that opal converts through its own PLA, so growth
+#                    error propagates into spawning biomass. Choose this when
+#                    growth is to be estimated, since age-basis biology is
+#                    fixed data and cannot carry growth uncertainty.
+bio:
+  source: endgrowth
+
+  endgrowth:
+    length_basis:       Beg    # Beg or Mid; which within-timestep columns
+    weight:             true   # supply Wt_<basis> as weight-at-age
+    maturity:           true
+    spawning_potential: true   # supply Mat*Fecund directly, bypassing
+                               # sex_ratio * maturity * fecundity
+    apply_frac_female:  false  # fold fracfemale into spawning_potential. Off
+                               # for a single-sex SS3 model: SSB_Virgin equals
+                               # sum(N x Mat*Fecund) with no female fraction.
+                               # Omit to decide from Nsexes.
+    m:                  true   # M-at-age in model-timestep units
+
+  # Divides SS3's annual M into per-timestep M, on both routes. Leave null to
+  # derive it from the data file as 12 / (nseas * months_per_seas), which is 4
+  # here; set it only to override that.
+  m_rate_divisor: null
+
+# --- Indices -----------------------------------------------------------------
+# SS3 fleet 17 (llcpue) is a single series. The original script carved it into
+# four quarterly series so each quarter gets its own catchability. That is a
+# modelling decision, declared here rather than buried in one line of code.
+index:
+  keep_ss3_fleets: [17]
+  split:
+    - fleet:  17
+      into:   [17, 18, 19, 20]
+      by:     ts_modulo
+      modulo: 4
+      offset: 81          # anchors quarter 1 of the split to timestep 81
+  normalise:    mean1     # scale each index to mean 1 for numerical stability
+  month_labels: [2, 5, 8, 11]
+  keep_negative_fleets: false
+
+# --- Length compositions -----------------------------------------------------
+# Variance adjustments come from the control file's mult_by_lencomp_N row; opal
+# var_adjust is its reciprocal. Fleets 15 and 17 have no length data in SS3
+# (17's compositions are generalised size data, see sizefreq below), so
+# keep_fisheries lists the fleets that do. Any zero LF lambda in the control
+# file is reported by the converter; this list is what acts on it.
+#
+# regularise_last_bin: SS3's last data bin (198) is an open plus bin off the
+# 5 cm grid (195 spans 195-198). opal needs a constant width, so it is
+# relabelled 200 and bin 195 becomes 195-200.
+lf:
+  keep_negative_fleets: false
+  regularise_last_bin:  true
+  keep_fisheries:       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16]
+  cap:                  null      # optional effective sample size cap
+  addtocomp:            1.0e-10
+
+# --- Selectivity -------------------------------------------------------------
+# SS3 uses size_selex pattern 0 for every fleet and age-based selectivity
+# (pattern 20 double-normal for the fisheries, pattern 12 logistic for llcpue).
+# opal parameterises on length, so:
+#   - sel_fa_external carries SS3's selectivity-at-age exactly (bridging check)
+#   - opal_type_f sets the curve family for the estimated version
+# opal codes: 1 = logistic, 2 = double-normal, 3 = double Richards.
+# These are NOT SS3 pattern numbers.
+selectivity:
+  report_factor:  Asel2      # Report.sso ageselex Factor to read
+  reference_year: null       # null -> terminal year in the ageselex table
+  n_par:          6
+  # Curve family for the estimated (opal-native) selectivity, matching SS3:
+  # fisheries 1-16 are age double-normal (pattern 20) in SS3, the survey is
+  # logistic (pattern 12).
+  opal_type_f:
+    # fisheries 1-16: SS3 age double-normal -> opal double-normal
+    [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    # index fisheries 17-20: SS3 age logistic -> opal logistic
+     1, 1, 1, 1]
+  # Estimated-selectivity fits only. Estimate the opal equivalents of the
+  # selectivity parameters SS3 estimated (PHASE > 0 in control.ss_new):
+  #   fleets 1-14, pattern 20: P1-P4 (peak, plateau, ascending and descending
+  #     width) estimated; P5 (initial) fixed at -6 and P6 (final) at -999.
+  #     opal's double-normal parameters are in the same order, so columns 1-4
+  #     are estimated and 5-6 stay at their seeded values. (opal's double
+  #     normal has no equivalent of SS3's -999 "no final adjustment"; the
+  #     seeded final value stands in for it.)
+  #   fleets 15, 16: pattern 15, mirror fleet 14.
+  #   survey (fleet 17): pattern 12, both parameters estimated. Its four
+  #     quarterly opal series share one curve, as SS3 has one survey fleet.
+  #     SS3 also had the survey's generalised size-composition data, which
+  #     opal omits, so these two are the least informed.
+  #   estimate  opal fisheries whose curves are estimated.
+  #   mirror    fishery: source, sharing the source's parameters.
+  #   free_par  which par_sel columns are estimated, by opal curve family.
+  estimate: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 17]
+  mirror:
+    "15": 14
+    "16": 14
+    "18": 17
+    "19": 17
+    "20": 17
+  free_par:
+    "1": [1, 2]
+    "2": [1, 2, 3, 4]
+  # Variant C2 only: parameters held at their seeded values instead of
+  # estimated (fishery: par_sel columns). In fit C these nine settled at the
+  # mean of opal's N(0, 2) par_sel prior, i.e. the length data do not inform
+  # them: plateau (2) and descending width (4) of the asymptotic fisheries 4,
+  # 5, 7 and 13, and fishery 9's descending width.
+  fix_prior_dominated:
+    "4": [2, 4]
+    "5": [2, 4]
+    "7": [2, 4]
+    "9": [4]
+    "13": [2, 4]
+
+# --- Size-frequency (SS3 generalized size comp, method 1) --------------------
+# The original script split each coarse SS3 size-frequency bin evenly across
+# the two model bins it spans. That is an approximation: the statistically
+# correct treatment aggregates the PREDICTED composition up to the coarse bins
+# rather than splitting the observations down. Disabled by default; enable only
+# with that caveat understood.
+sizefreq:
+  include: false
+  method:  1

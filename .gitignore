@@ -15,10 +15,10 @@
 !*.ini
 !mfcl.cfg
 !doitall.mls
-!model-files/mfcl/v11/plot-10.par.rep
-!model-files/mfcl/v11/10.par
-!model-files/mfcl/v11/length.fit
-!model-files/mfcl/v11/weight.fit
+!case-studies/wcpo-bet/model-files/mfcl/v11/plot-10.par.rep
+!case-studies/wcpo-bet/model-files/mfcl/v11/10.par
+!case-studies/wcpo-bet/model-files/mfcl/v11/length.fit
+!case-studies/wcpo-bet/model-files/mfcl/v11/weight.fit
 !condor_doitall.bet
 !doitall.condor
 # r files
@@ -28,7 +28,7 @@
 !*.rda
 !*.Rd
 !.Rprofile
-# shell scripts (e.g. code/rtmb/setup/install-r-opal.sh)
+# shell scripts (e.g. shared/setup/install-r-opal.sh)
 !*.sh
 # git files
 !.gitignore
@@ -43,7 +43,7 @@
 !CLAUDE.md
 !*.qmd
 # self-contained HTML of the SS3-to-opal workflow guide
-!code/rtmb/vignettes/ss3-to-opal-workflow.html
+!case-studies/io-yft/vignettes/ss3-to-opal-workflow.html
 # stock synthesis
 !control.ss
 !data.ss
@@ -76,13 +76,14 @@ plotInfoTable_*.csv
 /.quarto/
 _site/*
 !*.yaml
-!*.yml# generated opal driver outputs (rebuilt by code/rtmb/scripts/00-prep-io-yft-sim-data-for-rtmb.r)
+!*.yml
+# generated opal driver outputs (rebuilt by case-studies/io-yft/scripts/00-prep-io-yft-sim-data-for-rtmb.r)
 /opal_data/
 .quarto/
 
 # opal patches for the age-selex branch
-!code/rtmb/opal-export/patches/*.patch
-# opal patch series (opal-patches/<topic>/) and their rendered article
+!case-studies/io-yft/opal-export/patches/*.patch
+# opal patch series (case-studies/io-yft/opal-patches/<topic>/) and their rendered article
 !*.patch
-!opal-patches/*/README.md
-!opal-patches/*/*.html
+!case-studies/*/opal-patches/*/README.md
+!case-studies/*/opal-patches/*/*.html

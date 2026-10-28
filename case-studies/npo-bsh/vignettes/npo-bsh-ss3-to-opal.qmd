@@ -244,7 +244,11 @@ The opal model has:
   which SS3 numbers after the surveys) and one fishery for each of the two
   indices kept (S5 and S6; the other nine have lambda 0 in SS3);
 * SS3's age-basis biology (M, weight, maturity, and spawning output as
-  Mat x Fecund x 0.5) from the endgrowth table;
+  Mat x Fecund x 0.5) from the endgrowth table, at the start of the year.
+  Recruits settle in month 7 (settlement assignment `1 7 1 0`), so at the
+  start of the year SS3's age-a class is a - 0.5 years past settlement: age 0
+  is at the 5 cm minimum population size, age 1 at 34.7 cm, and L1 = 64.3 cm
+  (age 1 post-settlement) is reached at mid-year;
 * SS3's parameter values: B~0~ (opal's scale parameter, SS3's SSB~0~), h,
   sigma~R~, recruitment deviations, the ten early deviations and the 1971
   recruitment as the initial age structure, and F4's initial F.
@@ -412,9 +416,12 @@ Two diagnostic refits of O1 locate the difference (@tbl-fits, @fig-fits):
 * **With SS3's mid-year length-at-age** in place of opal's growth when the
   compositions are predicted (O1-mid), depletion is
   `r fmt(mid$depletion_2020, 3)`, close to SS3's. SS3 predicts a fishery's
-  length composition from its catch over the year, during which an age-0
-  shark grows from 5 cm towards the 35 cm it reaches by age 1; opal predicts it from numbers at
-  the start of the year with start-of-year lengths. With SS3's start-of-year
+  length composition from its catch over the year; opal predicts it from
+  numbers at the start of the year with start-of-year lengths. Because
+  recruits settle in month 7, SS3's age-1 class is only half a year past
+  settlement at the start of the year (34.7 cm) and reaches L1 (64.3 cm, age 1
+  post-settlement) at mid-year; the gap is 13 cm at age 2 and shrinks with
+  age. With SS3's start-of-year
   length-at-age instead the fit runs away (B~0~ over 10^7^), and opal's own
   Schnute growth (fitted to the start-of-year lengths, linear growth below
   age 1 aside) lands in between.
@@ -508,15 +515,19 @@ ggplot(sel, aes(age, sel, colour = model)) +
 * **Observation timing.** SS3 observes the indices in month 7 and the
   fishery compositions over the year (catch-weighted, with mid-year
   lengths); opal predicts both from numbers and lengths at the start of the
-  season. For this annual model with fast first-year growth this is the
+  season. For this annual model, with recruits settling in month 7 and
+  start-of-year lengths 30 cm below mid-year lengths at age 1, this is the
   difference that matters most once opal is fitted: it alone moves O1's
   terminal depletion from about 0.55 to 0.25 (@sec-fits). opal would need
   observation-time length-at-age (growth evaluated at the fraction of the
   year or season when the fleet fishes) and catch-weighted predicted
   compositions; sub-annual seasons would approximate both.
-* **Growth below the first reference age.** SS3 grows fish linearly from age
-  0 to age 1; opal's Schnute curve extrapolates von Bertalanffy growth. On
-  the endgrowth biology route this only affects the PLA used for selectivity.
+* **Growth below the first reference age and settlement timing.** SS3 grows
+  fish linearly from settlement (month 7, at the 5 cm minimum size) to age 1
+  post-settlement; opal has no settlement time and its Schnute curve, fitted
+  to SS3's start-of-year lengths, extrapolates von Bertalanffy growth below
+  age 1. On the endgrowth biology route this only affects the PLA used for
+  selectivity.
 * **Extra index SD.** SS3 adds it to the input SE; opal combines its own tau
   in quadrature. The converter adds SS3's value to the input SE and opal's
   tau stays at zero.

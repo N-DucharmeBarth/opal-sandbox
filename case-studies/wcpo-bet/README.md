@@ -99,7 +99,7 @@ The SS3 implementation workflow consists of two main stages:
 
 #### Stage 1: Baseline Model Creation ([01-make-baseline-ss3-model.r](scripts/ss3/01-make-baseline-ss3-model.r))
 - Parses MFCL outputs (frequency data, parameters) using FLR4MFCL and frqit packages
-- Reads template SS3 files from `model-files/ss3/00-swpo-mls-base-file/` (a southwest Pacific striped marlin model used as a fixed base file)
+- Reads template SS3 files from `model-files/ss3/00-swpo-mls-base-file/` (the southwest Pacific Ocean striped marlin SS3 model, used as a fixed base file)
 - Maps MFCL biological parameters (growth, maturity, length-weight) into SS3 parameter blocks
 - Configures fleets, selectivity patterns, and data components to match MFCL structure
 - Writes SS3 input files (`starter.ss`, `data.ss`, `control.ss`, `forecast.ss`) to `model-files/ss3/01-bet-base/`

@@ -17,7 +17,8 @@ citation.
 | Path | What it is |
 |---|---|
 | `model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4/` | Baseline SS3 model (v3.24) |
-| `model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4-{lensel,simple-k}/` | SS3 variants (length-based selectivity; simple growth) |
+| `model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4-lensel/` | SS3 variant with length-based selectivity |
+| `model-files/ss3/xx-io-yft-sim-iattc-sample-tree-4-simple-k/` | SS3 variant with von Bertalanffy growth and a single, age-invariant K (GrowthModel 1) in place of the baseline's age-specific K |
 | `model-files/sim-truth/io-yft-iattc-sample-tree-4/` | Operating-model truth for the simulated replicate |
 | `config/` | Converter settings (YAML) |
 | `scripts/00`-`03` | Convert, fit and extract the truth; write the caches in `vignettes/data/` |

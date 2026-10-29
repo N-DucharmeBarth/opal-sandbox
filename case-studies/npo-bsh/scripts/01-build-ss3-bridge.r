@@ -17,6 +17,8 @@
 #   02c-no-f19-devs     F19 annual deviations on the peak removed
 #   02d-no-regime       initial-equilibrium regime offset (1970) removed
 #   02e-no-f-ballpark   F-ballpark penalty switched off
+#   03-start-of-year-obs  B2e with every observation in month 1 (opal's
+#                       timing); a check of the opal fits, not a bridge step
 # 02e is the SS3 model the opal conversion starts from.
 #
 # OUTPUTS:
@@ -239,11 +241,32 @@
     run_step(inputs, "02e-no-f-ballpark")
 
 #_____________________________________________________________________________
+# 03: B2e with opal's observation timing. Not a bridge step: a check, from
+# the SS3 side, of the explanation for opal's O1 fit. opal predicts indices
+# and fishery compositions from numbers and lengths at the start of the
+# year; B2e observes them in month 7, with the fishery compositions
+# catch-weighted over the year (surveytiming -1). Here every index,
+# composition and size-frequency observation is taken in month 1, and the
+# fishing fleets use that month (surveytiming 1) instead of the catch-weighted
+# timing. Settlement stays in month 7, so length-at-age is B2e's, the
+# biology opal was converted from. Catch removal stays continuous.
+    inputs = read_step("02e-no-f-ballpark")
+    dat = inputs$dat
+    dat$CPUE$month = 1
+    dat$lencomp$month = 1
+    dat$sizefreq_data_list = lapply(dat$sizefreq_data_list, function(sf) { sf$month = 1; sf })
+    dat$fleetinfo$surveytiming[dat$fleetinfo$type == 1] = 1
+    inputs$dat = dat
+    run_step(inputs, "03-start-of-year-obs")
+
+#_____________________________________________________________________________
 # Summarise the bridge
     steps = c("00-s6-base", "01-single-sex", "02a-f18-dblnorm", "02b-f8-split",
-              "02c-no-f19-devs", "02d-no-regime", "02e-no-f-ballpark")
+              "02c-no-f19-devs", "02d-no-regime", "02e-no-f-ballpark",
+              "03-start-of-year-obs")
     labels = c("S6", "B1 single sex", "B2a F18 double normal", "B2b F8 split",
-               "B2c no F19 devs", "B2d no regime", "B2e no F ballpark")
+               "B2c no F19 devs", "B2d no regime", "B2e no F ballpark",
+               "B3 start-of-year obs")
     reps = lapply(steps, function(s)
         SS_output(file.path(dir_ss3, s), covar = TRUE, verbose = FALSE, printstats = FALSE))
     names(reps) = steps

@@ -21,7 +21,8 @@ cache_file = file.path(proj_dir, "case-studies", "npo-bsh", "vignettes", "data",
 context("NPO blue shark SS3 bridge")
 
 steps = c("00-s6-base", "01-single-sex", "02a-f18-dblnorm", "02b-f8-split",
-          "02c-no-f19-devs", "02d-no-regime", "02e-no-f-ballpark")
+          "02c-no-f19-devs", "02d-no-regime", "02e-no-f-ballpark",
+          "03-start-of-year-obs")
 
 # Report.sso header lines: final gradient and ln(det(Hessian))
 report_header = function(step) {
@@ -137,6 +138,24 @@ test_that("B2d removes the initial regime offset", {
 test_that("B2e switches the F-ballpark penalty off", {
     expect_lt(inputs[["02e-no-f-ballpark"]]$ctl$F_ballpark_year, 0)
     expect_false("F_Ballpark" %in% rownames(reps[["02e-no-f-ballpark"]]$likelihoods_used))
+})
+
+test_that("B3 moves every observation to month 1 and changes nothing else", {
+    d2 = inputs[["02e-no-f-ballpark"]]$dat
+    d3 = inputs[["03-start-of-year-obs"]]$dat
+    expect_true(all(d3$CPUE$month == 1))
+    expect_true(all(d3$lencomp$month == 1))
+    expect_true(all(vapply(d3$sizefreq_data_list, function(sf) all(sf$month == 1), logical(1))))
+    expect_true(all(d3$fleetinfo$surveytiming == 1))
+    expect_equal(d2$fleetinfo$surveytiming[d2$fleetinfo$type == 1],
+                 rep(-1, sum(d2$fleetinfo$type == 1)))
+    # settlement (month 7) and the length-at-age are B2e's
+    expect_equal(inputs[["03-start-of-year-obs"]]$ctl$recr_dist_pattern,
+                 inputs[["02e-no-f-ballpark"]]$ctl$recr_dist_pattern)
+    expect_equal(reps[["03-start-of-year-obs"]]$endgrowth$Len_Beg,
+                 reps[["02e-no-f-ballpark"]]$endgrowth$Len_Beg)
+    expect_equal(reps[["03-start-of-year-obs"]]$N_estimated_parameters,
+                 reps[["02e-no-f-ballpark"]]$N_estimated_parameters)
 })
 
 test_that("every step keeps the catch and index data", {

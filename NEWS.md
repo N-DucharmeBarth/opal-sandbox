@@ -1,5 +1,13 @@
 # opal-sandbox (development)
 
+- 2026/10/29: NPO blue shark B3 (`03-start-of-year-obs`), B2e with every
+  index, composition and size-frequency observation in month 1 and the
+  fishing fleets using that month, so SS3 observes the stock when opal does.
+  Settlement and length-at-age are B2e's. B3 converges with a
+  positive-definite Hessian; its terminal depletion is 0.521 against B2e's
+  0.536 and SSB0 346,873 against 349,989, with SS3 re-estimating the
+  length selectivity. The bridge script, bridge tests and bridge cache
+  include it.
 - 2026/10/28: North Pacific blue shark case study (`case-studies/npo-bsh/`).
   - An SS3 bridge from the 2022 ISC assessment (S6, two sexes) to a
     single-sex SS3 model, one change per step: single sex, F18 spline to

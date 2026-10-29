@@ -21,6 +21,7 @@ member. The assessment report is
 |---|---|
 | `model-files/ss3/00-s6-base/` | S6 as supplied (inputs, `ss.par`), re-run with SS3 3.30.22.1 (`Report.sso`, `CompReport.sso`) |
 | `model-files/ss3/01-single-sex/` ... `02e-no-f-ballpark/` | The SS3 bridge, one change per step (see below) |
+| `model-files/ss3/03-start-of-year-obs/` | B3: B2e with opal's observation timing (see below) |
 | `config/npo-bsh-b2e.yaml` | Converter settings for B2e -> opal |
 | `scripts/01-build-ss3-bridge.r` | Builds and runs the SS3 bridge from S6; writes the bridge cache |
 | `scripts/02-profile-ss3-r0.r` | Likelihood profiles over ln(R0) for S6, B1 and B2e |
@@ -38,6 +39,7 @@ member. The assessment report is
 | 02c B2c | F19's annual selectivity deviations removed |
 | 02d B2d | initial-equilibrium regime offset removed |
 | 02e B2e | F-ballpark penalty switched off |
+| 03 B3 | B2e with every index and composition observed in month 1 (opal's timing), fishing fleets using that month; a check of the opal fits, not a bridge step |
 
 ## Order of running
 

@@ -224,6 +224,8 @@
     # for opal's default bounds, widen the catchability's to SS3's +/-15, and
     # build with them. Run after every map change (opal resets bounds then).
     build_with_q_bounds = function(x) {
+        # bounds stored for an earlier map no longer match its parameters
+        x = opal_update(x, bounds = NULL)
         p = x$parameters
         tmp = p
         tmp$log_cpue_q = rep(0, length(p$log_cpue_q))

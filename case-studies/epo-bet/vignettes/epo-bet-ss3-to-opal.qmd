@@ -324,7 +324,7 @@ p2 = ggplot(br, aes(year, rel_opal)) + geom_hline(yintercept = 0, colour = "grey
 
 The first quarter agrees to `r pct(abs(br$rel_opal[1]), 2)`: the initial
 age structure is converted directly. opal then drifts above SS3, to
-`r pct(br$rel_opal[.N])` by 2021. opal's spawning biomass equals the replay
+`r pct(tail(br$rel_opal, 1))` by 2021 Q4. opal's spawning biomass equals the replay
 of the converted inputs to `r sci(max(abs(br$opal / br$replica_opal - 1)), 0)`,
 so the difference is in the dynamics, not the conversion. Two things
 account for it: when the catch is taken within the quarter, and the weight
@@ -396,6 +396,30 @@ knitr::kable(S[, .(model, `n par` = n_par, objective = fmt(objective, 2),
                    CPUE = fmt(lp_cpue, 1), compositions = fmt(lp_lf, 1),
                    recruitment = fmt(lp_rec, 1))], format = "pipe")
 ```
+
+```{r}
+#| label: fits-text
+o0 = S[model == "O0"]; o1 = S[model == "O1"]; o2 = S[model == "O2"]
+nc = S[model == "O1-noComp"]; ss = S[model == "SS3 B1"]
+conv = function(x) if (isTRUE(x$check_passes)) "converges and passes opal's fit check" else
+    sprintf("does not converge (maximum gradient %s)", sci(x$max_gradient, 1))
+```
+
+O1 `r conv(o1)`. With SS3's selectivity fixed, opal's own optimum puts B~0~
+at `r fmt(o1$B0, 0)` t (`r pct(o1$B0 / ss$B0 - 1)` above SS3's) and the
+2021 Q4 depletion at `r fmt(o1$depletion_end, 3)`, against SS3's
+`r fmt(ss$depletion_end, 3)`. That is close to where opal already sits at
+SS3's values (O0, `r fmt(o0$depletion_end, 3)`): re-estimating the scale and
+recruitment does not undo the catch-timing difference of @sec-o0, because
+in opal's dynamics the same catches deplete the stock less. Without the
+compositions (O1-noComp) the index and the recruitment penalty alone give a
+depletion of `r fmt(nc$depletion_end, 3)` (B~0~ `r fmt(nc$B0, 0)` t), so the
+compositions push O1 towards a larger, less depleted stock.
+
+O2 `r conv(o2)` and is shown for completeness only. Freeing opal's
+selectivity improves the fit to the compositions by
+`r fmt(o1$lp_lf - o2$lp_lf, 0)` units over O1, and its depletion of
+`r fmt(o2$depletion_end, 3)` should not be read as an estimate.
 
 ```{r}
 #| label: fig-fits

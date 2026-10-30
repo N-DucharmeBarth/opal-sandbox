@@ -181,7 +181,7 @@ ss3_reconcile = function(x, tol = 1e-6, spr0_tol = 1e-4) {
             opal       = opal_value,
             rel_diff   = rel,
             tol        = row_tol,
-            pass       = is.na(rel) | rel <= row_tol,
+            pass       = if (is.na(row_tol)) NA else is.na(rel) | rel <= row_tol,
             note       = note
         )
     }
@@ -252,9 +252,11 @@ ss3_reconcile = function(x, tol = 1e-6, spr0_tol = 1e-4) {
 
     # ---- Weight-at-age -----------------------------------------------------
     if (!is.null(d$weight) && length(d$weight) == d$n_age && !is.null(ss3$rep)) {
-        eg = tryCatch(ss3_endgrowth_table(ss3$rep, dims), error = function(e) NULL)
+        wb = x$meta$config$bio$endgrowth$weight_basis %||%
+            x$meta$config$bio$endgrowth$length_basis %||% "Beg"
+        eg = tryCatch(ss3_endgrowth_table(ss3$rep, dims, basis = wb), error = function(e) NULL)
         if (!is.null(eg)) {
-            add("total weight summed over ages",
+            add(sprintf("total weight summed over ages (Wt_%s)", wb),
                 sum(eg$weight), sum(d$weight),
                 "age-basis weight should be identical to SS3")
         }
@@ -276,6 +278,33 @@ ss3_reconcile = function(x, tol = 1e-6, spr0_tol = 1e-4) {
             note     = sprintf("opal get_growth() vs SS3 Len_Beg; max |error| %.1e cm",
                                gf$max_abs_error)
         )
+    } else if (identical(gf$source, "ss3_cessation") &&
+               is.finite(gf$max_rel_error_below_plus %||% NA_real_)) {
+        # SS3's growth cessation curve and SD-linear (or CV-linear) growth
+        # variability in opal: exact below the plus group, to Report.sso print
+        # precision. SS3 averages the plus group's length over the ages it
+        # accumulates and holds its SD at SD_old; opal does neither.
+        laa_tol = 5e-5
+        n = length(gf$laa_opal)
+        rows[[length(rows) + 1L]] = data.table::data.table(
+            quantity = "mean length-at-age, SS3 growth cessation (max relative error below the plus group)",
+            ss3 = NA_real_, opal = NA_real_,
+            rel_diff = gf$max_rel_error_below_plus, tol = laa_tol,
+            pass = gf$max_rel_error_below_plus <= laa_tol,
+            note = "opal get_growth(growth_model = \"cessation\") vs SS3 Len_Beg")
+        rows[[length(rows) + 1L]] = data.table::data.table(
+            quantity = sprintf("SD of length-at-age, SS3 CV_Growth_Pattern %d (max relative error below the plus group)",
+                               gf$cv_pattern),
+            ss3 = NA_real_, opal = NA_real_,
+            rel_diff = gf$sd_max_rel_error_below_plus, tol = laa_tol,
+            pass = gf$sd_max_rel_error_below_plus <= laa_tol,
+            note = sprintf("opal get_sd_at_age(sd_model = \"%s\") vs SS3 SD_Beg", gf$sd_model))
+        add("mean length at the plus-group age", gf$laa_ss3[n], gf$laa_opal[n],
+            "SS3 averages the plus group's length over the ages it accumulates; opal does not",
+            row_tol = NA_real_)
+        add("SD of length at the plus-group age", gf$sd_ss3[n], gf$sd_opal[n],
+            "SS3 holds the oldest age at SD_old; opal's upper reference is SS3's line at that age's length",
+            row_tol = NA_real_)
     } else if (!is.null(gf) && is.finite(gf$rmse %||% NA_real_)) {
         # Whether this residual matters depends on what growth is still used
         # for. On the endgrowth route it affects only the PLA for selectivity;
@@ -293,7 +322,8 @@ ss3_reconcile = function(x, tol = 1e-6, spr0_tol = 1e-4) {
                                gf$rmse, gf$max_abs_error, consequence)
         )
     }
-    if (!is.null(gf) && is.finite(gf$sd_rmse %||% NA_real_)) {
+    if (!is.null(gf) && !identical(gf$source, "ss3_cessation") &&
+        is.finite(gf$sd_rmse %||% NA_real_)) {
         rows[[length(rows) + 1L]] = data.table::data.table(
             quantity = "SD of length-at-age, CV approximation",
             ss3 = NA_real_, opal = NA_real_,

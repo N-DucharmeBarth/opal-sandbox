@@ -1,0 +1,16 @@
+component,logL_lambda,lambda
+TOTAL,271.196,NA
+Catch,1.1246e-08,NA
+Equil_catch,0,NA
+Survey,-261.195,NA
+Length_comp,220.849,NA
+Age_comp,0,NA
+SizeFreq,327.099,NA
+Recruitment,-15.5832,1
+InitEQ_Regime,0,0
+Forecast_Recruitment,0.0127394,1
+Parm_priors,0,1
+Parm_softbounds,0.0133818,NA
+Parm_devs,0,1
+F_Ballpark,0,0
+F_Ballpark(info_only)_160_estF_tgtF,0.0979456,0.1

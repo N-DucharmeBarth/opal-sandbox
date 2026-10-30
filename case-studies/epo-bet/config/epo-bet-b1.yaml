@@ -1,0 +1,145 @@
+# Converter configuration: the SS3 bridge model B1 of the IATTC SAC-14
+# exploratory assessment of bigeye tuna in the eastern Pacific Ocean -> opal.
+#
+# B1 is the supplied model (B0) without the initial-equilibrium regime offset;
+# it is built by case-studies/epo-bet/scripts/01-build-ss3-bridge.r.
+#
+# Everything here is a decision that CANNOT be read out of the SS3 files.
+
+model:        epo-bet-b1
+ss3_dir:      case-studies/epo-bet/model-files/ss3/01-no-regime
+ss3_version:  "3.30"
+out_dir:      opal_data/epo-bet
+prefix:       epobet
+
+metadata:
+  species:     Bigeye tuna
+  region:      Eastern Pacific Ocean
+  data_type:   assessment
+  note:        SS3 bridge model B1 (no initial regime offset) of the IATTC SAC-14 exploratory model
+  reference:   "IATTC SAC-14 (2023), exploratory stock assessment of bigeye tuna in the eastern Pacific Ocean"
+
+files:
+  dat:         data_echo.ss_new
+  ctl:         control.ss_new
+  par:         ss3.par
+  read_report: true
+
+# --- Time --------------------------------------------------------------------
+# Quarterly model: each SS3 "year" is a quarter, 17-204 (1975 Q1 - 2021 Q4),
+# one season. opal n_year = 188 quarters, n_season = 1.
+time:
+  first_ts: 17
+  last_ts:  204
+
+# --- Ages --------------------------------------------------------------------
+# SS3 ages 0-40 (quarters), all kept: opal's first age class is SS3's age-0
+# recruitment (both recruit at the start of the quarter from that quarter's
+# spawning biomass).
+age:
+  keep_ss3_ages: [0, 40]
+  min_age:       0
+
+# --- Recruitment ---------------------------------------------------------------
+# Carry SS3's early deviations (quarters -7 to 16) into opal's initial age
+# structure.
+recdev:
+  initial: true
+
+# --- Growth ------------------------------------------------------------------
+# SS3 GrowthModel 8 (growth cessation) with CV_Growth_Pattern 2 (SD linear in
+# length), carried exactly into opal's "cessation" curve and "sd" growth
+# variability (see ss3_apply_cessation_growth()).
+growth:
+  model:   cessation
+  fit_cv:  true
+
+# --- Biology -----------------------------------------------------------------
+# Age-basis biology from SS3's endgrowth table. Spawning output is
+# Mat*Fecund (fecundity = weight) x FracFemale (0.5, Nsexes = -1).
+# opal turns catch in weight into numbers with one weight-at-age vector and
+# removes the catch at the start of each quarter. SS3 takes it through the
+# quarter, at each fleet's catch weight-at-age, and bigeye grow fast: a
+# quarter-old fish is 70% heavier mid-quarter than at the start. SS3's
+# mid-quarter weight (Wt_Mid) is used; at start-of-quarter weight (Wt_Beg)
+# the stock collapses at SS3's parameter values.
+bio:
+  source: endgrowth
+  endgrowth:
+    length_basis:       Beg
+    weight_basis:       Mid
+    weight:             true
+    maturity:           true
+    spawning_potential: true
+    m:                  true
+  m_rate_divisor: null
+
+# --- Indices -----------------------------------------------------------------
+# One index: the longline survey (SS3 fleet 23, numbers, lognormal, Q floats
+# in SS3), observed in month 1 of each quarter. It is opal fishery 23 with
+# SS3's own double-normal selectivity. No add_to_survey_CV in the control file.
+# opal predicts an index as q x vulnerable numbers / their mean, so its q is
+# on the scale of the index's mean; the index (about 5e7) is normalised to
+# mean 1, which leaves the lognormal likelihood unchanged.
+index:
+  keep_ss3_fleets: [23]
+  normalise:    mean1
+  month_labels: [1]
+  keep_negative_fleets: false
+  add_survey_var_adjust: true
+
+# --- Length compositions -----------------------------------------------------
+# Floating-object purse-seine fleets OBJ-A1 to OBJ-A5 (SS3 fleets 15-19 =
+# opal fisheries 15-19), on SS3's 2 cm bins from 20 to 198 cm. NOA-A1 and
+# NOA-A2 (21, 22) have lambda 0 in SS3 and are left out.
+lf:
+  keep_negative_fleets: false
+  regularise_last_bin:  false
+  keep_fisheries:       [15, 16, 17, 18, 19]
+  cap:                  null
+  addtocomp:            1.0e-5
+
+# --- Generalised size compositions (sizefreq method 1) -----------------------
+# Longline length compositions on 10 cm bins (60-190 cm, numbers) for
+# LL-n-A2 to LL-n-A7 and the survey (opal fisheries 2-7 and 23). LL-n-A1's
+# have lambda 0 in SS3 and are left out. They enter opal as a second
+# composition bin scheme alongside the 2 cm length compositions.
+sizefreq:
+  include:        true
+  method:         1
+  keep_fisheries: [2, 3, 4, 5, 6, 7, 23]
+  addtocomp:      1.0e-5
+
+# --- Selectivity -------------------------------------------------------------
+# SS3: size double normal (24) for LL-n-A1 to A7, OBJ-A1 to A5 and the survey;
+# size mirrors (15) LL-w-Ax -> LL-n-Ax, NOA-A1 -> OBJ-A1, NOA-A2 -> OBJ-A5;
+# OBJ-Disc (20) has age selectivity 1 at ages 1-3 (age pattern 11). Every
+# fleet's age pattern is 10, which sets age 0 to zero.
+# opal fisheries: 1-22 = SS3 fleets 1-22, 23 = the survey. Fishery 20 is
+# age-based in opal (sel_basis 2) with a double normal fixed at SS3's curve.
+selectivity:
+  report_factor:  Asel2
+  reference_year: 204
+  n_par:          6
+  opal_type_f:
+    [2, 2, 2, 2, 2, 2, 2,
+     2, 2, 2, 2, 2, 2, 2,
+     2, 2, 2, 2, 2,
+     2,
+     2, 2,
+     2]
+  age_based: [20]
+  # SS3 mirrors (pattern 15), as opal fishery: source
+  mirror:
+    "8":  1
+    "9":  2
+    "10": 3
+    "11": 4
+    "12": 5
+    "13": 6
+    "14": 7
+    "21": 15
+    "22": 19
+  # The double normals SS3 estimates (LL-n-A1's is fixed in SS3: its size
+  # compositions have lambda 0)
+  estimate: [2, 3, 4, 5, 6, 7, 15, 16, 17, 18, 19, 23]

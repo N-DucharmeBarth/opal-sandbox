@@ -93,3 +93,76 @@ ss3_lambda_reference = function(ss3) {
                sizefreq_method = as.integer(lam$sizefreq_method),
                row.names = NULL)
 }
+
+#_____________________________________________________________________________
+#' Generalised size compositions as an opal composition bin scheme
+#'
+#' SS3 sizefreq data (one method) as a wide data frame on the method's own
+#' bins, ready to pass to \code{prep_lf_data()} in a list alongside the
+#' length compositions. Rows are scaled to pseudo-counts that sum to SS3's
+#' input sample size, as \code{ss3_lencomp_to_opal()} does for lengths. Only
+#' length-based methods in numbers on a cm scale are supported, and the
+#' method's bins must fall on opal's length grid.
+#'
+#' SS3's variance adjustment factor 7 (mult_by_generalized_sizecomp)
+#' multiplies the input sample size; opal divides by lf_var_adjust, so the
+#' returned var_adjust is its inverse (1 where SS3 has none).
+#'
+#' @param ss3 list from \code{ss3_read_model()}.
+#' @param cfg converter configuration list; uses \code{cfg$sizefreq$method}
+#'   and \code{cfg$sizefreq$keep_fisheries}.
+#' @param dims output of \code{ss3_dims_to_opal()}.
+#' @param fish output of \code{ss3_fisheries_to_opal()}.
+#' @return list: \code{wide} (data frame with \code{fishery}, \code{year},
+#'   \code{month}, \code{ts} and one count column per bin, named by its lower
+#'   edge), \code{bins}, \code{upper_edge} (the opal grid's upper edge; SS3's
+#'   last bin is a plus bin) and \code{var_adjust} (length \code{n_fishery}).
+ss3_sizefreq_to_opal = function(ss3, cfg, dims, fish) {
+    dat = ss3$dat
+    method = as.integer(cfg$sizefreq$method %||% 1L)
+    if (is.null(dat$N_sizefreq_methods) || dat$N_sizefreq_methods < method) {
+        stop(sprintf("SS3 data have no sizefreq method %d.", method), call. = FALSE)
+    }
+    if (as.integer(dat$units_per_method[method]) != 2L ||
+        as.integer(dat$scale_per_method[method]) != 3L) {
+        stop("Only sizefreq methods in numbers on a cm scale are supported.", call. = FALSE)
+    }
+    bins = abs(as.numeric(dat$sizefreq_bins_list[[method]]))
+    grid = dims$len_bin_start + (0:dims$n_len) * dims$len_bin_width
+    if (!all(apply(abs(outer(bins, grid, "-")), 1, min) < 1e-8)) {
+        stop("Sizefreq bin edges do not fall on opal's length grid.", call. = FALSE)
+    }
+
+    obs = data.table::as.data.table(dat$sizefreq_data_list[[method]])
+    yr_col = intersect(c("year", "Yr", "yr"), names(obs))[1]
+    fl_col = intersect(c("fleet", "FltSvy"), names(obs))[1]
+    comp_cols = utils::tail(names(obs), length(bins))
+    obs = obs[get(fl_col) > 0 & get(yr_col) >= dims$.first_ts & get(yr_col) <= dims$.last_ts]
+    obs[, ts := as.integer(get(yr_col)) - dims$.first_ts + 1L]
+    obs[, fishery := ss3_opal_fishery(get(fl_col), ts, cfg, fish)]
+    keep = as.integer(cfg$sizefreq$keep_fisheries %||% unique(obs$fishery))
+    obs = obs[fishery %in% keep]
+
+    m = as.matrix(obs[, comp_cols, with = FALSE])
+    m = m / pmax(rowSums(m), 1e-300) * as.numeric(obs$Nsamp)
+    colnames(m) = format(bins, trim = TRUE)
+    wide = data.frame(fishery = obs$fishery, year = as.integer(obs[[yr_col]]),
+                      month = as.integer(obs$month), ts = obs$ts, m,
+                      check.names = FALSE)
+    wide = wide[order(wide$fishery, wide$ts), ]
+    rownames(wide) = NULL
+
+    # SS3 variance adjustment factor 7, expanded to the opal fishery vector
+    va = as.data.frame(ss3_pick(ss3$ctl, c("Variance_adjustment_list"), default = NULL))
+    var_adjust = rep(1, fish$n_fishery)
+    if (nrow(va) && isTRUE(as.integer(ss3$ctl$DoVar_adjust %||% 1L) == 1L)) {
+        ss3_fleet = c(fish$extract_fleets, fish$index_map$ss3_fleet)
+        v = va[va$factor == 7, ]
+        mult = as.numeric(v$value[match(ss3_fleet, v$fleet)])
+        ok = !is.na(mult) & mult > 0
+        var_adjust[ok] = 1 / mult[ok]
+    }
+
+    list(wide = wide, bins = bins, upper_edge = utils::tail(grid, 1),
+         var_adjust = var_adjust, method = method)
+}

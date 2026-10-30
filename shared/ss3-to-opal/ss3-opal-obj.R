@@ -99,6 +99,16 @@ ss3_opal_obj = function(converted, cfg, map = NULL, bounds = NULL,
     parameters = converted$parameters
     data$priors = opal::get_priors(parameters = parameters, data = data)
 
+    # opal's default map estimates the growth cessation parameters when they
+    # are present. The converted values are SS3's, and SS3 fixes them, so
+    # they are fixed here unless the caller supplies its own map.
+    if (is.null(map)) {
+        map = opal::get_map(parameters)
+        for (p in intersect(c("log_L0", "log_rmax", "log_k_gc", "t50_gc"), names(parameters))) {
+            map[[p]] = factor(rep(NA, length(parameters[[p]])))
+        }
+    }
+
     m = converted$meta
     metadata = c(
         list(
@@ -192,21 +202,30 @@ ss3_growth_role = function(x) {
 
 #' Fix the growth parameters in the map
 #'
-#' The opal default map already fixes `log_L1`, `log_L2`, `log_k`, `log_CV1`
-#' and `log_CV2`. Use this only when a custom map has freed them and growth has
-#' since become inert.
+#' The opal default map already fixes `log_L1`, `log_L2`, `log_k`, `log_CV1`,
+#' `log_CV2`, `log_SD1` and `log_SD2`, but estimates the growth cessation
+#' parameters (`log_L0`, `log_rmax`, `log_k_gc`, `t50_gc`) when they are
+#' present; \code{ss3_opal_obj()} fixes those at SS3's values. Use this when a
+#' custom map has freed any of them and growth has since become inert.
 #'
 #' @param x an \code{opal_obj}.
 #' @return an updated \code{opal_obj}.
 ss3_fix_growth = function(x) {
     map = x$map
     if (is.null(map)) map = opal::get_map(x$parameters)
-    for (p in c("log_L1", "log_L2", "log_k", "log_CV1", "log_CV2")) {
+    for (p in ss3_growth_par_names()) {
         if (!is.null(x$parameters[[p]])) {
             map[[p]] = factor(rep(NA, length(x$parameters[[p]])))
         }
     }
     opal::opal_update(x, map = map)
+}
+
+#' opal growth parameter names (all curves, and both forms of growth variability)
+#' @keywords internal
+ss3_growth_par_names = function() {
+    c("log_L1", "log_L2", "log_k", "log_k_mult", "log_CV1", "log_CV2",
+      "log_SD1", "log_SD2", "log_L0", "log_rmax", "log_k_gc", "t50_gc")
 }
 
 #_____________________________________________________________________________
@@ -531,10 +550,11 @@ ss3_seed_par_sel_size_dblnorm = function(ss3, fish, len_mid, start) {
     ss3_fleets = c(fish$extract_fleets, fish$index_map$ss3_fleet)
     source_fleet = rep(NA_integer_, length(ss3_fleets))
 
-    # follow pattern 5 mirrors to the fleet that carries the parameters
+    # follow mirrors (size patterns 5 and 15) to the fleet that carries the
+    # parameters
     resolve = function(sf) {
         for (i in seq_len(nrow(types))) {
-            if (types$Pattern[sf] != 5L) return(sf)
+            if (!types$Pattern[sf] %in% c(5L, 15L)) return(sf)
             sf = as.integer(types$Special[sf])
         }
         NA_integer_
@@ -543,6 +563,16 @@ ss3_seed_par_sel_size_dblnorm = function(ss3, fish, len_mid, start) {
     mu = mean(x)
     s = stats::sd(x)
     w = x[2] - x[1]
+    # SS3 places the end of the plateau (peak2) relative to the midpoint of
+    # its last population length bin (len_bins_m(nlength), SS_selex.tpl),
+    # opal relative to its last length-bin midpoint. The top parameter is
+    # re-solved so the plateau ends where SS3's does. Report.sso's sizeselex
+    # columns are the population bin midpoints.
+    pop_mid = suppressWarnings(as.numeric(setdiff(names(ss3$rep$sizeselex),
+                                                  c("Factor", "Fleet", "Yr", "Sex", "Label"))))
+    pop_mid = sort(pop_mid[is.finite(pop_mid)])
+    l_max_ss3 = if (length(pop_mid) > 1L) max(pop_mid) else x[length(x)]
+    w_ss3 = if (length(pop_mid) > 1L) pop_mid[2] - pop_mid[1] else w
     for (i in seq_along(ss3_fleets)) {
         sf = resolve(ss3_fleets[i])
         if (is.na(sf) || types$Pattern[sf] != 24L) next
@@ -550,6 +580,9 @@ ss3_seed_par_sel_size_dblnorm = function(ss3, fish, len_mid, start) {
         if (length(p) != 6L) next
         row = opal::convert_ss3_selex_to_rtmb(matrix(p, 1L), 2L, len_mid)[1, ]
         peak  = mu + row[1] * s
+        peak2_ss3 = p[1] + w_ss3 + (0.99 * l_max_ss3 - p[1] - w_ss3) / (1 + exp(-p[2]))
+        frac = (peak2_ss3 - peak - w) / (0.99 * x[length(x)] - peak - w)
+        row[2] = stats::qlogis(min(max(frac, 1e-12), 1 - 1e-12))
         peak2 = peak + w + (0.99 * x[length(x)] - peak - w) / (1 + exp(-row[2]))
         if (p[5] <= -999) row[5] = stats::qlogis(exp(-(x[1] - peak)^2 / (exp(row[3]) * s^2)))
         if (p[6] <= -999) row[6] = stats::qlogis(exp(-(x[length(x)] - peak2)^2 / (exp(row[4]) * s^2)))

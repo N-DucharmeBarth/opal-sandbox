@@ -199,8 +199,15 @@ ss3_bio_from_endgrowth = function(ss3, cfg, dims) {
         fit_cv = isTRUE(cfg$growth$fit_cv %||% TRUE)
     )
 
-    # Weight-at-age, straight from SS3, in SS3's own weight units.
-    weight = if (isTRUE(opts$weight %||% TRUE)) as.numeric(eg$weight) else NULL
+    # Weight-at-age, straight from SS3, in SS3's own weight units. opal uses
+    # it to turn catch in weight into numbers. cfg$bio$endgrowth$weight_basis
+    # ("Beg" or "Mid", default length_basis) picks the timing within the
+    # timestep: "Mid" is closer to the weight of SS3's catch, which is taken
+    # through the timestep, where opal removes it at the start.
+    weight_basis = opts$weight_basis %||% basis
+    eg_wt = if (identical(weight_basis, basis)) eg else
+        ss3_endgrowth_table(ss3$rep, dims, basis = weight_basis)
+    weight = if (isTRUE(opts$weight %||% TRUE)) as.numeric(eg_wt$weight) else NULL
 
     # Maturity-at-age.
     maturity = as.numeric(eg$maturity)
@@ -228,6 +235,7 @@ ss3_bio_from_endgrowth = function(ss3, cfg, dims) {
 
     list(
         source             = "endgrowth",
+        weight_basis       = weight_basis,
         M                  = M,
         lw_a               = lw_a,
         lw_b               = lw_b,
@@ -603,6 +611,157 @@ ss3_apply_age_k_growth = function(bio, ss3, cfg, dims) {
     bio$log_k_mult = log(k_mult)
     bio$k_mult_ages = k_ages
     bio$plus_group_adjust = plus_adjust
+    bio$growth_fit = growth_fit
+    bio
+}
+
+#_____________________________________________________________________________
+#' SS3 growth cessation (GrowthModel 8), carried exactly into opal
+#'
+#' opal's \code{growth_model = "cessation"} is Eq. 2 of Maunder et al.
+#' (2018), the curve SS3 GrowthModel 8 uses. The SS3 parameters map onto it
+#' directly:
+#'
+#'   L_at_Amin (SS3 age AFIX) -> L0
+#'   rmax (labelled VonBert_K in the control file) -> rmax
+#'   Cessation               -> k_gc
+#'   Linf (Growth_Age_for_L2 = 999)
+#'                           -> t50 = log(exp((Linf - L0) k / rmax) - 1) / k,
+#'                              as SS3 computes it (SS_biofxn.tpl)
+#'
+#' SS3 evaluates the curve at real age minus AFIX, so opal's age offset is the
+#' first kept SS3 age minus 1 minus AFIX (opal evaluates growth at positions
+#' 1, ..., n_age). With it, opal's length-at-age equals SS3's Len_Beg to
+#' Report.sso print precision, except SS3's plus-group length (SS3 averages
+#' lengths over the ages accumulated in the plus group; opal does not).
+#'
+#' The SD of length-at-age follows SS3's CV_Growth_Pattern:
+#'   0 (CV linear in length): opal growth_sd_model "cv"
+#'   2 (SD linear in length): opal growth_sd_model "sd" (opal >= 0.1.2)
+#' With Growth_Age_for_L2 = 999 SS3's slope runs from L0 to Linf, which is not
+#' a modelled length. opal's upper reference length is the mean length at the
+#' oldest age, so the value there is set to SS3's linear form evaluated at that
+#' length. opal then matches SS3 exactly at every age below the oldest, while
+#' SS3 holds the oldest age at CV_old / SD_old itself (a difference of a few
+#' tenths of a percent).
+#'
+#' @param bio output of \code{ss3_bio_from_endgrowth()} or
+#'   \code{ss3_bio_from_control()}.
+#' @inheritParams ss3_bio_to_opal
+#' @return \code{bio} with the growth elements replaced and
+#'   \code{growth_model}, \code{growth_age_offset}, \code{L0}, \code{rmax},
+#'   \code{k_gc}, \code{t50} and \code{growth_sd_model} added (plus
+#'   \code{SD1}, \code{SD2} under "sd").
+ss3_apply_cessation_growth = function(bio, ss3, cfg, dims) {
+
+    if (!"sd_model" %in% names(formals(opal::get_sd_at_age))) {
+        stop("cfg$growth$model = 'cessation' needs opal >= 0.1.2 (growth cessation and SD-linear growth variability).",
+             call. = FALSE)
+    }
+    ctl = ss3$ctl
+    if (!isTRUE(as.integer(ss3_pick(ctl, c("GrowthModel"), default = NA)) == 8L)) {
+        stop("cfg$growth$model = 'cessation' requires an SS3 model with GrowthModel 8.",
+             call. = FALSE)
+    }
+    if (!isTRUE(all.equal(ss3_m_rate_divisor(cfg, dims), 1))) {
+        stop("cfg$growth$model = 'cessation' supports models whose SS3 year is the model timestep only.",
+             call. = FALSE)
+    }
+
+    # Parameter values: the par file holds the run's estimates (ESTIM); the
+    # control file only the INIT values the run started from.
+    mg_par = ss3_pick(ss3$par %||% list(), c("MG_parms"), default = NULL)
+    mg = as.data.frame(mg_par %||% ss3_pick(ctl, c("MG_parms"), what = "MG_parms"))
+    col = if (!is.null(mg_par) && "ESTIM" %in% names(mg)) "ESTIM" else "INIT"
+    val = function(pattern) unname(ss3_parm_value(mg, pattern, column = col, n_expected = 1L))
+
+    afix  = as.integer(ss3_pick(ctl, c("Growth_Age_for_L1"), what = "Growth_Age_for_L1"))
+    afix2 = as.integer(ss3_pick(ctl, c("Growth_Age_for_L2"), what = "Growth_Age_for_L2"))
+    if (afix2 < 999L) {
+        stop("GrowthModel 8 with Growth_Age_for_L2 < 999 (L at Amax rather than Linf) is not supported.",
+             call. = FALSE)
+    }
+    if (dims$.ss3_ages[1] < afix) {
+        stop("SS3 ages below Growth_Age_for_L1 grow linearly in SS3; keep_ss3_ages must start at or above it.",
+             call. = FALSE)
+    }
+
+    L0   = val("^L_at_Age|^L_at_Amin")
+    Linf = val("^Linf")
+    rmax = val("^rmax|^VonBert_K")
+    k_gc = val("^Cessation")
+    t50  = log(exp((Linf - L0) * k_gc / rmax) - 1) / k_gc
+    age_offset = dims$.ss3_ages[1] - 1L - afix
+
+    # opal positions of the reference ages: SS3 age AFIX and the oldest age
+    n_age = dims$n_age
+    A1_pos = match(afix, dims$.ss3_ages)
+    A2_pos = n_age
+    mu = opal::get_growth(n_age, A1_pos, A2_pos, growth_model = "cessation",
+                          L0 = L0, log_rmax = log(rmax), log_k_gc = log(k_gc),
+                          t50 = t50, age_offset = age_offset)
+
+    # Growth variability at the reference lengths
+    cv_pattern = as.integer(ss3_pick(ctl, c("CV_Growth_Pattern"), what = "CV_Growth_Pattern"))
+    v1 = val("^CV_young|^SD_young")
+    v2 = val("^CV_old|^SD_old")
+    # SS3's linear form (in CV or SD) at the oldest age's mean length
+    v2_at = v1 + (mu[A2_pos] - L0) / (Linf - L0) * (v2 - v1)
+    if (identical(cv_pattern, 2L)) {
+        sd_model = "sd"
+        sd_a = opal::get_sd_at_age(mu, mu[A1_pos], mu[A2_pos], sd_model = "sd",
+                                   log_SD1 = log(v1), log_SD2 = log(v2_at),
+                                   A1 = A1_pos, A2 = A2_pos)
+    } else if (identical(cv_pattern, 0L)) {
+        sd_model = "cv"
+        sd_a = opal::get_sd_at_age(mu, mu[A1_pos], mu[A2_pos], log(v1), log(v2_at))
+    } else {
+        stop(sprintf("CV_Growth_Pattern %d is not supported (opal has patterns 0 and 2).", cv_pattern),
+             call. = FALSE)
+    }
+
+    growth_fit = list(k = NA_real_, CV1 = NA_real_, CV2 = NA_real_,
+                      rmse = NA_real_, max_abs_error = NA_real_, sd_rmse = NA_real_,
+                      source = "ss3_cessation", laa_ss3 = NULL, laa_opal = mu,
+                      sd_ss3 = NULL, sd_opal = sd_a,
+                      L0 = L0, Linf = Linf, rmax = rmax, k_gc = k_gc, t50 = t50,
+                      age_offset = age_offset, cv_pattern = cv_pattern,
+                      sd_model = sd_model, v1 = v1, v2 = v2, v2_at_oldest = v2_at)
+    if (!is.null(ss3$rep)) {
+        eg = tryCatch(ss3_endgrowth_table(ss3$rep, dims, basis = "Beg"), error = function(e) NULL)
+        if (!is.null(eg)) {
+            growth_fit$laa_ss3       = eg$length
+            growth_fit$sd_ss3        = eg$sd
+            growth_fit$rmse          = sqrt(mean((mu - eg$length)^2))
+            growth_fit$max_abs_error = max(abs(mu - eg$length))
+            growth_fit$max_rel_error = max(abs(mu / eg$length - 1))
+            growth_fit$sd_rmse       = sqrt(mean((sd_a - eg$sd)^2))
+            growth_fit$sd_max_rel_error = max(abs(sd_a / eg$sd - 1))
+            # Below the plus group, where opal's curve and SS3's agree exactly
+            below = seq_len(n_age - 1L)
+            growth_fit$max_rel_error_below_plus    = max(abs(mu[below] / eg$length[below] - 1))
+            growth_fit$sd_max_rel_error_below_plus = max(abs(sd_a[below] / eg$sd[below] - 1))
+        }
+    }
+
+    bio$A1 = dims$age_a[A1_pos]
+    bio$A2 = dims$age_a[A2_pos]
+    bio$L1 = mu[A1_pos]
+    bio$L2 = mu[A2_pos]
+    bio$growth_model = "cessation"
+    bio$growth_age_offset = age_offset
+    bio$L0 = L0
+    bio$rmax = rmax
+    bio$k_gc = k_gc
+    bio$t50 = t50
+    bio$growth_sd_model = sd_model
+    if (identical(sd_model, "sd")) {
+        bio$SD1 = v1
+        bio$SD2 = v2_at
+    } else {
+        bio$CV1 = v1
+        bio$CV2 = v2_at
+    }
     bio$growth_fit = growth_fit
     bio
 }

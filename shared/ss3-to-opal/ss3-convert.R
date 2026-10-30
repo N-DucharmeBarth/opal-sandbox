@@ -515,13 +515,15 @@ ss3_bio_to_opal = function(ss3, cfg, dims) {
     }
 
     # Growth form: opal's single-k Schnute curve (fitted or from the control
-    # file, per route), or SS3's own age-specific K read from the SS3 files.
+    # file, per route), SS3's own age-specific K (GrowthModel 3) or SS3's
+    # growth cessation curve (GrowthModel 8), read from the SS3 files.
     growth_model = cfg$growth$model %||% "schnute"
-    if (!growth_model %in% c("schnute", "ss3_age_k")) {
-        stop(sprintf("cfg$growth$model must be 'schnute' or 'ss3_age_k', not '%s'.",
+    if (!growth_model %in% c("schnute", "ss3_age_k", "cessation")) {
+        stop(sprintf("cfg$growth$model must be 'schnute', 'ss3_age_k' or 'cessation', not '%s'.",
                      growth_model), call. = FALSE)
     }
     if (identical(growth_model, "ss3_age_k")) bio = ss3_apply_age_k_growth(bio, ss3, cfg, dims)
+    if (identical(growth_model, "cessation")) bio = ss3_apply_cessation_growth(bio, ss3, cfg, dims)
     bio
 }
 
@@ -706,7 +708,8 @@ ss3_pars_to_opal = function(ss3, cfg, dims, fish, bio) {
     shift  = ss3_recdev_shift(dims)
     rdev_y = rep(0, dims$n_year)
     init_rdev_a = rep(0, dims$n_age)
-    dev = if (is.null(ss3$par)) NULL else ss3_recdevs(ss3$par, ss3$ctl)
+    dev = if (is.null(ss3$par)) NULL else
+        ss3_recdevs(ss3$par, c(ss3$ctl, list(endyr = ss3$dat$endyr)))
     if (!is.null(dev)) {
         hit = match(dims$.first_ts:dims$.last_ts + shift, dev$year)
         rdev_y = ifelse(is.na(hit), 0, dev$value[hit])
@@ -754,6 +757,18 @@ ss3_pars_to_opal = function(ss3, cfg, dims, fish, bio) {
     # Age-specific K multipliers, cfg$growth$model = "ss3_age_k" only.
     # Assigning NULL adds nothing, so the Schnute path is unchanged.
     pars$log_k_mult = bio$log_k_mult
+    # Growth cessation and SD-linear growth variability,
+    # cfg$growth$model = "cessation" only.
+    if (identical(bio$growth_model, "cessation")) {
+        pars$log_L0   = log(bio$L0)
+        pars$log_rmax = log(bio$rmax)
+        pars$log_k_gc = log(bio$k_gc)
+        pars$t50_gc   = bio$t50
+    }
+    if (identical(bio$growth_sd_model, "sd")) {
+        pars$log_SD1 = log(bio$SD1)
+        pars$log_SD2 = log(bio$SD2)
+    }
     pars
 }
 
@@ -824,6 +839,19 @@ ss3_recdevs = function(par, ctl) {
                 out = rbind(data.frame(year = seq(first_early, length.out = length(e$value)),
                                        value = e$value), out)
             }
+        }
+    }
+    # Late deviations (SS3 3.30 recdev_forecast): years after the last main
+    # deviation. SS3 estimates them with the same sigma_R penalty. Only those
+    # inside the model period (to ctl$endyr, when given) are kept; the forecast
+    # years themselves are not modelled.
+    fore = ss3_pick(par, c("recdev_forecast"), default = NULL)
+    end_yr = suppressWarnings(as.integer(ss3_pick(ctl, c("endyr"), default = NA)))
+    if (!is.null(fore)) {
+        f = to_vec(fore)
+        if (!is.null(f$year)) {
+            keep = if (is.na(end_yr)) rep(TRUE, length(f$year)) else f$year <= end_yr
+            out = rbind(out, data.frame(year = f$year[keep], value = f$value[keep]))
         }
     }
     out[!duplicated(out$year), ]
@@ -897,13 +925,22 @@ ss3_to_opal = function(cfg, dir_root = getwd()) {
         weight             = bio$weight,
         spawning_potential = bio$spawning_potential,
 
-        A1             = bio$A1,
-        A2             = bio$A2,
+        # opal_model() evaluates growth at positions 1, ..., n_age whatever
+        # min_age is, so the reference ages (and K-multiplier ages) are passed
+        # as positions. They equal the ages when min_age is 1.
+        A1             = ss3_age_position(bio$A1, dims),
+        A2             = ss3_age_position(bio$A2, dims),
 
         # Age-specific K growth (cfg$growth$model = "ss3_age_k"); NULL and
         # stripped below otherwise.
-        k_mult_ages              = bio$k_mult_ages,
+        k_mult_ages              = ss3_age_position(bio$k_mult_ages, dims),
         growth_plus_group_adjust = bio$plus_group_adjust,
+
+        # Growth cessation and SD-linear growth variability
+        # (cfg$growth$model = "cessation"); NULL and stripped below otherwise.
+        growth_model      = bio$growth_model,
+        growth_age_offset = bio$growth_age_offset,
+        growth_sd_model   = bio$growth_sd_model,
 
         sel_type_f     = sel$sel_type_f,
 
@@ -937,6 +974,17 @@ ss3_to_opal = function(cfg, dir_root = getwd()) {
          selectivity = sel,
          meta        = meta,
          ss3         = ss3)
+}
+
+#' opal growth position of an opal age
+#'
+#' opal_model() evaluates growth (and holds growth variability) at positions
+#' 1, ..., n_age, not at data$min_age, ..., so reference ages are passed to
+#' it as positions. NULL stays NULL.
+#' @keywords internal
+ss3_age_position = function(age, dims) {
+    if (is.null(age)) return(NULL)
+    as.integer(age - dims$min_age + 1L)
 }
 
 #' Null-coalescing operator

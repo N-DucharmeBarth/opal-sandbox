@@ -10,6 +10,11 @@ fleet and unassociated purse seine) and one longline index, with length
 compositions for the floating-object fisheries and generalised size
 compositions for the longline fisheries and the index.
 
+The baseline SS3 model is already a simplified model. The models in the
+IATTC's risk analysis for EPO bigeye have two sexes and time-varying
+selectivity; this exploratory model has one sex and time-invariant
+selectivity.
+
 The SS3 model differs from opal in one structural feature, an
 initial-equilibrium regime offset, so the bridge has a single step (B1)
 that removes it, and opal is converted from and compared with B1. Growth

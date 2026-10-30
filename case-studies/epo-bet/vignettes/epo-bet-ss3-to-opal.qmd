@@ -68,6 +68,13 @@ Scientific Advisory Committee [SAC-14, @iattc2023sac14bet], to opal. Any
 model runs here are preliminary explorations and should not be used *as is*
 for management advice.
 
+The baseline SS3 model is itself a simplification. The models in the IATTC's
+risk analysis for EPO bigeye have two sexes and time-varying selectivity;
+the model used here has one sex and time-invariant selectivity, so that its
+structure is close to what opal can represent. Its results are not those of
+the risk-analysis models, and differences between SS3 and opal found here
+say nothing about how opal would compare with them.
+
 * **The model is quarterly.** Each SS3 "year" is a quarter (17-204, taken as
   1975 Q1 to 2021 Q4) and ages are quarters (0-40). opal takes the same
   layout: 188 time steps of one season and 41 ages.

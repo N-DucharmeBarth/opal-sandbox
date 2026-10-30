@@ -167,9 +167,11 @@
         obj = opal_rtmb(fit, fresh = TRUE)
         opt = fit$fit$opt
         # Newton steps to bring the gradient down; keep the nlminb optimum if a
-        # step lands where the objective is undefined
+        # step lands where the objective is undefined or outside the bounds
         pol = tryCatch(ss3_newton_polish(obj, opt$par), error = function(e) NULL)
-        if (is.null(pol) || !is.finite(pol$objective) || pol$objective > opt$objective + 1e-8) {
+        b = x$bounds
+        if (is.null(pol) || !is.finite(pol$objective) || pol$objective > opt$objective + 1e-8 ||
+            any(pol$par < b$lower | pol$par > b$upper)) {
             g = obj$gr(opt$par)
             pol = list(par = opt$par, objective = opt$objective,
                        max_gradient = max(abs(g)), steps = 0L)

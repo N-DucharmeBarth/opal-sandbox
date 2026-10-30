@@ -238,6 +238,74 @@
     bridge = ss3_bridge_table(converted, opal_report(o0))
     print(summary(bridge$rel_opal))
 
+    # Catch timing and catch weight at SS3's values: the converted inputs
+    # replayed with SS3's selectivity-at-age and recruitment, removing each
+    # quarter's catch (a) at the start of the quarter (opal), (b) at mid-quarter
+    # (Pope: half the quarter's M, the catch, the other half) or (c) through
+    # the quarter (Baranov, as SS3), with catch in weight turned into numbers
+    # at start-of-quarter weight, mid-quarter weight (opal's weight here) or
+    # each fleet's SS3 catch weight-at-age (ageselex "bodywt").
+    replay_timing = function(timing = c("start", "pope", "baranov"), W) {
+        timing = match.arg(timing)
+        dd = converted$data
+        p  = converted$parameters
+        sp = dd$spawning_potential
+        M  = dd$M
+        n  = dd$n_age
+        S_a = exp(-M)
+        rel = cumprod(c(1, S_a[-n]))
+        rel[n] = rel[n] / (1 - S_a[n])
+        R0  = exp(p$log_B0) / sum(sp * rel)
+        sig = exp(p$log_sigma_r)
+        num = dd$catch_units_f != 1
+        cw = function(f) if (num[f]) 1 else W[f, ]
+        N = R0 * rel * exp(p$init_rdev_a - dd$init_bias_adj_a * 0.5 * sig^2)
+        ssb = numeric(dd$n_year)
+        for (y in seq_len(dd$n_year)) {
+            ssb[y] = sum(N * sp)
+            cy = dd$catch_obs_ysf[y, 1, ]
+            fl = which(cy > 0)
+            if (timing == "baranov") {
+                F_f = numeric(length(cy))
+                for (f in fl) F_f[f] = cy[f] / sum(N * sel_ss3[f, ] * cw(f))
+                for (it in 1:50) {
+                    Z = M + colSums(F_f * sel_ss3)
+                    for (f in fl) F_f[f] = F_f[f] * cy[f] /
+                        sum(F_f[f] * sel_ss3[f, ] / Z * N * (1 - exp(-Z)) * cw(f))
+                }
+                N_end = N * exp(-(M + colSums(F_f * sel_ss3)))
+            } else {
+                Nc = if (timing == "pope") N * exp(-M / 2) else N
+                hr = numeric(n)
+                for (f in fl) hr = hr + cy[f] / sum(Nc * sel_ss3[f, ] * cw(f)) * sel_ss3[f, ]
+                hr = pmin(hr, 0.999)
+                N_end = if (timing == "pope") Nc * (1 - hr) * exp(-M / 2) else N * (1 - hr) * S_a
+            }
+            N_next = c(0, N_end[-n])
+            N_next[n] = N_next[n] + N_end[n]
+            N_next[1] = R0 * exp(p$rdev_y[y] - dd$bias_adj_y[y] * 0.5 * sig^2)
+            N = N_next
+        }
+        ssb
+    }
+    eg_beg = ss3_endgrowth_table(rep_ss3, converted$meta$dims, "Beg")
+    eg_mid = ss3_endgrowth_table(rep_ss3, converted$meta$dims, "Mid")
+    bodywt = as.data.table(rep_ss3$ageselex)[Factor == "bodywt" & Yr == end_q]
+    W_fleet = as.matrix(bodywt[match(ss3_fleet_f, Fleet), as.character(converted$meta$dims$.ss3_ages), with = FALSE])
+    W_beg = matrix(eg_beg$weight, n_f, d$n_age, byrow = TRUE)
+    W_mid = matrix(eg_mid$weight, n_f, d$n_age, byrow = TRUE)
+    ssb_ss3_q = bridge$ss3
+    timing = rbindlist(lapply(list(
+        list("start", W_beg,   "start of quarter", "start-of-quarter"),
+        list("start", W_mid,   "start of quarter", "mid-quarter (opal here)"),
+        list("start", W_fleet, "start of quarter", "SS3 fleet catch weight"),
+        list("pope",  W_fleet, "mid-quarter (Pope)", "SS3 fleet catch weight"),
+        list("baranov", W_fleet, "through the quarter (Baranov, SS3)", "SS3 fleet catch weight")),
+        function(a) data.table(ts = seq_len(n_year), removal = a[[3]], weight = a[[4]],
+                               ssb = replay_timing(a[[1]], a[[2]]), ss3 = ssb_ss3_q)))
+    timing[, rel := ssb / ss3 - 1]
+    print(timing[, .(rel_end = rel[.N], rel_max = max(abs(rel))), by = .(removal, weight)])
+
 #_____________________________________________________________________________
 # Fits
     fit_opal = function(x) {
@@ -247,9 +315,11 @@
         obj = opal_rtmb(fit, fresh = TRUE)
         opt = fit$fit$opt
         # Newton steps to bring the gradient down; keep the nlminb optimum if a
-        # step lands where the objective is undefined
+        # step lands where the objective is undefined or outside the bounds
         pol = tryCatch(ss3_newton_polish(obj, opt$par), error = function(e) NULL)
-        if (is.null(pol) || !is.finite(pol$objective) || pol$objective > opt$objective + 1e-8) {
+        b = x$bounds
+        if (is.null(pol) || !is.finite(pol$objective) || pol$objective > opt$objective + 1e-8 ||
+            any(pol$par < b$lower | pol$par > b$upper)) {
             g = obj$gr(opt$par)
             pol = list(par = opt$par, objective = opt$objective,
                        max_gradient = max(abs(g)), steps = 0L)
@@ -370,20 +440,22 @@
     comp_agg = function(x, id) {
         dd = x$data
         r = opal_report(x)
-        pred = r$lf_pred
-        obs = dd$lf_obs_in
-        rows = seq_len(dd$n_lf)
-        get_row = function(m, i) if (is.list(m)) m[[i]] else m[i, ]
-        rbindlist(lapply(rows, function(i) {
-            f = dd$lf_fishery[i]
-            s = dd$lf_scheme[match(i, unlist(dd$lf_row_fi))] %||% NA
-            edges = dd$lf_scheme_edges[[s]]
-            o = get_row(obs, i)
-            p = get_row(pred, i)
-            data.table(model = id, fishery = f, bin = utils::head(edges, length(o)),
-                       obs = o / sum(o) * dd$lf_n[i], pred = p / sum(p) * dd$lf_n[i])
-        }))[, .(obs = sum(obs), pred = sum(pred)), by = .(model, fishery, bin)][
-            , `:=`(obs = obs / sum(obs), pred = pred / sum(pred)), by = .(model, fishery)][]
+        # opal's predictions are a list by fishery (rows in lf_row_fi order);
+        # lf_scheme follows the same fishery-grouped order
+        pos = 0L
+        rbindlist(lapply(seq_along(dd$lf_row_fi), function(k) {
+            rows = dd$lf_row_fi[[k]]
+            s_k = dd$lf_scheme[pos + 1L]
+            pos <<- pos + length(rows)
+            edges = dd$lf_scheme_edges[[s_k]]
+            obs = do.call(rbind, lapply(rows, function(i) dd$lf_obs_in[[i]]))
+            pred = r$lf_pred[[k]]
+            n = dd$lf_n[rows]
+            o = colSums(obs / rowSums(obs) * n)
+            p = colSums(pred / rowSums(pred) * n)
+            data.table(model = id, fishery = as.integer(names(dd$lf_row_fi)[k]),
+                       bin = utils::head(edges, -1L), obs = o / sum(o), pred = p / sum(p))
+        }))
     }
     comps = tryCatch(rbindlist(lapply(c("O1", "O2"), function(id) comp_agg(models[[id]], id))),
                      error = function(e) { message("comp_agg: ", conditionMessage(e)); NULL })
@@ -419,6 +491,8 @@
                            "max_rel_error_below_plus", "sd_max_rel_error_below_plus",
                            "laa_ss3", "laa_opal", "sd_ss3", "sd_opal")],
         bridge      = bridge,
+        timing      = timing,
+        weights     = data.table(age = age_a, beg = eg_beg$weight, mid = eg_mid$weight),
         seed_check  = seed_check,
         sel_start_diff = sel_start_diff,
         summary     = summary_dt,

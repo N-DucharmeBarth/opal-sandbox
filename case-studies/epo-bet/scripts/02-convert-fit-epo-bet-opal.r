@@ -223,17 +223,28 @@
     # (log(0.001) to log(10)), which opal_build() checks. Build a copy at q = 1
     # for opal's default bounds, widen the catchability's to SS3's +/-15, and
     # build with them. Run after every map change (opal resets bounds then).
-    build_with_q_bounds = function(x) {
+    build_with_q_bounds = function(x, sel = NULL) {
         # bounds stored for an earlier map no longer match its parameters
         x = opal_update(x, bounds = NULL)
         p = x$parameters
+        # opal's default bounds come from a copy whose catchability and
+        # selectivity start inside them
         tmp = p
         tmp$log_cpue_q = rep(0, length(p$log_cpue_q))
+        tmp$par_sel = p$par_sel * 0
         x1 = opal_build(opal_update(x, parameters = tmp))
         b = x1$bounds
-        i = which(names(opal_rtmb(x1, fresh = TRUE)$par) == "log_cpue_q")
+        nm = names(opal_rtmb(x1, fresh = TRUE)$par)
+        i = which(nm == "log_cpue_q")
         b$lower[i] = -15
         b$upper[i] = 15
+        # the estimated selectivity parameters: SS3's own bounds (sel_bounds())
+        if (!is.null(sel)) {
+            i = which(nm == "par_sel")
+            stopifnot(length(i) == length(sel$lower))
+            b$lower[i] = sel$lower
+            b$upper[i] = sel$upper
+        }
         opal_update(x, bounds = list(lower = b$lower, upper = b$upper)) %>% opal_build()
     }
     o0 = ss3_use_external_selectivity(a0, sel_ss3) %>% build_with_q_bounds()
@@ -345,6 +356,7 @@
     o1 = o0
     o1 = opal_update(o1, map = base_map(o1)) %>% build_with_q_bounds()
     fit_o1 = if (refit) fit_opal(o1) else saved$O1
+    utils::str(fit_o1$validation$fit, max.level = 2, give.attr = FALSE)
 
     # O2: opal selectivity, started at SS3's curves and from O1's estimates
     # for everything else
@@ -354,14 +366,7 @@
     o2 = opal_update(o2, parameters = p2)
     m2 = base_map(o2)
     m2$par_sel = sel_map(seed$par_sel)
-    o2 = opal_update(o2, map = m2) %>% build_with_q_bounds()
-    b = o2$bounds
-    i_sel = which(names(opal_rtmb(o2, fresh = TRUE)$par) == "par_sel")
-    sb = sel_bounds()
-    stopifnot(length(i_sel) == length(sb$lower))
-    b$lower[i_sel] = sb$lower
-    b$upper[i_sel] = sb$upper
-    o2 = opal_update(o2, bounds = list(lower = b$lower, upper = b$upper)) %>% opal_build()
+    o2 = opal_update(o2, map = m2) %>% build_with_q_bounds(sel = sel_bounds())
     fit_o2 = if (refit) fit_opal(o2) else saved$O2
     if (refit) saveRDS(list(O1 = fit_o1, O2 = fit_o2), fits_file, compress = "xz")
 

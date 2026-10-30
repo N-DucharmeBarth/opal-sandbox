@@ -52,3 +52,18 @@ studies and `tests/testthat/` the tests of the shared code, which
   chunks via `knitr::read_chunk()` and reads the cache it writes.
 * `.gitignore` ignores everything not explicitly whitelisted; add new file
   types there.
+
+## SS3 -> opal (case-studies/epo-bet)
+
+* Quarterly SS3 model (each SS3 "year" is a quarter, 17-204 = 1975 Q1 -
+  2021 Q4; ages 0-40 quarters) with growth cessation (GrowthModel 8) and
+  SD-linear growth variability (CV_Growth_Pattern 2), converted with
+  `cfg$growth$model: cessation` (needs opal >= 0.1.2).
+* `scripts/01-build-ss3-bridge.r`: re-runs 00-base and builds 01-no-regime
+  (~1 h with Hessians; a step with `admodel.cov` is skipped unless
+  `EPO_BET_RERUN=true`). 01 starts from 00's par file: from the control
+  file's INIT values the recruitment deviations are 0 and the stock crashes.
+* `scripts/02-convert-fit-epo-bet-opal.r`: conversion, O0 and the opal fits
+  (cached; `EPO_BET_REFIT=true` refits), the catch-timing replays, and the
+  cache for `vignettes/epo-bet-ss3-to-opal.qmd`. The longline and index
+  generalised size compositions are opal's second composition bin scheme.

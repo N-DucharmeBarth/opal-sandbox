@@ -100,11 +100,12 @@ In brief:
   indices, compositions, biology, unfished equilibrium, selectivity-at-length).
   opal at SS3's parameter values differs from SS3 mainly through catch timing:
   opal removes each year's catch at the start of the year, SS3 continuously.
-* Fitted with SS3's selectivity (O1), opal converges but estimates a much
-  more depleted stock than SS3. Diagnostic refits trace this to how the length
-  compositions are predicted: with SS3's mid-year length-at-age, or without
-  the compositions, opal's estimate matches SS3's. Fitting opal's own
-  selectivity (O2) does not converge.
+* Fitted with SS3's selectivity (O1), opal's estimate of the stock's scale
+  runs away to the upper bound on B~0~: its length compositions, predicted
+  from start-of-year lengths, favour an ever larger stock. Diagnostic refits
+  trace this to how the compositions are predicted: with SS3's mid-year
+  length-at-age, or without the compositions, opal's estimate matches SS3's.
+  Fitting opal's own selectivity (O2) does not converge.
 
 # The 2022 assessment {#sec-assessment}
 
@@ -570,13 +571,17 @@ conv = function(x) if (isTRUE(x$check_passes)) "converged and passes `opal_check
     sprintf("did not converge (maximum gradient %s)", sci(x$max_gradient, 1))
 ```
 
-O1 `r conv(o1)`; its terminal depletion is `r fmt(o1$depletion_2020, 3)`
-against SS3's `r fmt(S[model == "SS3 B2e"]$depletion_2020, 3)`, although it
-uses SS3's selectivity and starts at SS3's values (O0, depletion
-`r fmt(S[model == "O0"]$depletion_2020, 3)`). O2 `r conv(o2)` and is shown for
+O1 does not find an interior optimum: B~0~ runs to the upper bound of its
+search range (`r fmt(o1$B0, 0)`, ln B~0~ = 22), where the stock is
+effectively unexploited (terminal depletion `r fmt(o1$depletion_2020, 3)`),
+although O1 uses SS3's selectivity and starts at SS3's values (O0, depletion
+`r fmt(S[model == "O0"]$depletion_2020, 3)`; SS3
+`r fmt(S[model == "SS3 B2e"]$depletion_2020, 3)`). The likelihood is still
+falling at the bound, so its estimates are not reported as such. O2 `r conv(o2)` and is shown for
 completeness only: freeing opal's selectivity improves the fit to the
-compositions by `r fmt(o1$lp_lf - o2$lp_lf, 0)` units over O1 while worsening
-the fit to the indices by `r fmt(o2$lp_cpue - o1$lp_cpue, 1)`, and the
+compositions by `r fmt(o1$lp_lf - o2$lp_lf, 0)` units over O1 while
+`r if (o2$lp_cpue > o1$lp_cpue) "worsening" else "improving"` the fit to the
+indices by `r fmt(abs(o2$lp_cpue - o1$lp_cpue), 1)`, and the
 optimiser does not settle (several widths move to the flat ends of the double
 normal, where the gradient vanishes). Its depletion of
 `r fmt(o2$depletion_2020, 3)` should not be read as an estimate.
@@ -594,7 +599,7 @@ Two diagnostic refits of O1 locate the difference (@tbl-fits, @fig-fits):
 * **Without the length compositions** (O1-noLF, lambda 0), opal's estimate
   matches SS3's: terminal depletion `r fmt(nolf$depletion_2020, 3)`, B~0~
   `r fmt(nolf$B0, 0)`. opal's dynamics, the indices and the recruitment
-  penalty agree with SS3's; the compositions are what pull O1 down.
+  penalty agree with SS3's; the compositions are what push O1 away.
 * **With SS3's mid-year length-at-age** in place of opal's growth when the
   compositions are predicted (O1-mid), depletion is
   `r fmt(mid$depletion_2020, 3)`, close to SS3's. SS3 predicts a fishery's
@@ -604,9 +609,12 @@ Two diagnostic refits of O1 locate the difference (@tbl-fits, @fig-fits):
   settlement at the start of the year (34.7 cm) and reaches L1 (64.3 cm, age 1
   post-settlement) at mid-year; the gap is 13 cm at age 2 and shrinks with
   age. With SS3's start-of-year
-  length-at-age instead the fit runs away (B~0~ over 10^7^), and opal's own
-  Schnute growth (fitted to the start-of-year lengths, linear growth below
-  age 1 aside) lands in between.
+  length-at-age instead the fit runs away (B~0~ over 10^7^), as it does with
+  opal's own Schnute growth, which is fitted to those start-of-year lengths
+  (O1). An earlier version of the converter passed the growth reference ages
+  to opal as ages rather than positions, which made opal's fish one year
+  older (and larger) at every age; with that error O1 had settled at a
+  depletion of 0.25.
 
 O1-mid uses `ss3_patch_opal_external_laa()`, a local edit of opal's model
 function that substitutes a supplied length-at-age; it is a diagnostic, not a
@@ -617,11 +625,13 @@ composition of the catch, at the time each observation is made
 ```{r}
 #| label: fig-fits
 #| fig-height: 7
-#| fig-cap: "Spawning biomass, depletion and age-0 recruitment: SS3 B2e and the opal models."
+#| fig-cap: "Spawning biomass, depletion and age-0 recruitment: SS3 B2e and the opal models (O1, whose B0 is at its bound, in the depletion panel only)."
 tr = copy(opal_c$trajectory)
 tr[, model := factor(model, levels = names(model_col))]
 tl = melt(tr[, .(model, year, `Spawning biomass (pups)` = ssb, `SSB / B0` = depletion,
                  `Age-0 recruitment` = recruits)], id.vars = c("model", "year"))
+# O1's scale is at the bound on B0 (@sec-fits): shown for depletion only
+tl = tl[!(model == "O1" & variable != "SSB / B0")]
 ggplot(tl, aes(year, value, colour = model)) +
     geom_line(linewidth = 0.7) +
     facet_wrap(~variable, ncol = 1, scales = "free_y") +
@@ -699,8 +709,9 @@ ggplot(sel, aes(age, sel, colour = model)) +
   lengths); opal predicts both from numbers and lengths at the start of the
   season. For this annual model, with recruits settling in month 7 and
   start-of-year lengths 30 cm below mid-year lengths at age 1, this is the
-  difference that matters most once opal is fitted: it alone moves O1's
-  terminal depletion from about 0.55 to 0.25 (@sec-fits). opal would need
+  difference that matters most once opal is fitted: with mid-year lengths
+  O1's terminal depletion is about 0.55, as in SS3; with start-of-year
+  lengths O1's scale runs away (@sec-fits). opal would need
   observation-time length-at-age (growth evaluated at the fraction of the
   year or season when the fleet fishes) and catch-weighted predicted
   compositions; sub-annual seasons would approximate both.

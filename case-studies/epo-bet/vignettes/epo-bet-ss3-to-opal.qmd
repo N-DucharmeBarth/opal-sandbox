@@ -45,7 +45,7 @@ opal_c = readRDS(file.path("data", "epo-bet-opal-cache.rds"))
 
 theme_set(theme_bw(base_size = 11) +
           theme(legend.position = "bottom", panel.grid.minor = element_blank()))
-fmt = function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
+fmt = function(x, d = 2) ifelse(is.na(x), "", formatC(x, format = "f", digits = d, big.mark = ","))
 sci = function(x, d = 1) formatC(x, format = "e", digits = d)
 pct = function(x, d = 0) paste0(fmt(100 * x, d), "%")
 
@@ -84,9 +84,10 @@ say nothing about how opal would compare with them.
   model [@maunder2018growth] and its SD-linear growth variability are both
   in opal, and the conversion reproduces SS3's length-at-age and SD-at-age
   exactly below the plus group (@sec-growth).
-* **The conversion is exact, the dynamics are not.** The converted inputs
-  reconcile with SS3, and opal at SS3's parameter values equals a direct
-  replay of the converted inputs. But opal removes each quarter's catch at
+* **The inputs reconcile; the dynamics differ.** The converted inputs
+  reconcile with SS3 within the tolerances of @tbl-recon, and opal at SS3's
+  parameter values matches an independent replay of the converted inputs,
+  so the gap between opal and SS3 lies in the dynamics. opal removes each quarter's catch at
   the start of the quarter, as a harvest rate, while SS3 removes it through
   the quarter. With M of 0.48 per quarter at age 0 and large purse-seine
   catches of young fish, that leaves far more fish alive in opal
@@ -168,14 +169,17 @@ catches for 1971-1974 that SS3 ignores, and the initial F is fixed at almost
 0), and the offset is what lets the 1975 population start below its unfished
 level: it scales every initial age class by exp(`r fmt(B[1, regime], 2)`).
 SS3's lambda on the regime penalty is 0, so the offset is informed by the
-data alone, and it is well determined (2.6 standard errors from 0).
+data alone; SS3 estimates it at `r fmt(B[1, regime], 2)` (SE
+`r fmt(B[1, regime_se], 2)`).
 
-B1 removes it. The initial population is then the unfished one, and the 24
-early recruitment deviations, which are penalised, take over part of the
-offset's job. The likelihood worsens by `r fmt(B[2, nll] - B[1, nll], 1)`
+B1 removes it. The initial equilibrium recruitment is then tied to the
+unfished stock-recruitment relationship, while the 24 penalised early
+recruitment deviations can still alter the initial age structure; they take
+over part of the offset's job (their mean is `r fmt(B[2, early_dev_mean], 2)`
+in B1 against `r fmt(B[1, early_dev_mean], 2)` in B0). The likelihood worsens by `r fmt(B[2, nll] - B[1, nll], 1)`
 units, and the difference does not wash out: B1's spawning biomass is
 `r pct(tsw$rel[1])` above B0's in 1975 Q1, `r pct(mid[1])` to
-`r pct(mid[2])` above it from 1980 to 2010, and `r pct(tsw$rel[.N])` above
+`r pct(mid[2])` above it from 1980 to 2010, and `r pct(tail(tsw$rel, 1))` above
 it in 2021 Q4 (depletion `r fmt(B[2, depletion], 3)` against
 `r fmt(B[1, depletion], 3)`). opal is converted from B1, so the comparison
 in the rest of this document is with a model whose trajectory differs from
@@ -278,7 +282,7 @@ held fixed.
 #| label: tbl-seed
 #| tbl-cap: "Largest difference between opal's starting selectivity and SS3's: at length for the length-based fisheries (mirrors take their source fleet's parameters), at age for OBJ-Disc."
 sc = copy(opal_c$seed_check)
-knitr::kable(sc[, .(`opal fishery` = fishery, name, `parameters from` = source,
+knitr::kable(sc[, .(`opal fishery` = fishery, name, `parameters from` = ifelse(is.na(source), "age-based fit", as.character(source)),
                     `max |diff|` = sci(max_abs_diff, 1))], format = "pipe")
 ```
 
@@ -322,20 +326,27 @@ p2 = ggplot(br, aes(year, rel_opal)) + geom_hline(yintercept = 0, colour = "grey
 (p1 / p2) + plot_layout(guides = "collect") & theme(legend.position = "bottom")
 ```
 
+```{r}
+#| label: timing-text
+bar  = TM[grepl("Baranov", removal)]
+pope = TM[grepl("Pope", removal)]
+```
+
 The first quarter agrees to `r pct(abs(br$rel_opal[1]), 2)`: the initial
 age structure is converted directly. opal then drifts above SS3, to
-`r pct(tail(br$rel_opal, 1))` by 2021 Q4. opal's spawning biomass equals the replay
-of the converted inputs to `r sci(max(abs(br$opal / br$replica_opal - 1)), 0)`,
-so the difference is in the dynamics, not the conversion. Two things
+`r pct(tail(br$rel_opal, 1))` by 2021 Q4. opal's spawning biomass matches the
+replay of the converted inputs to `r sci(max(abs(br$opal / br$replica_opal - 1)), 0)`
+(relative), which checks that opal uses the converted inputs as intended;
+the difference from SS3 is in the dynamics. Two things
 account for it: when the catch is taken within the quarter, and the weight
 at which catch in weight is turned into numbers.
 
 ```{r}
 #| label: tbl-timing
-#| tbl-cap: "Spawning biomass relative to SS3 at SS3's parameter values, by when the catch is removed and the weight used to turn catch in weight into numbers (the replay of @fig-o0 with SS3's selectivity, recruitment and initial state)."
-tt = TM[, .(`2001-2021 mean` = pct(mean(rel[qtr_to_year(16 + ts) >= 2001]), 0),
-            `2021 Q4` = pct(rel[.N], 0),
-            `largest |diff|` = pct(max(abs(rel)), 0)), by = .(removal, weight)]
+#| tbl-cap: "Spawning biomass relative to SS3 at SS3's parameter values, by when the catch is removed and the weight used to turn catch in weight into numbers. Each replay starts from opal's initial numbers-at-age (O0) and uses SS3's selectivity-at-age and recruitment, so the replays differ from each other only in the catch step."
+tt = TM[, .(`2001-2021 mean` = pct(mean(rel[qtr_to_year(16 + ts) >= 2001]), 1),
+            `2021 Q4` = pct(rel[.N], 1),
+            `largest |diff|` = pct(max(abs(rel)), 2)), by = .(removal, weight)]
 knitr::kable(tt, format = "pipe")
 ```
 
@@ -365,8 +376,11 @@ ggplot(TM[ssb > 0], aes(year, rel, colour = variant)) + geom_hline(yintercept = 
   For the same catch opal leaves more fish alive, and with M of 0.48 per
   quarter at age 0 and the OBJ fisheries catching mostly fish under a year
   old, the difference accumulates. Removing the catch at mid-quarter (Pope's
-  approximation) brings the replay to within a few percent of SS3; SS3's
-  catch equation reproduces SS3.
+  approximation) brings the replay to within
+  `r pct(max(abs(pope$rel)), 0)` of SS3 over the series; SS3's catch
+  equation with SS3's fleet catch weights reproduces SS3 to
+  `r sci(max(abs(bar$rel)), 0)` (relative; the largest difference in any
+  quarter).
 
 # opal fits {#sec-fits}
 
@@ -382,19 +396,22 @@ to the quarter after the model, is fixed at 0.
   curves, for the parameters SS3 estimates (the peak, top and widths of
   LL-n-A2 to A7, OBJ-A1 to A5 and the index); mirrors share their source's
   parameters. It starts from O1's estimates.
-* **O1-noComp** is O1 without the compositions (lambda 0), so only the
-  index and the recruitment penalty inform it.
+* **O1-noComp** is O1 with the compositions switched off (lambda 0), so
+  the index and the recruitment and initial-deviation penalties inform it.
 
 ```{r}
 #| label: tbl-fits
-#| tbl-cap: "Fits. The objective values are opal's and are not comparable with SS3's likelihood (different constants, and opal's compositions are predicted differently). Depletion is SSB / SSB0 in 2021 Q4."
-knitr::kable(S[, .(model, `n par` = n_par, objective = fmt(objective, 2),
+#| tbl-cap: "Fits. The objective values are opal's and are not comparable with SS3's likelihood (different constants, and opal's compositions are predicted differently). Depletion is SSB / SSB0 in 2021 Q4. CPUE, compositions and recruitment are the negative log-likelihood terms opal reports (O1-noComp's composition term is reported but not in its objective, lambda 0); the objective also contains the initial-deviation penalty, and 'unreported' is the objective minus the sum of every weighted term opal reports (see @sec-limitations)."
+fit_tab = copy(S)
+fit_tab[, comp := ifelse(is.na(lp_lf), "", ifelse(lp_lf_in_objective %in% FALSE,
+                                                   paste0(fmt(lp_lf, 1), " (not in objective)"), fmt(lp_lf, 1)))]
+knitr::kable(fit_tab[, .(model, `n par` = n_par, objective = fmt(objective, 2),
                    `max gradient` = ifelse(is.na(max_gradient), "", sci(max_gradient, 1)),
                    `Hessian PD` = ifelse(is.na(positive_hessian), "", as.character(positive_hessian)),
                    `B0 (t)` = fmt(B0, 0), `SSB 2021 Q4 (t)` = fmt(ssb_end, 0),
                    depletion = fmt(depletion_end, 3),
-                   CPUE = fmt(lp_cpue, 1), compositions = fmt(lp_lf, 1),
-                   recruitment = fmt(lp_rec, 1))], format = "pipe")
+                   CPUE = fmt(lp_cpue, 1), compositions = comp,
+                   recruitment = fmt(lp_rec, 1), unreported = fmt(unreported, 1))], format = "pipe")
 ```
 
 ```{r}
@@ -412,8 +429,8 @@ at `r fmt(o1$B0, 0)` t (`r pct(o1$B0 / ss$B0 - 1)` above SS3's) and the
 SS3's values (O0, `r fmt(o0$depletion_end, 3)`): re-estimating the scale and
 recruitment does not undo the catch-timing difference of @sec-o0, because
 in opal's dynamics the same catches deplete the stock less. Without the
-compositions (O1-noComp) the index and the recruitment penalty alone give a
-depletion of `r fmt(nc$depletion_end, 3)` (B~0~ `r fmt(nc$B0, 0)` t), so the
+compositions (O1-noComp), the index and the recruitment and
+initial-deviation penalties give a depletion of `r fmt(nc$depletion_end, 3)` (B~0~ `r fmt(nc$B0, 0)` t), so the
 compositions push O1 towards a larger, less depleted stock.
 
 O2 `r conv(o2)` and is shown for completeness only. Freeing opal's
@@ -484,10 +501,12 @@ ggplot(sel, aes(age, sel, colour = model)) + geom_line(linewidth = 0.6) +
 ## Not available in opal
 
 * **Within-step catch timing.** opal removes each time step's catch at its
-  start. For an annual model this is a small difference; for this quarterly
-  model with high M on young ages and large catches of young fish it is the
-  largest one (@tbl-timing). A mid-step removal (Pope) would recover most of
-  it, and SS3's catch equation all of it.
+  start. How much that matters depends on the mortality within a step
+  (natural and fishing) and on how young the selected fish are, not on the
+  step length alone: it is small when both are low. For this stock, with M
+  of 0.48 per quarter at age 0 and large catches of young fish, it is the
+  largest difference (@tbl-timing). A mid-step removal (Pope) would recover
+  most of it, and SS3's catch equation nearly all of it.
 * **Fishery-specific catch weight-at-age.** opal turns catch in weight into
   numbers with one weight-at-age vector for every fishery, at one time in the
   step. SS3 uses each fleet's catch weight-at-age, which accounts for growth
@@ -507,8 +526,16 @@ ggplot(sel, aes(age, sel, colour = model)) + geom_line(linewidth = 0.6) +
   fleet's length-based curve by an age curve (pattern 10: 0 at age 0;
   pattern 11 for the discards); opal has one or the other per fishery.
 * **Conditional age-at-length data** (a few records, with lambda 0 in SS3).
+* **A complete decomposition of the objective.** With the compositions in
+  the likelihood, opal's objective is larger than the sum of the weighted
+  terms it reports (by `r fmt(o1$unreported, 0)` units for O1; @tbl-fits),
+  and the difference disappears when the compositions' lambda is 0, so part
+  of what the composition likelihood contributes is not in the reported
+  `lp_lf`. The NPO blue shark fits show the same. Until it is resolved, the
+  reported terms cannot be added up to the objective, and composition
+  likelihood comparisons between fits rest on the reported `lp_lf` only.
 
-## Structural differences handled in the conversion
+## Other structural differences and conversion choices
 
 * **Plus-group length.** SS3 averages the plus group's length over the ages
   it accumulates; opal uses the growth curve at the oldest age

@@ -78,9 +78,12 @@ bio:
 # One index: the longline survey (SS3 fleet 23, numbers, lognormal, Q floats
 # in SS3), observed in month 1 of each quarter. It is opal fishery 23 with
 # SS3's own double-normal selectivity. No add_to_survey_CV in the control file.
+# opal predicts an index as q x vulnerable numbers / their mean, so its q is
+# on the scale of the index's mean; the index (about 5e7) is normalised to
+# mean 1, which leaves the lognormal likelihood unchanged.
 index:
   keep_ss3_fleets: [23]
-  normalise:    none
+  normalise:    mean1
   month_labels: [1]
   keep_negative_fleets: false
   add_survey_var_adjust: true

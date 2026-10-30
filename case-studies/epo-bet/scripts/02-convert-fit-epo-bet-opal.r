@@ -213,8 +213,11 @@
 
 #_____________________________________________________________________________
 # O0: bridge at SS3's values
-    # SS3's survey catchability (floated) as opal's starting value
-    q_ss3 = pars_ss3[grepl("^LnQ_base", Label)]$Value
+    # opal predicts the index as q x vulnerable numbers / their mean over the
+    # series, so on the normalised index the q matching SS3 is the ratio of
+    # SS3's mean predicted to mean observed index
+    cpue_rep = as.data.table(rep_ss3$cpue)[Fleet %in% cfg$index$keep_ss3_fleets]
+    q_ss3 = log(mean(cpue_rep$Exp) / mean(cpue_rep$Obs))
     a0 = assessment
     p0 = a0$parameters
     p0$log_cpue_q = q_ss3
@@ -435,10 +438,11 @@
         dd[, .(model = id, quarter = year, index, obs = value, se,
                pred = opal_report(models[[id]])$cpue_pred)]
     }))
+    # SS3's index on opal's (mean 1) scale
     cpue_ss3 = as.data.table(rep_ss3$cpue)[Fleet %in% cfg$index$keep_ss3_fleets,
                                            .(model = "SS3 B1", quarter = Yr,
                                              index = match(Fleet, cfg$index$keep_ss3_fleets),
-                                             obs = Obs, se = SE, pred = Exp)]
+                                             obs = Obs / mean(Obs), se = SE, pred = Exp / mean(Obs))]
     cpue = rbind(cpue_ss3, cpue)
     cpue[, year := qtr_to_year(quarter)]
 

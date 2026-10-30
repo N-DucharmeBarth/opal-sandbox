@@ -151,14 +151,35 @@ The supplied files were run with an SS3 3.30.22 beta build. Re-run with SS3
 likelihood exactly (`r fmt(bridge$supplied_likelihood[component == "TOTAL", logL_lambda], 3)`)
 and re-estimation stays there.
 
+```{r}
+#| label: regime
+tsw = dcast(bridge$timeseries[era == "TIME"], quarter + year ~ step, value.var = "ssb")
+setnames(tsw, c("quarter", "year", "b0", "b1"))
+tsw[, rel := b1 / b0 - 1]
+mid = tsw[year >= 1980 & year < 2011, range(rel)]
+```
+
 B0 starts the population from an equilibrium whose recruitment is
 `r fmt(100 * (1 - exp(B[1, regime])), 0)`% below the stock-recruitment curve
 (a regime offset of `r fmt(B[1, regime], 2)` on ln R~0~ for block year 16,
-the quarter before the model starts). SS3's lambda on the regime penalty is 0,
-so the offset is informed by the data alone. B1 removes it: the initial
-population is then the unfished one, the early recruitment deviations have to
-explain the 1975 age structure, and the likelihood worsens by
-`r fmt(B[2, nll] - B[1, nll], 1)` units.
+the quarter before the model starts). The model begins in 1975 although
+longline fishing on the stock goes back decades (the data file carries
+catches for 1971-1974 that SS3 ignores, and the initial F is fixed at almost
+0), and the offset is what lets the 1975 population start below its unfished
+level: it scales every initial age class by exp(`r fmt(B[1, regime], 2)`).
+SS3's lambda on the regime penalty is 0, so the offset is informed by the
+data alone, and it is well determined (2.6 standard errors from 0).
+
+B1 removes it. The initial population is then the unfished one, and the 24
+early recruitment deviations, which are penalised, take over part of the
+offset's job. The likelihood worsens by `r fmt(B[2, nll] - B[1, nll], 1)`
+units, and the difference does not wash out: B1's spawning biomass is
+`r pct(tsw$rel[1])` above B0's in 1975 Q1, `r pct(mid[1])` to
+`r pct(mid[2])` above it from 1980 to 2010, and `r pct(tsw$rel[.N])` above
+it in 2021 Q4 (depletion `r fmt(B[2, depletion], 3)` against
+`r fmt(B[1, depletion], 3)`). opal is converted from B1, so the comparison
+in the rest of this document is with a model whose trajectory differs from
+the supplied one by this much (@sec-limitations).
 
 # Converting B1 to opal {#sec-conversion}
 
@@ -449,7 +470,15 @@ ggplot(sel, aes(age, sel, colour = model)) + geom_line(linewidth = 0.6) +
   through the step and for size selection within an age. A
   fishery-by-age catch weight (like the external selectivity matrix) would
   carry SS3's exactly.
-* **Initial-equilibrium regime offset** on recruitment (removed in B1).
+* **Initial-equilibrium recruitment offset.** SS3's regime offset scales the
+  initial equilibrium recruitment, unpenalised; opal has no equivalent, so B1
+  removes it, which moves the whole trajectory (@sec-bridge). opal's initial
+  deviations (`init_rdev_a`, one per initial age class) could carry B0's
+  initial numbers-at-age exactly at SS3's values, but opal penalises them
+  with sigma~R~ (about 10 likelihood units for an offset of -0.41 on 41
+  ages), so a fit would pull the initial state back towards unfished. An
+  unpenalised offset on the initial equilibrium (one parameter in opal's
+  initial numbers) would let opal be converted from B0 directly.
 * **Age selectivity combined with size selectivity.** SS3 multiplies each
   fleet's length-based curve by an age curve (pattern 10: 0 at age 0;
   pattern 11 for the discards); opal has one or the other per fishery.

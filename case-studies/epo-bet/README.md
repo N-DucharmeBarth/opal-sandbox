@@ -44,6 +44,19 @@ advice on the stock is based on its benchmark assessments.
 | 00 B0 | as supplied, re-run with 3.30.22.1 (identical likelihood) |
 | 01 B1 | initial-equilibrium regime offset (block year 16, estimated at -0.41 on ln R0) removed |
 
+## Gaps in opal found here
+
+* No within-step catch timing: opal removes each quarter's catch at its
+  start, which at SS3's values leaves spawning biomass about 40% above SS3's
+  by 2021 (a mid-quarter removal would be within 5%).
+* One weight-at-age vector for all fisheries, at one time in the step; SS3
+  uses each fleet's catch weight-at-age.
+* No unpenalised offset on the initial equilibrium recruitment (SS3's regime
+  offset). Removing it (B1) moves SSB by +35% in 1975 and +14% in 2021; it is
+  the reason opal is converted from B1 rather than the supplied model.
+* No combined age and length selectivity (SS3 age pattern 10 sets age 0 to
+  zero on top of each fleet's length curve).
+
 ## Time
 
 The data file gives model quarters only. This case study takes quarter 17

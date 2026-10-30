@@ -47,13 +47,16 @@
 
     # Write an SS3 input list to dir and estimate the model there. The Hessian
     # is inverted so the bridge records whether each step is positive definite.
-    run_step = function(inputs, step) {
+    # SS3 starts from par_lines (the previous step's par file, edited to the
+    # new parameter layout) when given, otherwise from the control file's INIT
+    # values. The control file does not hold the recruitment deviations, and
+    # starting them at 0 crashes this stock under its catches.
+    run_step = function(inputs, step, par_lines = NULL) {
         dir = file.path(dir_ss3, step)
         dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-        # start from the control file's INIT values (the previous step's
-        # estimates), not a par file whose layout may have changed
-        inputs$start$init_values_src = 0
+        inputs$start$init_values_src = if (is.null(par_lines)) 0 else 1
         SS_write(inputs, dir = dir, overwrite = TRUE)
+        if (!is.null(par_lines)) writeLines(par_lines, file.path(dir, "ss3.par"))
         status = r4ss::run(dir, exe = exe, extras = extras, skipfinished = FALSE, verbose = FALSE)
         if (!file.exists(file.path(dir, "Report.sso"))) {
             stop(sprintf("SS3 did not finish for %s (%s).", step, status), call. = FALSE)
@@ -63,6 +66,15 @@
 
     # Read a finished step back as the starting point for the next one
     read_step = function(step) SS_read(file.path(dir_ss3, step), ss_new = TRUE)
+
+    # A step's par file without the parameter whose header line is `label`
+    # (each par-file parameter is a "# label:" line followed by its value)
+    par_without = function(step, label) {
+        x = readLines(file.path(dir_ss3, step, "ss3.par"))
+        i = which(x == paste0("# ", label, ":"))
+        stopifnot("parameter not found in the par file" = length(i) == 1L)
+        x[-c(i, i + 1L)]
+    }
 
 #_____________________________________________________________________________
 # 00: the model as supplied. Its starter reads ss3.par (init_values_src = 1).
@@ -85,7 +97,13 @@
     ctl$SR_parms["SR_regime", c("INIT", "Block", "Block_Fxn")] = 0
     ctl$SR_parms_tv = NULL
     inputs$ctl = ctl
-    run_step(inputs, "01-no-regime")
+    # start from 00's estimates, without the offset (SR_parm 6). Skipped when
+    # the step has already been run (EPO_BET_RERUN=true runs it again).
+    done = function(step) file.exists(file.path(dir_ss3, step, "admodel.cov")) &&
+        !identical(Sys.getenv("EPO_BET_RERUN"), "true")
+    if (!done("01-no-regime")) {
+        run_step(inputs, "01-no-regime", par_lines = par_without("00-base", "SR_parm[6]"))
+    }
 
 #_____________________________________________________________________________
 # Summarise the bridge

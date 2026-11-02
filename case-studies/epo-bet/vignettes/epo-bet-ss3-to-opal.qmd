@@ -9,6 +9,8 @@ format:
     toc-depth: 2
     number-sections: true
     embed-resources: true
+    # MathML needs no external script, so the equations render offline
+    html-math-method: mathml
     fig-width: 9
     fig-height: 5
     code-fold: true
@@ -304,12 +306,76 @@ knitr::kable(opal_c$sel_start_diff[, .(fishery, name, `max |diff|` = fmt(max_abs
 
 O0 runs opal at SS3's parameter values with SS3's own selectivity-at-age.
 Nothing is estimated, so any difference from SS3 comes from the two models'
-dynamics.
+dynamics. To find out which part of the dynamics, this section compares
+both models with a set of *replays*.
+
+### How the replays work {#sec-replays}
+
+A replay is a short population projection written in plain R (in
+`scripts/02-convert-fit-epo-bet-opal.r`), outside both opal and SS3. It
+estimates nothing. It takes a fixed set of inputs, all at SS3 B1's values,
+and steps the population forward one quarter at a time:
+
+* the numbers-at-age in 1975 Q1 (opal's, which equal SS3's to
+  `r pct(abs(opal_c$bridge$rel_opal[1]), 2)` in spawning biomass);
+* the recruitment in each quarter, R~0~ exp(dev~y~ − b~y~ σ~R~^2^ / 2), with
+  SS3's deviations dev~y~ and bias adjustment b~y~ (steepness is 1, so
+  recruitment does not depend on spawning biomass);
+* M-at-age, spawning output-at-age, and SS3's selectivity-at-age s~f,a~
+  for each fleet f;
+* the observed catch C~f,y~ of each fleet in each quarter.
+
+In each quarter the replay records spawning biomass, Σ~a~ N~a~ × spawning
+output~a~, then takes the quarter's catch out of the numbers-at-age N~a~,
+applies natural mortality, moves every age class up one quarter (the oldest
+stays in the plus group), and adds the next quarter's recruits. The replays
+differ only in how the catch comes out, which is the one step where opal
+and SS3 differ:
+
+* **Start of quarter** (opal's `do_dynamics()`): each fleet's catch is a
+  harvest rate on the numbers at the start of the quarter, taken before any
+  natural mortality, and the survivors then die at rate M:
+  $$h_{f,a} = \frac{C_f\, s_{f,a}}{\sum_{a'} N_{a'}\, s_{f,a'}\, w_{f,a'}}, \qquad
+    N_a' = N_a \Big(1 - \sum_f h_{f,a}\Big)\, e^{-M_a}.$$
+* **Mid-quarter** (Pope's approximation): half the quarter's natural
+  mortality, then the same harvest rate taken from what is left, then the
+  other half: $N_a' = \big(N_a e^{-M_a/2}\big)\big(1 - \sum_f h_{f,a}\big) e^{-M_a/2}$,
+  with $h_{f,a}$ computed from $N_a e^{-M_a/2}$.
+* **Through the quarter** (the Baranov catch equation): fishing and natural
+  mortality act together all quarter, and each fleet's F~f~ is solved so
+  that its predicted catch matches the observed one, which is what SS3's
+  hybrid F method does:
+  $$C_f = \sum_a \frac{F_f\, s_{f,a}}{Z_a}\, N_a \big(1 - e^{-Z_a}\big)\, w_{f,a}, \qquad
+    Z_a = M_a + \sum_f F_f\, s_{f,a}, \qquad N_a' = N_a e^{-Z_a}.$$
+
+For fleets whose catch is in weight, w~f,a~ turns tonnes into numbers. It
+is one of three weights: start-of-quarter weight; mid-quarter weight (the
+one vector opal uses here); or each fleet's own catch weight-at-age from
+SS3 (Report.sso's `bodywt`). SS3's weight follows growth through the
+quarter and the size of fish each fleet selects within an age. For fleets
+whose catch is in numbers, w = 1.
+
+The replays serve two purposes:
+
+* **A check on the conversion.** The start-of-quarter replay with opal's
+  weight does exactly what opal does. If opal matches it, opal is using the
+  converted inputs as intended. @fig-o0 shows this ("replay, opal timing",
+  from `ss3_bridge_replica()` in `shared/ss3-to-opal/`).
+* **Attribution.** Every replay uses the same inputs and differs only in the
+  catch step, so the differences between them (@tbl-timing, @fig-timing)
+  are caused by when the catch is removed and at what weight. Nothing else
+  differs, including growth, M, recruitment and selectivity. The replay
+  that uses SS3's catch equation and SS3's fleet catch weights reproduces
+  SS3 almost exactly. So with the same inputs, the catch step is the only
+  thing separating opal's dynamics from SS3's.
+
+The replays use SS3's selectivity-at-age, so they test the dynamics, not
+opal's own selectivity curves (that is O2, @sec-fits).
 
 ```{r}
 #| label: fig-o0
 #| fig-height: 6
-#| fig-cap: "O0: opal at SS3's values against SS3 B1 (top: spawning biomass; bottom: relative to SS3). 'Replay' replays the converted inputs outside opal with opal's timing, which opal matches exactly."
+#| fig-cap: "O0: opal at SS3's values against SS3 B1 (top: spawning biomass; bottom: relative to SS3). 'Replay, opal timing' is the start-of-quarter replay of @sec-replays with opal's weight, which opal matches exactly."
 br = copy(opal_c$bridge)
 br[, year := qtr_to_year(16 + ts)]
 bl = rbind(br[, .(year, series = "SS3 B1", value = ss3)],
@@ -343,7 +409,7 @@ at which catch in weight is turned into numbers.
 
 ```{r}
 #| label: tbl-timing
-#| tbl-cap: "Spawning biomass relative to SS3 at SS3's parameter values, by when the catch is removed and the weight used to turn catch in weight into numbers. Each replay starts from opal's initial numbers-at-age (O0) and uses SS3's selectivity-at-age and recruitment, so the replays differ from each other only in the catch step."
+#| tbl-cap: "The replays of @sec-replays: spawning biomass relative to SS3 at SS3's parameter values, by when the catch is removed and the weight used to turn catch in weight into numbers. Every replay starts from opal's initial numbers-at-age (O0) and uses SS3's selectivity-at-age and recruitment, so they differ only in the catch step. The second row is opal's own calculation (it matches O0)."
 tt = TM[, .(`2001-2021 mean` = pct(mean(rel[qtr_to_year(16 + ts) >= 2001]), 1),
             `2021 Q4` = pct(rel[.N], 1),
             `largest |diff|` = pct(max(abs(rel)), 2)), by = .(removal, weight)]

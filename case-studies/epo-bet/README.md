@@ -48,7 +48,8 @@ advice on the stock is based on its benchmark assessments.
 
 * No within-step catch timing: opal removes each quarter's catch at its
   start, which at SS3's values leaves spawning biomass about 40% above SS3's
-  by 2021 (a mid-quarter removal would be within 5%).
+  by 2021 (a mid-quarter removal would be within 5% in 2021 and 8% at most;
+  SS3's catch equation reproduces SS3 to 1e-5).
 * One weight-at-age vector for all fisheries, at one time in the step; SS3
   uses each fleet's catch weight-at-age.
 * No unpenalised offset on the initial equilibrium recruitment (SS3's regime
@@ -56,6 +57,11 @@ advice on the stock is based on its benchmark assessments.
   the reason opal is converted from B1 rather than the supplied model.
 * No combined age and length selectivity (SS3 age pattern 10 sets age 0 to
   zero on top of each fleet's length curve).
+* opal's objective is larger than the sum of the weighted terms it reports
+  whenever the compositions are in the likelihood (by about 2,300 units for
+  O1 here, and about 270 for the NPO blue shark O1); the gap disappears with
+  the compositions' lambda at 0, so part of the composition likelihood is not
+  in the reported `lp_lf`.
 
 ## Time
 

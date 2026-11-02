@@ -275,7 +275,9 @@
         sig = exp(p$log_sigma_r)
         num = dd$catch_units_f != 1
         cw = function(f) if (num[f]) 1 else W[f, ]
-        N = R0 * rel * exp(p$init_rdev_a - dd$init_bias_adj_a * 0.5 * sig^2)
+        # start from opal's own initial numbers-at-age (O0), so the replays
+        # differ from opal and SS3 only in the catch step
+        N = N_init
         ssb = numeric(dd$n_year)
         for (y in seq_len(dd$n_year)) {
             ssb[y] = sum(N * sp)
@@ -304,6 +306,7 @@
         }
         ssb
     }
+    N_init = opal_report(o0)$number_ysa[1, 1, ]
     eg_beg = ss3_endgrowth_table(rep_ss3, converted$meta$dims, "Beg")
     eg_mid = ss3_endgrowth_table(rep_ss3, converted$meta$dims, "Mid")
     bodywt = as.data.table(rep_ss3$ageselex)[Factor == "bodywt" & Yr == end_q]
@@ -423,13 +426,19 @@
             depletion_end = r$static_depletion_y[n_year],
             lp_cpue      = sum(r$lp_cpue),
             lp_lf        = sum(r$lp_lf),
-            lp_rec       = sum(r$lp_rec)
+            lp_rec       = sum(r$lp_rec),
+            # opal's objective against the sum of the weighted terms it reports
+            # (with the compositions in the likelihood the two differ)
+            reported     = r$lp_prior_w + r$lp_penalty_w + sum(r$lp_rec_w) + sum(r$lp_init_rec_w) +
+                           sum(r$lp_cpue_w) + sum(r$lp_lf_w) + sum(r$lp_wf_w),
+            lp_lf_in_objective = !identical(x$data$lambdas$lf, 0)
         )
     }))
     summary_dt = rbind(data.table(model = "SS3 B1", n_par = rep_ss3$N_estimated_parameters,
                                   B0 = ssb0_ss3, ssb_end = last(ts_ss3$SpawnBio),
                                   depletion_end = last(ts_ss3$SpawnBio) / ssb0_ss3),
                        summary_dt, fill = TRUE)
+    summary_dt[, unreported := objective - reported]
     print(summary_dt)
 
     # Index fits

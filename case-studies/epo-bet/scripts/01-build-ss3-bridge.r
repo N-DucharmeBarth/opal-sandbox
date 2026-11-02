@@ -139,6 +139,10 @@
             ln_r0         = rep$parameters["SR_LN(R0)", "Value"],
             regime        = if ("SR_regime_BLK1add_16" %in% rownames(rep$parameters))
                                 rep$parameters["SR_regime_BLK1add_16", "Value"] else 0,
+            regime_se     = if ("SR_regime_BLK1add_16" %in% rownames(rep$parameters))
+                                rep$parameters["SR_regime_BLK1add_16", "Parm_StDev"] else NA_real_,
+            # mean of the early recruitment deviations (the initial age structure)
+            early_dev_mean = mean(rep$parameters$Value[grepl("^Early_InitAge_", rep$parameters$Label)]),
             ssb0          = dq(rep, "SSB_Virgin"),
             ssb_end       = dq(rep, paste0("SSB_", end_q)),
             depletion     = dq(rep, paste0("Bratio_", end_q)),

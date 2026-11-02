@@ -99,3 +99,50 @@ test_that("the bridge cache matches the SS3 runs", {
                      tolerance = 1e-8, info = steps[i])
     }
 })
+
+# Initial-F sensitivities: 02 is 00 and 03 is 01 with the initial F of
+# LL-n-A2 and OBJ-A5 estimated
+init_f_steps = c("02-base-init-f", "03-no-regime-init-f")
+init_f_parent = c("02-base-init-f" = "00-base", "03-no-regime-init-f" = "01-no-regime")
+have_init_f = all(file.exists(file.path(dir_ss3, init_f_steps, "Report.sso")))
+
+test_that("the initial-F sensitivities converged with an invertible Hessian", {
+    skip_if_not(have_init_f)
+    for (s in init_f_steps) {
+        h = report_header(s)
+        expect_match(h$version, "3.30.22.1", fixed = TRUE, info = s)
+        expect_lt(h$gradient, 0.05)
+        expect_true(is.finite(h$log_det), info = paste(s, "Hessian not inverted"))
+    }
+})
+
+test_that("the initial-F sensitivities change only the initial F's phase", {
+    skip_if_not(have_init_f)
+    for (s in init_f_steps) {
+        cs = suppressWarnings(r4ss::SS_read(file.path(dir_ss3, s), ss_new = TRUE, verbose = FALSE))
+        cp = inputs[[init_f_parent[[s]]]]$ctl
+        expect_true(all(cs$ctl$init_F$PHASE > 0), info = s)
+        expect_true(all(cp$init_F$PHASE < 0), info = s)
+        expect_equal(cs$ctl$init_F[, c("LO", "HI")], cp$init_F[, c("LO", "HI")], info = s)
+        for (nm in c("MG_parms", "SR_parms", "size_selex_parms", "age_selex_parms", "Q_parms")) {
+            expect_equal(cs$ctl[[nm]][, c("LO", "HI", "PHASE")], cp[[nm]][, c("LO", "HI", "PHASE")],
+                         info = paste(s, nm))
+        }
+        expect_equal(is.null(cs$ctl$SR_parms_tv), is.null(cp$SR_parms_tv), info = s)
+        for (nm in c("catch", "CPUE", "lencomp")) {
+            expect_equal(cs$dat[[nm]], inputs[[init_f_parent[[s]]]]$dat[[nm]], info = paste(s, nm))
+        }
+        rep = suppressWarnings(r4ss::SS_output(file.path(dir_ss3, s), covar = FALSE,
+                                               verbose = FALSE, printstats = FALSE))
+        # estimating more parameters cannot make the fit worse than the parent's
+        expect_lte(rep$likelihoods_used["TOTAL", "values"],
+                   reps[[init_f_parent[[s]]]]$likelihoods_used["TOTAL", "values"] + 1e-3)
+    }
+})
+
+test_that("the bridge cache holds the initial-F sensitivities", {
+    skip_if_not(file.exists(cache_file) && have_init_f)
+    cache = readRDS(cache_file)
+    expect_equal(cache$init_f$steps, init_f_steps)
+    expect_equal(cache$init_f$summary$step, c(steps, init_f_steps))
+})

@@ -11,6 +11,11 @@
 #   01-no-regime   initial-equilibrium regime offset (block year 16) removed
 # 01 is the SS3 model the opal conversion starts from.
 #
+# Two sensitivities estimate the initial F, which the supplied control file
+# fixes, with the regime offset on (02, from 00) and off (03, from 01):
+#   02-base-init-f       00 with the initial F of LL-n-A2 and OBJ-A5 estimated
+#   03-no-regime-init-f  01 with the same initial Fs estimated
+#
 # Growth needs no bridge step: SS3 GrowthModel 8 (growth cessation) and
 # CV_Growth_Pattern 2 (SD linear in length) are both available in opal.
 #
@@ -106,15 +111,49 @@
     }
 
 #_____________________________________________________________________________
+# Sensitivities: the initial F estimated. SS3 has an initial equilibrium catch
+# for LL-n-A2 and OBJ-A5 (an arbitrary 999 with lambda 0 on the init_equ_catch
+# likelihood), so their initial Fs are unconstrained by catch, but the
+# control file fixes them (phase -1) at 0.0033 and ~0 per quarter.
+#   02-base-init-f       00 with both initial Fs estimated (regime offset on)
+#   03-no-regime-init-f  01 with both initial Fs estimated (regime offset off;
+#                        the SS3 counterpart of opal with its initial F free)
+# Each starts from its parent's estimates, with OBJ-A5's initial F moved off
+# its lower bound (1.8e-7 -> 0.001) so the optimiser can move it.
+    estimate_init_f = function(step) {
+        inputs = read_step(step)
+        inputs$ctl$init_F$PHASE = 1L
+        inputs
+    }
+    par_init_f = function(step, init_f_2 = 0.001) {
+        x = readLines(file.path(dir_ss3, step, "ss3.par"))
+        i = which(x == "# init_F[2]:")
+        stopifnot("init_F[2] not found in the par file" = length(i) == 1L)
+        x[i + 1L] = format(init_f_2)
+        x
+    }
+    if (!done("02-base-init-f")) {
+        run_step(estimate_init_f("00-base"), "02-base-init-f", par_lines = par_init_f("00-base"))
+    }
+    if (!done("03-no-regime-init-f")) {
+        run_step(estimate_init_f("01-no-regime"), "03-no-regime-init-f",
+                 par_lines = par_init_f("01-no-regime"))
+    }
+
+#_____________________________________________________________________________
 # Summarise the bridge
     steps  = c("00-base", "01-no-regime")
     labels = c("B0 SAC-14 model", "B1 no regime offset")
+    init_f_steps  = c("02-base-init-f", "03-no-regime-init-f")
+    init_f_labels = c("B0-F B0, initial F estimated", "B1-F B1, initial F estimated")
+    all_steps  = c(steps, init_f_steps)
+    all_labels = c(labels, init_f_labels)
     # Model quarter -> calendar time: quarter 17 = 1975 Q1 (see README)
     qtr_to_year = function(q) 1975 + (q - 17) / 4
     end_q = 204L
-    reps = lapply(steps, function(s)
+    reps = lapply(all_steps, function(s)
         SS_output(file.path(dir_ss3, s), covar = TRUE, verbose = FALSE, printstats = FALSE))
-    names(reps) = steps
+    names(reps) = all_steps
 
     dq = function(rep, label) {
         x = rep$derived_quants
@@ -122,12 +161,17 @@
         if (length(v) == 0L || is.na(v)) NA_real_ else v
     }
     lk_val = function(lk, comp) if (comp %in% rownames(lk)) lk[comp, "values"] else NA_real_
-    summary_dt = rbindlist(lapply(seq_along(steps), function(i) {
+    par_val = function(rep, label, col = "Value") {
+        x = rep$parameters
+        if (label %in% rownames(x)) x[label, col] else NA_real_
+    }
+    init_f_labels_ss3 = c("InitF_seas_1_flt_2LL-n-A2", "InitF_seas_1_flt_19OBJ-A5")
+    summary_all = rbindlist(lapply(seq_along(all_steps), function(i) {
         rep = reps[[i]]
         lk = rep$likelihoods_used
         data.table(
-            step          = steps[i],
-            label         = labels[i],
+            step          = all_steps[i],
+            label         = all_labels[i],
             n_par         = rep$N_estimated_parameters,
             nll           = lk_val(lk, "TOTAL"),
             nll_survey    = lk_val(lk, "Survey"),
@@ -149,21 +193,41 @@
             # F_<yr> is F / F_MSY (starter F_report_basis 2; F = sum of full Fs)
             f_end         = dq(rep, paste0("F_", end_q)),
             ssb_msy       = dq(rep, "SSB_MSY"),
-            n_on_bounds   = sum(grepl("LO|HI", rep$parameters$Status))
+            n_on_bounds   = sum(grepl("LO|HI", rep$parameters$Status)),
+            # initial F (per quarter) of LL-n-A2 and OBJ-A5, the two fleets
+            # with an initial equilibrium catch; SE NA when fixed
+            init_f_ll     = par_val(rep, init_f_labels_ss3[1]),
+            init_f_ll_se  = par_val(rep, init_f_labels_ss3[1], "Parm_StDev"),
+            init_f_obj    = par_val(rep, init_f_labels_ss3[2]),
+            init_f_obj_se = par_val(rep, init_f_labels_ss3[2], "Parm_StDev"),
+            # initial-equilibrium SSB relative to unfished
+            ssb_init      = dq(rep, "SSB_Initial")
         )
     }))
-    print(summary_dt)
+    print(summary_all)
+    summary_dt = summary_all[step %in% steps]
 
-    ts_dt = rbindlist(lapply(seq_along(steps), function(i) {
+    ts_all = rbindlist(lapply(seq_along(all_steps), function(i) {
         ts = as.data.table(reps[[i]]$timeseries)[Era %in% c("VIRG", "INIT", "TIME")]
-        data.table(step = steps[i], label = labels[i], era = ts$Era, quarter = ts$Yr,
+        data.table(step = all_steps[i], label = all_labels[i], era = ts$Era, quarter = ts$Yr,
                    year = qtr_to_year(ts$Yr), ssb = ts$SpawnBio, recruits = ts$Recruit_0)
     }))
-    ts_dt[, depletion := ssb / summary_dt$ssb0[match(step, summary_dt$step)]]
+    ts_all[, depletion := ssb / summary_all$ssb0[match(step, summary_all$step)]]
+    ts_dt = ts_all[step %in% steps]
+
+    # Initial numbers-at-age (start of the first quarter) in every run
+    natage_all = rbindlist(lapply(seq_along(all_steps), function(i) {
+        na = as.data.table(reps[[i]]$natage)[Era == "TIME" & Yr == 17 & `Beg/Mid` == "B"]
+        ages = as.character(0:40)
+        data.table(step = all_steps[i], label = all_labels[i], age = 0:40,
+                   n = as.numeric(na[1, ..ages]))
+    }))
 
     supplied = fread(file.path(dir_b0, "supplied-likelihood-3.30.22beta.csv"))
 
     saveRDS(list(summary = summary_dt, timeseries = ts_dt, steps = steps, labels = labels,
                  supplied_likelihood = supplied,
+                 init_f = list(summary = summary_all, timeseries = ts_all, natage = natage_all,
+                               steps = init_f_steps, labels = init_f_labels),
                  ss3_version = "3.30.22.1", made_at = format(Sys.time(), tz = "UTC", usetz = TRUE)),
             file.path(dir_cache, "epo-bet-ss3-bridge-cache.rds"))

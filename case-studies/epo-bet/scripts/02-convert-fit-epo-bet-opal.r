@@ -12,6 +12,8 @@
 #       curves; the selectivity parameters SS3 estimated are estimated, plus
 #       everything O1 estimates. OBJ-Disc's age-based selectivity (SS3 ages
 #       1-3) is an opal age-based double normal held at SS3's curve.
+#   O1-F  O1 with the initial F of LL-n-A2 and OBJ-A5 estimated (fixed in
+#       SS3 and in O0-O2); compared with SS3 B1-F (scripts/01)
 #
 # Growth (SS3's growth cessation curve and SD-linear growth variability),
 # steepness (1), sigma_R (0.6), M and the biology stay at SS3's values, as in
@@ -374,7 +376,28 @@
     m2$par_sel = sel_map(seed$par_sel)
     o2 = opal_update(o2, map = m2) %>% build_with_q_bounds(sel = sel_bounds())
     fit_o2 = if (refit) fit_opal(o2) else saved$O2
-    if (refit) saveRDS(list(O1 = fit_o1, O2 = fit_o2), fits_file, compress = "xz")
+
+    # O1-F: O1 with the initial F of LL-n-A2 and OBJ-A5 estimated (the two
+    # fleets SS3 gives an initial equilibrium catch; SS3 fixes both, and
+    # opal's conversion carries them as fixed). Neither model has an initial
+    # catch in its likelihood, so the initial Fs are informed only by what
+    # the initial age structure does to the index and the compositions.
+    # Started from O1's estimates, with OBJ-A5's initial F moved off ~0
+    # (1.8e-7 -> 0.001) so its gradient is not vanishingly small.
+    init_f_fisheries = c(2L, 19L)
+    o1f = o1
+    p1f = fit_o1$fit$parameters
+    p1f$log_init_F_f[19] = log(0.001)
+    o1f = opal_update(o1f, parameters = p1f)
+    m1f = base_map(o1f)
+    m1f$log_init_F_f = factor(replace(rep(NA_integer_, n_f), init_f_fisheries,
+                                      seq_along(init_f_fisheries)))
+    o1f = opal_update(o1f, map = m1f) %>% build_with_q_bounds()
+    fit_o1f = if (refit || is.null(saved$`O1-F`)) fit_opal(o1f) else saved$`O1-F`
+    if (refit || is.null(saved$`O1-F`)) {
+        saveRDS(list(O1 = fit_o1, O2 = fit_o2, `O1-F` = fit_o1f), fits_file, compress = "xz")
+    }
+    print(exp(fit_o1f$fit$parameters$log_init_F_f[init_f_fisheries]))
 
 #_____________________________________________________________________________
 # Diagnostics: what moves O1 away from SS3
@@ -395,7 +418,8 @@
     ts_ss3 = as.data.table(rep_ss3$timeseries)[Era == "TIME" & Yr %in% qtrs]
     ssb0_ss3 = ss3_derived_value(rep_ss3, c("SSB_Virgin", "SSB_Unfished"))
 
-    models = list(O0 = o0, O1 = fit_o1, O2 = fit_o2, `O1-noComp` = fit_o1_nocomp)
+    models = list(O0 = o0, O1 = fit_o1, O2 = fit_o2, `O1-noComp` = fit_o1_nocomp,
+                  `O1-F` = fit_o1f)
     trajectory = rbind(
         data.table(model = "SS3 B1", quarter = qtrs, year = qtr_to_year(qtrs),
                    ssb = ts_ss3$SpawnBio, depletion = ts_ss3$SpawnBio / ssb0_ss3,
@@ -431,7 +455,12 @@
             # (with the compositions in the likelihood the two differ)
             reported     = r$lp_prior_w + r$lp_penalty_w + sum(r$lp_rec_w) + sum(r$lp_init_rec_w) +
                            sum(r$lp_cpue_w) + sum(r$lp_lf_w) + sum(r$lp_wf_w),
-            lp_lf_in_objective = !identical(x$data$lambdas$lf, 0)
+            lp_lf_in_objective = !identical(x$data$lambdas$lf, 0),
+            # initial F (per quarter) of LL-n-A2 and OBJ-A5, and the initial
+            # SSB relative to unfished
+            init_f_ll    = r$init_F_f[2],
+            init_f_obj   = r$init_F_f[19],
+            init_depletion = r$static_depletion_y[1]
         )
     }))
     summary_dt = rbind(data.table(model = "SS3 B1", n_par = rep_ss3$N_estimated_parameters,
@@ -442,7 +471,7 @@
     print(summary_dt)
 
     # Index fits
-    cpue = rbindlist(lapply(c("O0", "O1", "O2"), function(id) {
+    cpue = rbindlist(lapply(c("O0", "O1", "O2", "O1-F"), function(id) {
         dd = as.data.table(models[[id]]$data$cpue_data)
         dd[, .(model = id, quarter = year, index, obs = value, se,
                pred = opal_report(models[[id]])$cpue_pred)]

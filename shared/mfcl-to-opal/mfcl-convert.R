@@ -129,12 +129,19 @@ mfcl_to_opal = function(dir, frq, par, rep, index_fisheries,
     ln[, scale := pmin(n, lf_cap) / n]
     for (b in bins) data.table::set(ln, j = b, value = ln[[b]] * ln$scale)
     ln[, y := year + (month_1 > 1 & month >= month_1) - first_yr + 1L]
-    ln[, year := y + first_yr - 1L]
+    ln[, `:=`(year = y + first_yr - 1L, season = month_season((month - month_1) %% 12 + 1))]
+    # by model year (opal's annual length likelihood), and by season (for an
+    # opal model whose time step is a season; see mfcl_quarterly_ages())
     lf_wide = ln[, lapply(.SD, sum), by = .(fishery, year, y), .SDcols = bins]
     lf_wide[, `:=`(month = 1L, ts = y)]
     lf_wide[, y := NULL]
     data.table::setcolorder(lf_wide, c("fishery", "year", "month", "ts", bins))
     data.table::setorder(lf_wide, fishery, ts)
+    lf_season = ln[, lapply(.SD, sum), by = .(fishery, year, y, season), .SDcols = bins]
+    lf_season[, `:=`(month = season, ts = (y - 1L) * n_season + season)]
+    lf_season[, c("y", "season") := NULL]
+    data.table::setcolorder(lf_season, c("fishery", "year", "month", "ts", bins))
+    data.table::setorder(lf_season, fishery, ts)
     lf_var_adjust = ff[, 49]
     lf_var_adjust[lf_var_adjust == 0] = 1
 
@@ -193,7 +200,7 @@ mfcl_to_opal = function(dir, frq, par, rep, index_fisheries,
                            "annual length compositions, multinomial",
                            "CPUE at start of season")
     )
-    list(data = data, parameters = parameters, lf = lf_wide,
+    list(data = data, parameters = parameters, lf = lf_wide, lf_season = lf_season,
          selectivity = list(sel_fa_external = sel_fa), mfcl = mfcl, meta = meta)
 }
 

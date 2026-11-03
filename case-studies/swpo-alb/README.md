@@ -77,14 +77,24 @@ opal (`scripts/03-convert-fit-swpo-alb-opal.r`), against M3:
 * MFCL predicts each length sample at its date, from lengths that grow through the year (from M3's `length.fit`: age 1 is 47.2 cm in model month 2 and 54.6 cm in month 7, age 5 88.7 to 91.9 cm); opal predicts them from start-of-year length-at-age (45.5 and 88.0 cm). opal's predicted catches are too small, which the fit offsets with more large, old fish, i.e. less fishing. The longline fisheries drive it (fishery 3 alone gains 16 likelihood units at a stock 20 times larger; the troll fishery 11 prefers MFCL's scale).
 * With opal's growth fitted to MFCL's mid-year length-at-age (inputs only), the B0 profile has its minimum at MFCL's scale and the CPUE fit improves (15.7 against 44.7 at MFCL's scale). O1-mid (O1 with this growth) converges at log(B0) 13.95 against MFCL's 14.04.
 * Splitting fisheries 1-7 into one fishery per season (`mfcl_split_seasonal_fisheries()`, the seasonal selectivity exactly, 36 fisheries) changes little: with start-of-year growth the profile is still unbounded; with mid-year growth its minimum is just below MFCL's scale.
-* A quarterly-age opal model (`mfcl_quarterly_ages()`: 48 quarterly ages, 276 quarterly steps, recruitment kept annual by fixing the other quarters' deviations at -30) gives each quarter MFCL's length-at-age, weight and selectivity and quarterly length compositions; at MFCL's values it reproduces MFCL's spawning biomass within 2.4%. Its B0 and steepness lose their usual meaning (one recruitment per four steps). Its B0 profile is in `scripts/04-length-comp-diagnostics.r` (to be run).
+* A quarterly-age opal model (`mfcl_quarterly_ages()`: 48 quarterly ages, 276 quarterly steps, recruitment kept annual by fixing the other quarters' deviations at -30) gives each quarter MFCL's length-at-age, weight and selectivity and quarterly length compositions; at MFCL's values it reproduces MFCL's spawning biomass within 2.4%. Its B0 and steepness lose their usual meaning (one recruitment per four steps). Its B0 profile also has its minimum at MFCL's scale, and it fits the indices far better than any annual variant (CPUE negative log-likelihood 0.66 at MFCL's scale, against 15.7 with mid-year growth and 44.7 in O1's set-up). Its depletion at MFCL's scale (0.47) is lower than the annual variants' (0.61-0.75), partly because its stock-recruitment curve is evaluated differently.
+
+| Profile over log(B0) | best log(B0) - MFCL's | rise at +5 |
+|---|---|---|
+| annual (O1's set-up) | +5 (none) | 0 |
+| annual, mid-year growth | 0 | 24.0 |
+| seasonal fisheries | +5 (none) | 0 |
+| seasonal fisheries, mid-year growth | -0.25 | 25.0 |
+| quarterly ages | 0 | 24.7 |
+
+The vignette `vignettes/swpo-alb-mfcl-to-opal.qmd` (HTML and PDF) documents the bridge, the conversion, the replays, the fits and the length-composition diagnosis, with a table of the opal features the stock would need.
 
 ## Next steps
 
-* Run `04-length-comp-diagnostics.r` (quarterly-age profile) and compare it with the annual mid-year variants.
+* O2: opal's own length-based selectivity (with the seasonal fisheries or quarterly ages, and MFCL's groupings as shared parameters).
+* A quarterly-age fit with B0 estimated, and a way to report its unfished spawning biomass.
 * O2: opal's own length-based selectivity, with MFCL's groupings as shared parameters.
 * The 0.1-1.3% residual of the M2 transplant check.
-* The vignette `vignettes/swpo-alb-mfcl-to-opal.qmd` from the caches.
 
 ## Running
 
@@ -109,4 +119,5 @@ The MFCL fits and opal fits are cached and only repeated with `SWPO_ALB_REFIT=tr
 | `scripts/02-compare-mfcl-bridge.r` | bridge comparison, cache `vignettes/data/swpo-alb-mfcl-bridge.rds` |
 | `scripts/swpo-alb-opal-setup.r` | conversion, growth, O0 and replays, sourced by 03 and 04 |
 | `scripts/03-convert-fit-swpo-alb-opal.r` | O1, O1-mid and the B0 profile; caches `vignettes/data/swpo-alb-opal-*.rds` |
+| `vignettes/swpo-alb-mfcl-to-opal.qmd` | the vignette (rendered `.html` and `.pdf` alongside); reads only `vignettes/data/` |
 | `scripts/04-length-comp-diagnostics.r` | length-composition diagnostics: B0 profiles with mid-year growth, seasonal fisheries and quarterly ages; cache `vignettes/data/swpo-alb-lf-diagnostics.rds` |

@@ -150,14 +150,14 @@ including estimation uncertainty).
 
 ```{r}
 #| label: tbl-bridge
-#| tbl-cap: "The MFCL bridge. Objective (negative log-likelihood plus penalties) and its components; spawning biomass (adult biomass, region 1) in thousand tonnes; depletion against the unfished projection (SB/SB~F=0~). M0's values for region 1 are from the two-region model."
+#| tbl-cap: "The MFCL bridge (M0 diagnostic, M1 no movement, M2 region 1 only, M3 growth fixed without age-at-length). Objective (negative log-likelihood plus penalties) and its components; region 1 spawning (adult) biomass in thousand tonnes; depletion in 2022 against the unfished projection. M0's region 1 values are from the two-region model."
 B = merge(L, TS[year == min(year), .(step, sb_1954 = sb / 1000)], by = "step")
 B = merge(B, TS[year == max(year), .(step, sb_2022 = sb / 1000, depletion)], by = "step")
-knitr::kable(B[, .(step, model = label, `n par` = n_par, objective = fmt(objective, 2),
-                   length = fmt(length_comp, 2), `age-length` = fmt(age_length, 2),
-                   CPUE = fmt(cpue, 2), `max gradient` = sci(max_gradient),
+knitr::kable(B[, .(step, objective = fmt(objective, 1),
+                   length = fmt(length_comp, 1), `age-length` = fmt(age_length, 1),
+                   CPUE = fmt(cpue, 1), `max grad.` = sci(max_gradient),
                    `SB 1954` = fmt(sb_1954, 0), `SB 2022` = fmt(sb_2022, 0),
-                   `SB/SB(F=0) 2022` = fmt(depletion, 3))], format = "pipe")
+                   depletion = fmt(depletion, 3))], format = "pipe")
 ```
 
 The diagnostic model was supplied with MFCL 2.2.7.0, which reproduces its
@@ -392,6 +392,19 @@ index fit improves, and O1-mid (O1 with mid-year growth, B0 estimated)
 converges at log(B0) `r fmt(o1m_lb, 2)` against MFCL's `r fmt(lb_mfcl, 2)`.
 The length compositions on their own still favour a somewhat larger stock
 than MFCL's.
+
+The quarterly-age model, which gives each quarter MFCL's length-at-age and
+selectivity and fits the length compositions by quarter, also has its
+minimum at MFCL's scale and fits the indices far better than any annual
+variant (CPUE negative log-likelihood
+`r fmt(P[variant == "quarterly" & abs(dlog_B0) < 1e-8, cpue], 2)` at MFCL's
+scale, against `r fmt(P[variant == "annual-mid" & abs(dlog_B0) < 1e-8, cpue], 2)`
+for annual-mid and `r fmt(P[variant == "annual" & abs(dlog_B0) < 1e-8, cpue], 2)`
+for the O1 set-up). Its depletion at MFCL's scale
+(`r fmt(P[variant == "quarterly" & abs(dlog_B0) < 1e-8, depletion_end], 3)`) is
+lower than the annual variants', partly because its stock-recruitment curve
+is evaluated differently (@sec-seasonal); its B0 is not comparable with the
+annual models' beyond being a scale.
 
 ```{r}
 #| label: fig-fits

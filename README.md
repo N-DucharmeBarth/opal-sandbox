@@ -54,7 +54,7 @@ Each case study is laid out the same way, with only the folders it needs:
 | [`io-yft`](case-studies/io-yft) | IATTC team's SS3 model of simulated Indian Ocean yellowfin (Spatial Stock Assessment Simulation Experiment) | Converted to opal, tested and fitted; source of opal's `io_yft_*` data and articles |
 | [`npo-bsh`](case-studies/npo-bsh) | 2022 ISC North Pacific blue shark assessment (SS3 3.30, two sexes; S6_base, one of the three ensemble models) | SS3 bridge to a single-sex model; converted to opal, tested and fitted; vignette documents opal's limitations against SS3 |
 | [`epo-bet`](case-studies/epo-bet) | IATTC SAC-14 (2023) exploratory SS3 model of eastern Pacific bigeye tuna (SS3 3.30, quarterly, growth cessation) | One-step SS3 bridge (no initial regime offset); converted to opal, tested and fitted; vignette documents the catch-timing difference that dominates in a quarterly model |
-| [`swpo-alb`](case-studies/swpo-alb) | 2024 WCPFC south Pacific albacore diagnostic model (MFCL 2.2.7.0, two regions, annual ages with quarterly/monthly fishing) | MFCL bridge to region 1 (no movement, region 1 only, growth fixed without age-at-length); converted to opal and replayed; opal fit with MFCL's selectivity is unbounded in scale (length compositions); vignette to do |
+| [`swpo-alb`](case-studies/swpo-alb) | 2024 WCPFC south Pacific albacore diagnostic model (MFCL 2.2.7.0, two regions, annual ages with quarterly/monthly fishing) | MFCL bridge to region 1 (no movement, region 1 only, growth fixed without age-at-length); converted to opal and replayed; opal fit with MFCL's selectivity is unbounded in scale until opal's growth matches MFCL's within-year lengths; quarterly-age set-up; vignette documents what opal would need |
 
 ### Adding a case study
 

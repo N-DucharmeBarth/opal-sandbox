@@ -24,7 +24,10 @@
     lengths. With opal's growth at MFCL's mid-year lengths (O1-mid) the fit
     converges at MFCL's scale (log B0 13.95 against 14.04). Seasonal fishery
     splits (`mfcl_split_seasonal_fisheries()`) change little; a quarterly-age
-    set-up (`mfcl_quarterly_ages()`) is in place for comparison.
+    set-up (`mfcl_quarterly_ages()`: quarterly ages and steps, recruitment
+    kept annual) also profiles to MFCL's scale and fits the indices best.
+    The vignette `vignettes/swpo-alb-mfcl-to-opal.qmd` (HTML and PDF)
+    documents the case study and the opal features the stock would need.
 
 - 2026/10/28: North Pacific blue shark case study (`case-studies/npo-bsh/`).
   - An SS3 bridge from the 2022 ISC assessment (S6, two sexes) to a

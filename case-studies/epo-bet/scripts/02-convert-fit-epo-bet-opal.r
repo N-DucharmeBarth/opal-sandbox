@@ -382,22 +382,44 @@
     # opal's conversion carries them as fixed). Neither model has an initial
     # catch in its likelihood, so the initial Fs are informed only by what
     # the initial age structure does to the index and the compositions.
-    # Started from O1's estimates, with OBJ-A5's initial F moved off ~0
-    # (1.8e-7 -> 0.001) so its gradient is not vanishingly small.
+    # Two starts from O1's estimates: (a) O1's initial Fs, with OBJ-A5's
+    # moved off ~0 (1.8e-7 -> 0.001) so its gradient is not vanishingly
+    # small, and (b) SS3 B1-F's estimates (scripts/01, 03-no-regime-init-f).
+    # The lower objective is kept.
     init_f_fisheries = c(2L, 19L)
-    o1f = o1
-    p1f = fit_o1$fit$parameters
-    p1f$log_init_F_f[19] = log(0.001)
-    o1f = opal_update(o1f, parameters = p1f)
-    m1f = base_map(o1f)
-    m1f$log_init_F_f = factor(replace(rep(NA_integer_, n_f), init_f_fisheries,
-                                      seq_along(init_f_fisheries)))
-    o1f = opal_update(o1f, map = m1f) %>% build_with_q_bounds()
-    fit_o1f = if (refit || is.null(saved$`O1-F`)) fit_opal(o1f) else saved$`O1-F`
-    if (refit || is.null(saved$`O1-F`)) {
-        saveRDS(list(O1 = fit_o1, O2 = fit_o2, `O1-F` = fit_o1f), fits_file, compress = "xz")
+    par_b1f = readLines(file.path(proj_dir, "case-studies", "epo-bet", "model-files", "ss3",
+                                  "03-no-regime-init-f", "ss3.par"))
+    init_f_b1f = as.numeric(par_b1f[match(c("# init_F[1]:", "# init_F[2]:"), par_b1f) + 1L])
+    o1f_start = function(init_f) {
+        p = fit_o1$fit$parameters
+        p$log_init_F_f[init_f_fisheries] = log(pmax(init_f, 1e-8))
+        x = opal_update(o1, parameters = p)
+        m = base_map(x)
+        m$log_init_F_f = factor(replace(rep(NA_integer_, n_f), init_f_fisheries,
+                                        seq_along(init_f_fisheries)))
+        opal_update(x, map = m) %>% build_with_q_bounds()
     }
-    print(exp(fit_o1f$fit$parameters$log_init_F_f[init_f_fisheries]))
+    o1f = o1f_start(c(exp(fit_o1$fit$parameters$log_init_F_f[2]), 0.001))
+    o1f_b = o1f_start(init_f_b1f)
+    have_o1f = !refit && !is.null(saved$`O1-F`) && !is.null(saved$`O1-F-start`)
+    if (have_o1f) {
+        fit_o1f = saved$`O1-F`
+        o1f_starts = saved$`O1-F-start`
+    } else {
+        fits_f = list(a = fit_opal(o1f), b = fit_opal(o1f_b))
+        o1f_starts = data.table(
+            start = c("O1, OBJ-A5 at 0.001", "SS3 B1-F"),
+            init_f_ll_start = c(exp(fit_o1$fit$parameters$log_init_F_f[2]), init_f_b1f[1]),
+            init_f_obj_start = c(0.001, init_f_b1f[2]),
+            objective = vapply(fits_f, function(f) f$fit$opt$objective, numeric(1L)),
+            init_f_ll = vapply(fits_f, function(f) exp(f$fit$parameters$log_init_F_f[2]), numeric(1L)),
+            init_f_obj = vapply(fits_f, function(f) exp(f$fit$parameters$log_init_F_f[19]), numeric(1L)),
+            check_passes = vapply(fits_f, function(f) isTRUE(f$validation$fit$passes), logical(1L)))
+        fit_o1f = fits_f[[which.min(o1f_starts$objective)]]
+        saveRDS(list(O1 = fit_o1, O2 = fit_o2, `O1-F` = fit_o1f, `O1-F-start` = o1f_starts),
+                fits_file, compress = "xz")
+    }
+    print(o1f_starts)
 
 #_____________________________________________________________________________
 # Diagnostics: what moves O1 away from SS3
@@ -548,6 +570,7 @@
         trajectory  = trajectory,
         cpue        = cpue,
         comps       = comps,
-        selectivity = selectivity
+        selectivity = selectivity,
+        init_f_starts = o1f_starts
     )
     saveRDS(cache, file.path(dir_cache, "epo-bet-opal-cache.rds"), compress = "xz")

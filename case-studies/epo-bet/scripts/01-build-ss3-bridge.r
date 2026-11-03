@@ -103,9 +103,16 @@
     ctl$SR_parms_tv = NULL
     inputs$ctl = ctl
     # start from 00's estimates, without the offset (SR_parm 6). Skipped when
-    # the step has already been run (EPO_BET_RERUN=true runs it again).
-    done = function(step) file.exists(file.path(dir_ss3, step, "admodel.cov")) &&
-        !identical(Sys.getenv("EPO_BET_RERUN"), "true")
+    # the step has already been run: its Report.sso (committed, unlike
+    # admodel.cov) comes from SS3 3.30.22.1 and has an inverted Hessian.
+    # EPO_BET_RERUN=true runs it again.
+    done = function(step) {
+        f = file.path(dir_ss3, step, "Report.sso")
+        if (!file.exists(f) || identical(Sys.getenv("EPO_BET_RERUN"), "true")) return(FALSE)
+        h = readLines(f, n = 40L)
+        grepl("3.30.22.1", h[1], fixed = TRUE) &&
+            any(grepl("^Hessian: [-0-9.e+]+ is ln\\(determinant\\)\\.?$", h))
+    }
     if (!done("01-no-regime")) {
         run_step(inputs, "01-no-regime", par_lines = par_without("00-base", "SR_parm[6]"))
     }
@@ -161,6 +168,10 @@
         if (length(v) == 0L || is.na(v)) NA_real_ else v
     }
     lk_val = function(lk, comp) if (comp %in% rownames(lk)) lk[comp, "values"] else NA_real_
+    hessian_inverted = function(step) {
+        h = readLines(file.path(dir_ss3, step, "Report.sso"), n = 40L)
+        any(grepl("^Hessian: [-0-9.e+]+ is ln\\(determinant\\)\\.?$", h))
+    }
     par_val = function(rep, label, col = "Value") {
         x = rep$parameters
         if (label %in% rownames(x)) x[label, col] else NA_real_
@@ -179,7 +190,8 @@
             nll_sizefreq  = lk_val(lk, "SizeFreq"),
             nll_recruit   = lk_val(lk, "Recruitment"),
             max_gradient  = rep$maximum_gradient_component,
-            hessian_ok    = !is.null(rep$CoVar) && isTRUE(rep$log_det_hessian > -Inf),
+            # from the Report.sso header (covar.sso is not kept in git)
+            hessian_ok    = hessian_inverted(all_steps[i]),
             ln_r0         = rep$parameters["SR_LN(R0)", "Value"],
             regime        = if ("SR_regime_BLK1add_16" %in% rownames(rep$parameters))
                                 rep$parameters["SR_regime_BLK1add_16", "Value"] else 0,

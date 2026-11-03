@@ -57,7 +57,7 @@ G = opal_c$growth_fit
 TM = opal_c$timing
 qtr_to_year = function(q) 1975 + (q - 17) / 4
 model_col = c("SS3 B1" = "grey20", O0 = "#7D3C98", O1 = "#2471A3", O2 = "#C0392B",
-              `O1-noComp` = "#CA6F1E")
+              `O1-noComp` = "#CA6F1E", `O1-F` = "#17A589")
 fleets = opal_c$fleets
 ```
 
@@ -97,6 +97,10 @@ say nothing about how opal would compare with them.
   for this stock.
 * **opal fits** (@sec-fits) estimate the scale and recruitment with SS3's
   selectivity held fixed (O1) and with opal's own double normals (O2).
+* **Initial F** (@sec-init-f). SS3 fixes the initial F of the two fleets with
+  an initial equilibrium catch (LL-n-A2 and OBJ-A5). Estimating them adds
+  nothing with the regime offset on (B0-F), but without it (B1-F, and opal's
+  O1-F) the initial F takes over much of the offset's job.
 
 # The model {#sec-model}
 
@@ -450,8 +454,8 @@ ggplot(TM[ssb > 0], aes(year, rel, colour = variant)) + geom_hline(yintercept = 
 
 # opal fits {#sec-fits}
 
-Growth, h, sigma~R~, M, the biology and the initial F stay at SS3's values,
-as they are fixed in SS3 (except SD_young, held at SS3's estimate); opal's
+Growth, h, sigma~R~, M, the biology and the initial F stay at SS3's values
+(except in O1-F, @sec-init-f), as they are fixed in SS3 (except SD_young, held at SS3's estimate); opal's
 default priors are switched off, as SS3 has no parameter priors. Both fits
 estimate B~0~, the survey catchability, the main and late recruitment
 deviations and the initial age structure; the last deviation, which belongs
@@ -562,6 +566,128 @@ ggplot(sel, aes(age, sel, colour = model)) + geom_line(linewidth = 0.6) +
     theme(strip.text = element_text(size = 7))
 ```
 
+# Estimating the initial F {#sec-init-f}
+
+SS3 starts the population from an equilibrium fished at an initial F for
+each fleet with an initial equilibrium catch. In this model those are
+LL-n-A2 and OBJ-A5, with an arbitrary catch of 999 and lambda 0 on the
+initial-catch likelihood, so their initial Fs are not tied to a catch; the
+control file fixes them (phase -1) at `r sci(B[1, init_f_ll], 1)` and
+`r sci(B[1, init_f_obj], 1)` per quarter, an almost unfished start. The
+regime offset is what depletes the initial state in B0 (@sec-bridge).
+opal has the same parameter (`log_init_F_f`, one per fishery, applied with
+each fishery's selectivity in the initial equilibrium), and the conversion
+carries SS3's values over as fixed. Neither model has an initial catch in its
+likelihood, so the initial Fs are informed only by what the initial age
+structure does to the index and the compositions. Four runs estimate them:
+
+* **B0-F**: B0 (regime offset on) with both initial Fs estimated;
+* **B1-F**: B1 (regime offset off) with both initial Fs estimated, the SS3
+  counterpart of opal (which has no regime offset, so there is no opal run
+  with the offset on);
+* **O1-F**: opal O1 with the initial F of the same two fisheries estimated.
+
+Each starts from its parent's estimates, with OBJ-A5's initial F moved off
+~0 to 0.001.
+
+```{r}
+#| label: tbl-init-f
+#| tbl-cap: "Estimating the initial F (per quarter; SS3's SE in brackets). Initial depletion is the SSB at the start of 1975 Q1 relative to unfished; final depletion is in 2021 Q4. SS3's NLL and opal's objective are not comparable with each other; compare within each model."
+IF = bridge$init_f
+fs = IF$summary
+f_se = function(v, se) ifelse(is.na(se) | se == 0, sci(v, 1), sprintf("%s (%s)", sci(v, 1), sci(se, 1)))
+ss3_init = IF$timeseries[era == "TIME", .SD[1], by = step]
+fs[, init_dep := ss3_init$depletion[match(step, ss3_init$step)]]
+ss3_tab = fs[, .(model = sub(" .*", "", label), `regime offset` = ifelse(regime == 0, "off", fmt(regime, 3)),
+                 `initial F LL-n-A2` = f_se(init_f_ll, init_f_ll_se),
+                 `initial F OBJ-A5` = f_se(init_f_obj, init_f_obj_se),
+                 `NLL / objective` = fmt(nll, 2), `max gradient` = sci(max_gradient, 1),
+                 `Hessian PD` = as.character(hessian_ok),
+                 `SSB0 (t)` = fmt(ssb0, 0), `initial depletion` = fmt(init_dep, 3),
+                 `final depletion` = fmt(depletion, 3))]
+op_tab = S[model %in% c("O1", "O1-F"),
+           .(model, `regime offset` = "none",
+             `initial F LL-n-A2` = sci(init_f_ll, 1), `initial F OBJ-A5` = sci(init_f_obj, 1),
+             `NLL / objective` = fmt(objective, 2), `max gradient` = sci(max_gradient, 1),
+             `Hessian PD` = as.character(positive_hessian),
+             `SSB0 (t)` = fmt(B0, 0), `initial depletion` = fmt(init_depletion, 3),
+             `final depletion` = fmt(depletion_end, 3))]
+knitr::kable(rbind(ss3_tab, op_tab), format = "pipe")
+```
+
+```{r}
+#| label: init-f-text
+b0 = fs[step == "00-base"]; b1 = fs[step == "01-no-regime"]
+b0f = fs[step == "02-base-init-f"]; b1f = fs[step == "03-no-regime-init-f"]
+o1 = S[model == "O1"]; o1f = S[model == "O1-F"]
+gain_b1 = b1$nll - b1f$nll
+lost = b1$nll - b0$nll
+```
+
+**With the regime offset on (B0-F)** the initial Fs add nothing: the
+likelihood changes by `r fmt(b0$nll - b0f$nll, 3)` units, the offset stays
+at `r fmt(b0f$regime, 2)`, OBJ-A5's initial F returns to its lower bound and
+LL-n-A2's moves to `r sci(b0f$init_f_ll, 1)` with an SE of
+`r sci(b0f$init_f_ll_se, 1)`, many times the estimate. With the offset
+present the data cannot separate a lower initial recruitment from a
+fished initial equilibrium, so the initial F is not estimable alongside it.
+
+**Without the offset (B1-F)** the initial F does much of the offset's job.
+The likelihood improves by `r fmt(gain_b1, 2)` of the `r fmt(lost, 2)` units
+lost by removing the offset, through OBJ-A5's initial F
+(`r sci(b1f$init_f_obj, 1)` per quarter, SE `r sci(b1f$init_f_obj_se, 1)`),
+while LL-n-A2's goes to its lower bound. The initial depletion falls from
+`r fmt(b1$init_dep, 3)` (B1) to `r fmt(b1f$init_dep, 3)`, against
+`r fmt(b0$init_dep, 3)` in B0, and the 2021 Q4 depletion is
+`r fmt(b1f$depletion, 3)` against `r fmt(b0$depletion, 3)` (B0) and
+`r fmt(b1$depletion, 3)` (B1). The two mechanisms are not the same: the
+regime offset scales every initial age class by one factor, while an initial
+F through OBJ-A5's selectivity thins the ages that fishery takes and
+everything older (@fig-init-natage).
+
+**In opal (O1-F)** `r if (isTRUE(o1f$check_passes)) "the fit converges and passes opal's fit check" else sprintf("the fit does not pass opal's fit check (maximum gradient %s)", sci(o1f$max_gradient, 1))`.
+The initial Fs are `r sci(o1f$init_f_ll, 1)` (LL-n-A2) and
+`r sci(o1f$init_f_obj, 1)` (OBJ-A5) per quarter, the objective changes by
+`r fmt(o1$objective - o1f$objective, 2)` units from O1, and the initial and
+2021 Q4 depletions are `r fmt(o1f$init_depletion, 3)` and
+`r fmt(o1f$depletion_end, 3)` (O1: `r fmt(o1$init_depletion, 3)` and
+`r fmt(o1$depletion_end, 3)`). opal applies the initial F as a harvest
+fraction at the start of the quarter, 1 - exp(-F), before natural mortality,
+where SS3's initial equilibrium uses its catch equation; at these levels the
+difference is small next to the catch-timing difference of @sec-o0, which
+O1-F inherits.
+
+```{r}
+#| label: fig-init-f
+#| fig-height: 4
+#| fig-cap: "Spawning biomass relative to unfished: the SS3 runs with the initial F fixed (B0, B1) and estimated (B0-F, B1-F), and opal O1 and O1-F."
+ts_f = IF$timeseries[era == "TIME", .(model = sub(" .*", "", label), year, depletion)]
+tr_f = opal_c$trajectory[model %in% c("O1", "O1-F"), .(model, year, depletion)]
+dd = rbind(ts_f, tr_f)
+dd[, model := factor(model, levels = c("B0", "B0-F", "B1", "B1-F", "O1", "O1-F"))]
+ggplot(dd, aes(year, depletion, colour = model, linetype = model)) +
+    geom_line(linewidth = 0.6) +
+    scale_colour_manual(values = c(B0 = "grey20", `B0-F` = "grey20", B1 = "#2471A3", `B1-F` = "#2471A3",
+                                   O1 = "#C0392B", `O1-F` = "#C0392B")) +
+    scale_linetype_manual(values = c(B0 = "solid", `B0-F` = "dashed", B1 = "solid", `B1-F` = "dashed",
+                                     O1 = "solid", `O1-F` = "dashed")) +
+    labs(x = NULL, y = "SSB / SSB0", colour = NULL, linetype = NULL)
+```
+
+```{r}
+#| label: fig-init-natage
+#| fig-height: 4
+#| fig-cap: "SS3's numbers-at-age at the start of 1975 Q1 relative to B1's (log scale): the regime offset (B0) lowers every age by about the same factor; the estimated initial F (B1-F) mostly lowers the older ages."
+na = copy(IF$natage)
+na[, rel := n / n[step == "01-no-regime"], by = age]
+na[, model := factor(sub(" .*", "", label), levels = c("B0", "B0-F", "B1", "B1-F"))]
+ggplot(na[step != "01-no-regime"], aes(age, rel, colour = model)) +
+    geom_hline(yintercept = 1, colour = "grey60") +
+    geom_line(linewidth = 0.7) + scale_y_log10() +
+    scale_colour_manual(values = c(B0 = "grey20", `B0-F` = "grey55", `B1-F` = "#2471A3")) +
+    labs(x = "Age (quarters)", y = "Numbers / B1's numbers", colour = NULL)
+```
+
 # Limitations and differences from SS3 {#sec-limitations}
 
 ## Not available in opal
@@ -587,7 +713,9 @@ ggplot(sel, aes(age, sel, colour = model)) + geom_line(linewidth = 0.6) +
   with sigma~R~ (about 10 likelihood units for an offset of -0.41 on 41
   ages), so a fit would pull the initial state back towards unfished. An
   unpenalised offset on the initial equilibrium (one parameter in opal's
-  initial numbers) would let opal be converted from B0 directly.
+  initial numbers) would let opal be converted from B0 directly. Estimating
+  the initial F (B1-F, O1-F; @sec-init-f) recovers part of what the offset
+  does, with a different initial age structure.
 * **Age selectivity combined with size selectivity.** SS3 multiplies each
   fleet's length-based curve by an age curve (pattern 10: 0 at age 0;
   pattern 11 for the discards); opal has one or the other per fishery.

@@ -60,8 +60,9 @@ studies and `tests/testthat/` the tests of the shared code, which
   SD-linear growth variability (CV_Growth_Pattern 2), converted with
   `cfg$growth$model: cessation` (needs opal >= 0.1.2).
 * `scripts/01-build-ss3-bridge.r`: re-runs 00-base and builds 01-no-regime
-  (~1 h with Hessians; a step with `admodel.cov` is skipped unless
-  `EPO_BET_RERUN=true`). 01 starts from 00's par file: from the control
+  (~1 h with Hessians; a step whose `Report.sso` is from 3.30.22.1 with an
+  inverted Hessian is skipped unless `EPO_BET_RERUN=true`), then the two
+  initial-F sensitivities 02-base-init-f and 03-no-regime-init-f. 01 starts from 00's par file: from the control
   file's INIT values the recruitment deviations are 0 and the stock crashes.
 * `scripts/02-convert-fit-epo-bet-opal.r`: conversion, O0 and the opal fits
   (cached; `EPO_BET_REFIT=true` refits), the catch-timing replays, and the

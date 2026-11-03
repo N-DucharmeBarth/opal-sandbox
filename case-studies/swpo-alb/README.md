@@ -72,9 +72,16 @@ opal (`scripts/03-convert-fit-swpo-alb-opal.r`), against M3:
 * Growth in opal's form (age-specific K at ages 1-4) matches MFCL's mean lengths with an RMSE of 0.52 cm and SDs within 0.47 cm.
 * O1 (MFCL's selectivity fixed; B0, recruitment deviations 1955-2020 and catchabilities estimated) runs to the upper bound of log(B0). A profile over B0 shows the CPUE (best near MFCL's scale) and the recruitment penalty against the length compositions, which keep improving towards an unexploited stock. With annual multinomial compositions and MFCL's Francis divisors, the length data do not bound the scale in opal.
 
+### Why the length compositions favour an unexploited stock
+
+* MFCL predicts each length sample at its date, from lengths that grow through the year (from M3's `length.fit`: age 1 is 47.2 cm in model month 2 and 54.6 cm in month 7, age 5 88.7 to 91.9 cm); opal predicts them from start-of-year length-at-age (45.5 and 88.0 cm). opal's predicted catches are too small, which the fit offsets with more large, old fish, i.e. less fishing. The longline fisheries drive it (fishery 3 alone gains 16 likelihood units at a stock 20 times larger; the troll fishery 11 prefers MFCL's scale).
+* With opal's growth fitted to MFCL's mid-year length-at-age (inputs only), the B0 profile has its minimum at MFCL's scale and the CPUE fit improves (15.7 against 44.7 at MFCL's scale). O1-mid (O1 with this growth) converges at log(B0) 13.95 against MFCL's 14.04.
+* Splitting fisheries 1-7 into one fishery per season (`mfcl_split_seasonal_fisheries()`, the seasonal selectivity exactly, 36 fisheries) changes little: with start-of-year growth the profile is still unbounded; with mid-year growth its minimum is just below MFCL's scale.
+* A quarterly-age opal model (`mfcl_quarterly_ages()`: 48 quarterly ages, 276 quarterly steps, recruitment kept annual by fixing the other quarters' deviations at -30) gives each quarter MFCL's length-at-age, weight and selectivity and quarterly length compositions; at MFCL's values it reproduces MFCL's spawning biomass within 2.4%. Its B0 and steepness lose their usual meaning (one recruitment per four steps). Its B0 profile is in `scripts/04-length-comp-diagnostics.r` (to be run).
+
 ## Next steps
 
-* Find why the length compositions favour an unexploited stock in opal (annual aggregation of incident samples, multinomial against MFCL's robust normal, the divisors, index fisheries predicted at the start of the year), e.g. by fitting without them and with re-weighted compositions.
+* Run `04-length-comp-diagnostics.r` (quarterly-age profile) and compare it with the annual mid-year variants.
 * O2: opal's own length-based selectivity, with MFCL's groupings as shared parameters.
 * The 0.1-1.3% residual of the M2 transplant check.
 * The vignette `vignettes/swpo-alb-mfcl-to-opal.qmd` from the caches.
@@ -100,4 +107,6 @@ The MFCL fits and opal fits are cached and only repeated with `SWPO_ALB_REFIT=tr
 | `scripts/mfcl-edit-helpers.r` | `.frq`/`.ini`/`.par` edits for the bridge (one region, no movement) |
 | `scripts/01-build-mfcl-bridge.r` | builds and fits M0-M3 |
 | `scripts/02-compare-mfcl-bridge.r` | bridge comparison, cache `vignettes/data/swpo-alb-mfcl-bridge.rds` |
-| `scripts/03-convert-fit-swpo-alb-opal.r` | conversion, O0, replays, O1; caches `vignettes/data/swpo-alb-opal-*.rds` |
+| `scripts/swpo-alb-opal-setup.r` | conversion, growth, O0 and replays, sourced by 03 and 04 |
+| `scripts/03-convert-fit-swpo-alb-opal.r` | O1, O1-mid and the B0 profile; caches `vignettes/data/swpo-alb-opal-*.rds` |
+| `scripts/04-length-comp-diagnostics.r` | length-composition diagnostics: B0 profiles with mid-year growth, seasonal fisheries and quarterly ages; cache `vignettes/data/swpo-alb-lf-diagnostics.rds` |

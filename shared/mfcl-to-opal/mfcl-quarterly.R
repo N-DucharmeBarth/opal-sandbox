@@ -153,13 +153,28 @@ mfcl_quarterly_ages = function(cv, laa_month, fish_months = c(2, 5, 8, 11), n_k_
 
 #' Match a quarterly-age model to MFCL's initial numbers and recruitment
 #' (the quarterly analogue of mfcl_match_recruitment()).
-mfcl_match_recruitment_quarterly = function(qm, mf, report_fn, max_iter = 50L, tol = 1e-12) {
+#'
+#' B0 is set so that opal's unfished recruitment per step equals MFCL's
+#' annual unfished recruitment (R0 = alpha - beta / SPR0 from MFCL's
+#' Beverton-Holt curve and the annual biology in `cv`): with one recruitment a
+#' year, unfished spawning biomass is then MFCL's B0, and opal's B0 is about
+#' four times it.
+mfcl_match_recruitment_quarterly = function(qm, mf, report_fn, cv = NULL, max_iter = 50L, tol = 1e-12) {
     d = qm$data
     p = qm$parameters
     nq = d$n_age
     S = exp(-d$M)
     rel = cumprod(c(1, S[-nq]))
     rel[nq] = rel[nq] / (1 - S[nq])
+    if (!is.null(cv)) {
+        da = cv$data
+        Sa = exp(-da$M)
+        rel_a = cumprod(c(1, Sa[-da$n_age]))
+        rel_a[da$n_age] = rel_a[da$n_age] / (1 - Sa[da$n_age])
+        R0_annual = mf$bh[["alpha"]] - mf$bh[["beta"]] / sum(da$spawning_potential * rel_a)
+        p$log_B0 = log(R0_annual * sum(d$spawning_potential * rel))
+        p$log_h = log(mf$bh[["steepness"]])
+    }
     R0 = exp(p$log_B0) / sum(d$spawning_potential * rel)
     # first-year numbers: class a in quarterly age 4 (a - 1) + 1; the plus
     # group (class n_age) in the first quarter of its class; the rest ~0

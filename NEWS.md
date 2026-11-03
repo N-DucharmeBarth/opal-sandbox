@@ -19,6 +19,12 @@
     with MFCL's selectivity (O1), opal's scale is unbounded: CPUE and the
     recruitment penalty favour MFCL's scale but the annual length
     compositions favour an unexploited stock.
+  - The cause is length-at-age timing: MFCL predicts each length sample at
+    its date with lengths that grow through the year, opal from start-of-year
+    lengths. With opal's growth at MFCL's mid-year lengths (O1-mid) the fit
+    converges at MFCL's scale (log B0 13.95 against 14.04). Seasonal fishery
+    splits (`mfcl_split_seasonal_fisheries()`) change little; a quarterly-age
+    set-up (`mfcl_quarterly_ages()`) is in place for comparison.
 
 - 2026/10/28: North Pacific blue shark case study (`case-studies/npo-bsh/`).
   - An SS3 bridge from the 2022 ISC assessment (S6, two sexes) to a

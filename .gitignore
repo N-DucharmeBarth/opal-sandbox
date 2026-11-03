@@ -44,6 +44,7 @@
 !case-studies/swpo-alb/model-files/mfcl/03-fixed-growth/start.par
 !case-studies/swpo-alb/model-files/mfcl/03-fixed-growth/03.par
 !case-studies/swpo-alb/model-files/mfcl/03-fixed-growth/plot-03.par.rep
+!case-studies/swpo-alb/model-files/mfcl/03-fixed-growth/length.fit
 # r files
 !*.r
 !*.rds
@@ -70,6 +71,7 @@
 !case-studies/io-yft/vignettes/ss3-to-opal-workflow.html
 !case-studies/npo-bsh/vignettes/npo-bsh-ss3-to-opal.html
 !case-studies/epo-bet/vignettes/epo-bet-ss3-to-opal.html
+!case-studies/swpo-alb/vignettes/swpo-alb-mfcl-to-opal.html
 # stock synthesis
 !control.ss
 !data.ss

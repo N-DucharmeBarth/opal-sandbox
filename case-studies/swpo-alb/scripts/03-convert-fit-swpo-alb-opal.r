@@ -131,8 +131,18 @@
     mfcl_pred = unlist(lapply(cv$meta$index_fisheries, function(f) mf$pred_cpue[[f]]))
     cpue_fit[model == "MFCL M3", pred := exp(mfcl_pred + log(obs) - mf$obs_cpue[cv$meta$index_fisheries] %>% unlist())]
 
+    fisheries = data.table(
+        fishery = seq_len(d0$n_fishery), mfcl_diagnostic = c(1:13, 18, 19), name = fishery_names,
+        units = ifelse(d0$catch_units_f == 1, "weight (t)", "numbers"),
+        sel_seasons = vapply(seq_len(d0$n_fishery), function(f)
+            length(unique(apply(round(mf$sel_fsa[f, , ], 10), 1, paste, collapse = " "))), integer(1)),
+        lf_divisor = cv$meta$lf_var_adjust,
+        lf_quarters = vapply(seq_len(d0$n_fishery), function(f) sum(cv$lf_season$fishery == f), integer(1)),
+        lf_years = vapply(seq_len(d0$n_fishery), function(f) sum(cv$lf$fishery == f), integer(1)),
+        catch_total = vapply(seq_len(d0$n_fishery), function(f) sum(d0$catch_obs_ysf[, , f]), numeric(1)))
     saveRDS(list(
-        meta = cv$meta, fishery_names = fishery_names, growth = growth_check,
+        meta = cv$meta, fishery_names = fishery_names, fisheries = fisheries,
+        n_lf_incident_samples = nrow(cv$lf_season), growth = growth_check,
         o0_check = o0_check, trajectory = trajectory, replays = replays, cpue = cpue_fit,
         selectivity = list(seasonal = mf$sel_fsa, average = d0$sel_fa_external,
                            weights = cv$meta$sel_weights_fs),

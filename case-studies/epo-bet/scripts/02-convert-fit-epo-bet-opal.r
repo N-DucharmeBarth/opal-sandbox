@@ -399,26 +399,30 @@
                                         seq_along(init_f_fisheries)))
         opal_update(x, map = m) %>% build_with_q_bounds()
     }
-    o1f = o1f_start(c(exp(fit_o1$fit$parameters$log_init_F_f[2]), 0.001))
-    o1f_b = o1f_start(init_f_b1f)
-    have_o1f = !refit && !is.null(saved$`O1-F`) && !is.null(saved$`O1-F-start`)
-    if (have_o1f) {
-        fit_o1f = saved$`O1-F`
-        o1f_starts = saved$`O1-F-start`
-    } else {
-        fits_f = list(a = fit_opal(o1f), b = fit_opal(o1f_b))
-        o1f_starts = data.table(
-            start = c("O1, OBJ-A5 at 0.001", "SS3 B1-F"),
-            init_f_ll_start = c(exp(fit_o1$fit$parameters$log_init_F_f[2]), init_f_b1f[1]),
-            init_f_obj_start = c(0.001, init_f_b1f[2]),
-            objective = vapply(fits_f, function(f) f$fit$opt$objective, numeric(1L)),
-            init_f_ll = vapply(fits_f, function(f) exp(f$fit$parameters$log_init_F_f[2]), numeric(1L)),
-            init_f_obj = vapply(fits_f, function(f) exp(f$fit$parameters$log_init_F_f[19]), numeric(1L)),
-            check_passes = vapply(fits_f, function(f) isTRUE(f$validation$fit$passes), logical(1L)))
-        fit_o1f = fits_f[[which.min(o1f_starts$objective)]]
-        saveRDS(list(O1 = fit_o1, O2 = fit_o2, `O1-F` = fit_o1f, `O1-F-start` = o1f_starts),
-                fits_file, compress = "xz")
+    # Each start's fit is saved as soon as it finishes (a rerun picks up
+    # where it stopped): the fits are memory-hungry, and with several built
+    # models alive this script can exhaust a 15 GB container
+    starts = data.table(
+        start = c("O1, OBJ-A5 at 0.001", "SS3 B1-F"),
+        init_f_ll_start  = c(exp(fit_o1$fit$parameters$log_init_F_f[2]), init_f_b1f[1]),
+        init_f_obj_start = c(0.001, init_f_b1f[2]))
+    starts_file = file.path(dir_cache, "epo-bet-opal-fits-init-f-starts.rds")
+    fits_f = if (!refit && file.exists(starts_file)) readRDS(starts_file) else list()
+    for (k in seq_len(nrow(starts))) {
+        if (length(fits_f) >= k && !is.null(fits_f[[k]])) next
+        fits_f[[k]] = fit_opal(o1f_start(c(starts$init_f_ll_start[k], starts$init_f_obj_start[k])))
+        saveRDS(fits_f, starts_file, compress = "xz")
+        invisible(gc())
     }
+    o1f_starts = cbind(starts, data.table(
+        objective  = vapply(fits_f, function(f) f$fit$opt$objective, numeric(1L)),
+        init_f_ll  = vapply(fits_f, function(f) exp(f$fit$parameters$log_init_F_f[2]), numeric(1L)),
+        init_f_obj = vapply(fits_f, function(f) exp(f$fit$parameters$log_init_F_f[19]), numeric(1L)),
+        check_passes = vapply(fits_f, function(f) isTRUE(f$validation$fit$passes), logical(1L))))
+    fit_o1f = fits_f[[which.min(o1f_starts$objective)]]
+    rm(fits_f)
+    invisible(gc())
+    saveRDS(list(O1 = fit_o1, O2 = fit_o2, `O1-F` = fit_o1f), fits_file, compress = "xz")
     print(o1f_starts)
 
 #_____________________________________________________________________________

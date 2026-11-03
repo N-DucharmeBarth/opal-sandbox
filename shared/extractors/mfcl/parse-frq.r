@@ -118,6 +118,11 @@ parse_frq = function(frq_path){
     # if has values beyond 7 + LFIntervals and has lf then wf 
     # OR
     # column 8 is -1 and column 9 is 0 or greater
+    # no weight-frequency data (WFIntervals = 0): records carry no WF field
+    if (lf_range(outFrq)["WFIntervals"] == 0) {
+        wtfrq(outFrq) = data.frame()
+        return(outFrq)
+    }
     wf_index_a = which((fi_mat[,9]>=0 & fi_mat[,8]== -1))
     wf_index_b = which(fi_mat[,8]>=0 & fi_mat[,7+lf_range(outFrq)[2]+1]>0)
 

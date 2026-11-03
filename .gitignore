@@ -3,6 +3,7 @@
 # except sub-directories
 !*/
 !executables/mfcl/2.0.7.0/mfclo64
+!executables/mfcl/2.2.7.0/mfclo64
 !executables/stock-synthesis/3.30.23.1/ss3_linux
 !executables/stock-synthesis/3.30.23.1/ss3_win.exe
 !executables/stock-synthesis/3.30.22.1/ss3_linux
@@ -21,6 +22,28 @@
 !case-studies/wcpo-bet/model-files/mfcl/v11/weight.fit
 !condor_doitall.bet
 !doitall.condor
+# south-west Pacific albacore MFCL bridge (case-studies/swpo-alb)
+!case-studies/swpo-alb/model-files/mfcl/00-diagnostic/00.par
+!case-studies/swpo-alb/model-files/mfcl/00-diagnostic/08.par
+!case-studies/swpo-alb/model-files/mfcl/00-diagnostic/09.par
+!case-studies/swpo-alb/model-files/mfcl/00-diagnostic/plot-09.par.rep
+!case-studies/swpo-alb/model-files/mfcl/00-diagnostic/alb.age_length
+!case-studies/swpo-alb/model-files/mfcl/00-diagnostic/alb.var
+!case-studies/swpo-alb/model-files/mfcl/00-diagnostic/labels.tmp
+!case-studies/swpo-alb/model-files/mfcl/00-diagnostic/doitall_from_phase0.alb
+!case-studies/swpo-alb/model-files/mfcl/01-no-movement/start.par
+!case-studies/swpo-alb/model-files/mfcl/01-no-movement/01.par
+!case-studies/swpo-alb/model-files/mfcl/01-no-movement/plot-01.par.rep
+!case-studies/swpo-alb/model-files/mfcl/01-no-movement/alb.age_length
+!case-studies/swpo-alb/model-files/mfcl/02-region-1/template.par
+!case-studies/swpo-alb/model-files/mfcl/02-region-1/check.par
+!case-studies/swpo-alb/model-files/mfcl/02-region-1/plot-check-eval.par.rep
+!case-studies/swpo-alb/model-files/mfcl/02-region-1/02.par
+!case-studies/swpo-alb/model-files/mfcl/02-region-1/plot-02.par.rep
+!case-studies/swpo-alb/model-files/mfcl/02-region-1/alb.age_length
+!case-studies/swpo-alb/model-files/mfcl/03-fixed-growth/start.par
+!case-studies/swpo-alb/model-files/mfcl/03-fixed-growth/03.par
+!case-studies/swpo-alb/model-files/mfcl/03-fixed-growth/plot-03.par.rep
 # r files
 !*.r
 !*.rds

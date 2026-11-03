@@ -1,0 +1,315 @@
+#  ------------------------
+#  Create initial 00.par file
+#  ------------------------
+#  mfclo64 alb.frq alb.ini 00.par -makepar  # does not work within a script
+#  ------------------------
+#
+#  ------------------------
+#  PHASE 1 - initial fit with control phases
+#  ------------------------
+#
+  mfclo64 alb.frq 00.par 01.par -file - <<PHASE1
+#
+# - control phase type
+  1 32 7          # sets control, but don't estimate growth
+  1 387 1
+  1 246 0         # Produces independent variables report
+#
+# - initial equilibrium population conditions
+  2 177 1         # use old totpop scaling method
+  2 32 1          # and estimate the totpop parameter
+  2 94 1          # initial age structure based on Z
+  2 128 10        # average Z for 1st 20 periods
+#
+#------------------------------------------------------------------------------
+# Catch conditioned flags
+#  general activation
+  1 373 1         # activated CC with Baranov equation
+  1 393 0         # activate estimation of: kludged_equilib_coffs, and implicit_fm_level_regression_pars
+  2 92 2          # specifies the catch-conditioned option with Baranov equation
+# - catch equation bounds
+  2 116 80        # value for Zmax_fish in the catch equations
+  2 189 80        # the fraction of Zmax_fish above which the penalty is calculated
+  1 382 300       # weight for Zmax_fish penalty - set to 300 to avoid triggering Zmax_flag=1. Found by T&E.
+# De-activate any catch errors flags
+  -999 1 0
+  -999 4 0
+  -999 10 0
+  -999 15 0
+  -999 13 0
+# -- survey fisheries defined
+#  Index wt   Time varying CV
+  -18 92 20     -18 66 1
+  -19 92 20     -19 66 1    
+  -20 92 20     -20 66 1
+# -- Grouping flags for survey CPUE
+#
+# - size data
+  1 141 3         # sets likelihood function for LF data to normal
+  1 311 1         # tail compression - necessage to limit min sample size
+  1 312 50        # these settings omit LF samples <50 fish
+# - effective size data sample size based on Francis weighting (Thom's SS analysis)
+-1 49 80
+-2 49 183
+-3 49 51
+-4 49 164
+-5 49 287
+-6 49 89
+-7 49 29
+-8 49 372
+-9 49 212
+-10 49 125
+-11 49 27
+-12 49 37
+-13 49 358
+-14 49 123
+-15 49 241
+-16 49 450
+-17 49 1
+-18 49 746
+-19 49 55
+-20 49 61
+#
+#
+# - maturity
+ 2 188 2          # Sets option to use weighted spline to dynamically convert 
+#                   maturity specified in length to maturity at age
+# - growth
+ 1 173 4    # old comment:  # 1st n lengths are independent pars
+ 1 12 0     # turn off estimation growth mean length of first age class
+ 1 13 0     # turn off estimation growth mean length of last age class
+ 1 14 0     # turn off estimation growth K
+ 1 15 0     # turn off estimation growth generic standard deviation length-at-age
+ 1 16 0     # turn off estimation growth length-dependent standard deviation
+ 1 184 0    # turn off estimation growth independent mean length parameters
+ 1 227 0    # turn off estimation growth Richards parameter
+#
+# - recruitment
+  2 57 1          # sets no. of recruitments per year to 1
+  2 93 1          # sets no. of recruitments per year to 1 (is this used?)
+  1 400 1         # assume constant mean recruitment for last 2 years
+  1 398 1         # sets terminal recruitment to arithmetic mean of estimated recrui
+  1 149 100       # initial recruitment deviate penalties (from average)
+#
+# natural mortality
+  2 109 3         # set Lorenzen M - turn off as using specified age_pars(2)
+  2 121 0         # do not estimate parameters (set for length)
+# - movement
+  2 114 1         # take movement from matrices
+#
+# - selectivity
+ -999 26 2        # sets length-dependent selectivity option
+ -999 57 3        # uses cubic spline selectivity
+ -999 61 3        # with 3 nodes for cubic spline
+   -8 61 4        # moreflexibility for southern LL
+   -9 61 4
+  -10 61 4
+#
+#   Selectivity grouping - EPO troll fisheries grouped with US troll, northern DWFN and PICT fisheries grouped across 10S boundary
+-1 24 1
+-2 24 2
+-3 24 1
+-4 24 2
+-5 24 3
+-6 24 3
+-7 24 4
+-8 24 5 
+-9 24 6 
+-10 24 7
+-11 24 8
+-12 24 9
+-13 24 10
+-14 24 11
+-15 24 12
+-16 24 13
+-17 24 9 
+-18 24 14 
+-19 24 15
+-20 24 16
+#
+#
+-999 71 0    # no time-block selectivities
+#
+# sets non-decreasing selectivity for longline fisheries and zero selectivity for age classes 19 and 20 in troll and driftnet fisheries
+#
+ -1 16 0
+ -2 16 0
+ -3 16 0
+ -4 16 0
+ -5 16 0
+ -6 16 0
+ -7 16 0
+ -8 16 0
+ -9 16 0
+-10 16 0
+-11 16 0
+-12 16 0
+-13 16 0
+-14 16 0
+-15 16 0
+-16 16 0
+-17 16 0
+-18 16 1
+-19 16 0
+-20 16 1
+#
+# apply constraint to selectivity = 0 for young age classes for particular fisheries
+-1 75 2
+-2 75 2
+-3 75 2
+-4 75 2
+-5 75 3
+-6 75 3
+-7 75 3
+-8 75 1
+-9 75 1
+-10 75 1
+-11 75 0
+-12 75 0
+-13 75 1
+-14 75 3
+-15 75 1
+-16 75 1
+-17 75 0
+-18 75 2
+-19 75 0
+-20 75 4 
+#
+PHASE1
+#
+#  ---------
+#   PHASE 2
+#  ---------
+  mfclo64 alb.frq 01.par 02.par -file - <<PHASE2
+#
+   2 113 0         # estimate initpop/totpop scaling parameter - turned off
+# selectivity
+  -999 3 0  #  all selectivities equal for age classes 47 and 48 (default)
+#
+# catch equation fishing mortality bound
+# -999 14 10      # Penalties to stop F blowing out
+#
+# output
+  1 190 1         # write plot.rep
+#
+# number of evaluations and convergence threshold
+  1 1 500          # set max. number of function evaluations per phase to 1000
+  1 50 -1
+#
+PHASE2
+#
+#  ---------
+#   PHASE 3
+#  ---------
+  mfclo64 alb.frq 02.par 03.par -file - <<PHASE3
+#
+# fishing impact analysis
+  -999 55 1      # activate fishery impact analyis - run zero F option
+  2 171 1  # unfished calculations use BH-SRR multiplier on recruitments
+#
+# BH-SRR and Yield calculation
+#
+  2 182 0   # Fit BH-SRR to annual recruitments
+  2 146 1   # estimate SRR parameters
+  2 145 1  # activates SRR estimation with penalty 1
+  1 149 0   # recr dev pen set to 0
+  2 162 0   # don't estimate steepness
+  2 163 0   # use fixed steepness in BH-SRR
+  2 147 1   # lag between spawning and recruitment
+  2 148 5   # no. years for averaging F (same as yft)
+  2 155 1   # but omits the last year
+  2 161 1   # log-normal bias correction in BH-SRR predictions used for yields
+  2 199 57  # start period for recruitments used in BH-SRR estimation - 1965 onwards
+  2 200 1   # end period for recruitments used in BH-SRR estimation - exclude last year
+#
+# catch equation
+  -999 14 0  # limit on F per fishing incident - turned off
+#
+# number of evaluations and threshold max.gradient
+  1 1 2000
+  1 50 -5
+# Period of average recruitment used for impact analysis or projections
+  2 190 0  # Turn off - use entire model period for calculating the average
+  2 191 0
+  1 189 1 1 190 1 1 188 1 1 187 1 1 186 1 # full output
+  2 116 300
+PHASE3
+#  ---------
+#   PHASE 4
+#  ---------
+  mfclo64 alb.frq 03.par 04.par -file - <<PHASE4
+#  Estimate K
+  1 14 1
+  1 173 4
+  1 184 1
+# 1 240 1
+  1 1 5000
+#
+#
+PHASE4
+#  ---------
+#   PHASE 5
+#  ---------
+  mfclo64 alb.frq 04.par 05.par -file - <<PHASE5
+#
+   1 1 5000
+   1 50 -6
+# Selectivity time block
+# -1 71 2
+# -2 71 2
+# -3 71 2
+# -4 71 2
+# -8 71 2
+#-14 71 2
+#-16 71 2
+PHASE5
+#  ---------
+#   PHASE 6
+#  ---------
+  mfclo64 alb.frq 05.par 06.par -file - <<PHASE6
+#
+ 1 50 -7
+ 1 1 5000
+-1 74 4    # Number of seasonal selectivity patterns
+-2 74 4
+-3 74 4
+-4 74 4    # Number of seasonal selectivity patterns
+-5 74 4
+-6 74 4
+-7 74 4
+-8 74 1
+-9 74 1
+-10 74 1
+-11 74 1
+-12 74 1
+-13 74 1
+-14 74 2
+-15 74 1
+-16 74 1
+-17 74 1
+-18 74 1
+-19 74 1
+-20 74 1
+PHASE6
+#  ---------
+#   PHASE 7
+#  ---------
+  mfclo64 alb.frq 06.par 07.par -file - <<PHASE7
+#
+1 15 1
+PHASE7
+#  ---------
+#  PHASE 7a
+#  ---------
+  mfclo64 alb.frq 07.par 07-CAL.par -file - <<PHASE7a
+#
+1 240 1
+PHASE7a
+#  ---------
+#   PHASE 8
+#  ---------
+  mfclo64 alb.frq 07-CAL.par 08-CAL.par -file - <<PHASE8
+#
+1 13 1
+1 1 5000
+PHASE8

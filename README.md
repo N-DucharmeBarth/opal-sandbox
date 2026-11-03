@@ -23,14 +23,16 @@ case-studies/          one folder per stock; nothing in it is used by another ca
   io-yft/              Indian Ocean yellowfin (simulated data): SS3 -> opal
   npo-bsh/             North Pacific blue shark: two-sex SS3 -> single-sex SS3 bridge -> opal
   epo-bet/             eastern Pacific bigeye tuna: quarterly SS3 (growth cessation) -> opal
+  swpo-alb/            south-west Pacific albacore: two-region MFCL -> region 1 MFCL bridge -> opal
 shared/                code used by more than one case study
   ss3-to-opal/         SS3-to-opal converter, validation and fit helpers
+  mfcl-to-opal/        MFCL par/plot-report readers and MFCL-to-opal converter
   extractors/ss3/      SS3 output extractors and plotting helpers
   extractors/mfcl/     MFCL output extractors and .frq parser
   setup/               install script for R, opal, r4ss and Quarto in a cloud container
 simulations/           simulation studies of opal behaviour (selectivity, catch timing)
 tests/testthat/        unit tests for the shared extractors and converter
-executables/           SS3 (3.30.22.1-3.30.24.1) and MFCL binaries
+executables/           SS3 (3.30.22.1-3.30.24.1) and MFCL (2.0.7.0, 2.2.7.0) binaries
 ```
 
 Each case study is laid out the same way, with only the folders it needs:
@@ -52,6 +54,7 @@ Each case study is laid out the same way, with only the folders it needs:
 | [`io-yft`](case-studies/io-yft) | IATTC team's SS3 model of simulated Indian Ocean yellowfin (Spatial Stock Assessment Simulation Experiment) | Converted to opal, tested and fitted; source of opal's `io_yft_*` data and articles |
 | [`npo-bsh`](case-studies/npo-bsh) | 2022 ISC North Pacific blue shark assessment (SS3 3.30, two sexes; S6_base, one of the three ensemble models) | SS3 bridge to a single-sex model; converted to opal, tested and fitted; vignette documents opal's limitations against SS3 |
 | [`epo-bet`](case-studies/epo-bet) | IATTC SAC-14 (2023) exploratory SS3 model of eastern Pacific bigeye tuna (SS3 3.30, quarterly, growth cessation) | One-step SS3 bridge (no initial regime offset); converted to opal, tested and fitted; vignette documents the catch-timing difference that dominates in a quarterly model |
+| [`swpo-alb`](case-studies/swpo-alb) | 2024 WCPFC south Pacific albacore diagnostic model (MFCL 2.2.7.0, two regions, annual ages with quarterly/monthly fishing) | MFCL bridge to region 1 (no movement, region 1 only, growth fixed without age-at-length); converted to opal and replayed; opal fit with MFCL's selectivity is unbounded in scale (length compositions); vignette to do |
 
 ### Adding a case study
 

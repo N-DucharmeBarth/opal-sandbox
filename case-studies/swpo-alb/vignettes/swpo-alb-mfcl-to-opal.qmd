@@ -210,14 +210,32 @@ knitr::kable(bridge$transplant_check[, .(quantity, `max rel. diff.` = sci(max_re
 ```
 
 With no movement, region 1 in M1 is unaffected by region 2's catch or
-abundance (tested by setting region 2's catch and recruitment near zero), so
-the transplanted model should reproduce it. Recruitment, selectivity,
-growth, M and the predicted catches agree exactly, but the numbers at the
-oldest ages drift up by a few percent from a small (0.02% per age)
-difference in the initial age structure, and adult biomass by up to
+abundance (tested by setting region 2's catch and recruitment near zero),
+and M2's inputs match M1's region 1 exactly: every `.frq` record (catch,
+effort, CV and length frequencies) and every flag and parameter section of
+the par file, with the total population scaling parameter shifted by exactly
+log(0.818971). Recruitment, selectivity, growth, M and the predicted catches
+agree, but the numbers at the oldest ages drift up by a few percent and
+adult biomass by up to
 `r pct(bridge$transplant_check[quantity == "adult biomass", max_rel_diff])`.
-The cause, somewhere in MFCL's one-region structure, is not identified; M2
-is refitted, so it does not carry into the bridge.
+
+The cause is in how MFCL builds its time steps. Each region's year is split
+into periods at its fishing incidents and, in a multi-region model only, at
+the movement dates (`check_for_missing_node()` in `rnaux2.cpp` returns the
+movement nodes only `if (num_regions > 1)`). Natural mortality is shared
+equally among a year's periods (`fraction = -log(n)`), not by elapsed time,
+and acts together with F in each period. The diagnostic model moves fish in
+weeks 37, 5, 17 and 29; week 37 is the start of the model year (October),
+when region 1 never fishes, so M1's region 1 has an extra period every year,
+which M2 (one region) does not. Moving M1's movement weeks onto fishing
+dates (5, 17, 29, 41) removes the extra periods and the difference falls
+from 3.7% to 0.3% in numbers-at-age and from 1.3% to 0.15% in adult
+biomass. What is left is confined to the initial age structure (0.02% per
+age in 1954, gone by 1990), which MFCL builds from the average Z of the
+first ten periods, whose layout at the start of the series still differs.
+Removing region 2 therefore changes MFCL's within-year timing of M as well
+as the data and the recruitment link: part of the M1-M2 step is this
+structural effect.
 
 # Conversion to opal {#sec-convert}
 
@@ -280,9 +298,10 @@ knitr::kable(oc$o0_check[, .(quantity, `max rel. diff.` = sci(max_rel_diff, 1))]
 
 The replays are standalone simulations with MFCL's estimates (not opal
 code). They cross catch removal at the start of each quarter, then a quarter
-of M (opal), or at each fishing incident's date with M and F acting together
-until the next incident (MFCL's catch-conditioned Baranov), with MFCL's
-season-averaged selectivity (opal) or its seasonal selectivity.
+of M (opal), or MFCL's catch-conditioned Baranov in each fishing period
+(the year's distinct incident dates, each with an equal share of the year's
+M, as MFCL apportions it), with MFCL's season-averaged selectivity (opal) or
+its seasonal selectivity.
 
 ```{r}
 #| label: tbl-replays
@@ -295,9 +314,10 @@ knitr::kable(RP[, .(`rel. 2022` = pct(rel_mfcl[.N], 2), `max |rel.|` = pct(max(a
 The opal-timing replay with averaged selectivity reproduces O0, which
 checks the replay. Catch timing accounts for almost all of the gap between
 O0 and MFCL; seasonal selectivity changes spawning biomass by less than 0.1%.
-The MFCL replay is within 0.6% of MFCL; the remainder is largest in the
-mid-1990s, after the driftnet years, and may be the weight-at-age MFCL uses
-for catches in weight (not confirmed).
+The MFCL replay is within 0.5% of MFCL (0.6% with M shared by elapsed time
+instead); the remainder is largest in the mid-1990s, after the driftnet
+years, and may be the weight-at-age MFCL uses for catches in weight (not
+confirmed).
 
 ```{r}
 #| label: fig-o0

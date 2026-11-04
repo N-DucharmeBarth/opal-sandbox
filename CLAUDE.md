@@ -81,3 +81,8 @@ studies and `tests/testthat/` the tests of the shared code, which
   model year. `mfcl_to_opal()` handles this.
 * data.table: the incident tables have columns `y` and `s`; do not use those
   names as loop variables inside `[...]`.
+* MFCL splits each year into periods at the fishing incidents and, only in
+  multi-region models, at the movement weeks (`check_for_missing_node()`,
+  `rnaux2.cpp`), and shares the year's M equally among the periods. Dropping
+  regions therefore changes the within-year timing of M (the M1 -> M2
+  transplant difference).

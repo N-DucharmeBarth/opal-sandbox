@@ -26,6 +26,10 @@
     splits (`mfcl_split_seasonal_fisheries()`) change little; a quarterly-age
     set-up (`mfcl_quarterly_ages()`: quarterly ages and steps, recruitment
     kept annual) also profiles to MFCL's scale and fits the indices best.
+    The M1 -> M2 transplant difference (up to 1.3% in adult biomass with
+    identical inputs) is MFCL's period structure: movement weeks add periods
+    only in multi-region models and M is shared equally among periods;
+    aligning the movement weeks with fishing dates removes nearly all of it.
     The vignette `vignettes/swpo-alb-mfcl-to-opal.qmd` (HTML and PDF)
     documents the case study and the opal features the stock would need.
 

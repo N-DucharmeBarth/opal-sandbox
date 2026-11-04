@@ -8,7 +8,7 @@ Any model runs contained within this case study represent preliminary model expl
 
 ## Summary
 
-* **MFCL bridge.** M0 the diagnostic model (reproduced with MFCL 2.2.7.0), M1 no movement, M2 region 1 only (par transplanted from M1), M3 growth fixed without the conditional age-at-length data. Region 1's spawning biomass roughly doubles at each step (1954: 0.87, 1.7, 3.4, 6.6 Mt).
+* **MFCL bridge.** M0 the diagnostic model (reproduced with MFCL 2.2.7.0), M1 no movement, M2 region 1 only (par transplanted from M1), M3 growth fixed without the conditional age-at-length data. Region 1's spawning biomass roughly doubles at each step (1954: 0.87, 1.7, 3.4, 6.6 Mt). MFCL adds periods at the movement dates only in multi-region models and shares M equally among a year's periods, so dropping region 2 also changes the within-year timing of M.
 * **opal at MFCL's values (O0)** reproduces MFCL's initial numbers and recruitment exactly and its spawning biomass within 2.1%; replays put the gap on catch timing (start-of-quarter removal against MFCL's Baranov at each incident).
 * **Fits.** With MFCL's selectivity fixed (O1), opal's scale is unbounded: opal predicts the length compositions from start-of-year length-at-age, MFCL at each sample's date with within-year growth. With opal's growth at MFCL's mid-year lengths (O1-mid) the fit converges at MFCL's scale.
 * **Seasonal set-ups** through opal's inputs only: one fishery per season for MFCL's seasonal selectivity (`mfcl_split_seasonal_fisheries()`), and quarterly age classes and time steps with annual recruitment (`mfcl_quarterly_ages()`), which profiles to MFCL's scale and fits the indices best.
@@ -47,4 +47,3 @@ The MFCL-to-opal converter and readers are in [`shared/mfcl-to-opal/`](../../sha
 
 * O2: opal's own length-based selectivity (with the seasonal fisheries or quarterly ages, and MFCL's groupings as shared parameters).
 * A quarterly-age fit with B0 estimated, and a way to report its unfished spawning biomass.
-* The 0.1-1.3% residual of the M2 transplant check.

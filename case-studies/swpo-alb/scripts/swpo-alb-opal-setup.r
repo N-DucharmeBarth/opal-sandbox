@@ -139,11 +139,12 @@
                     N = N * (1 - hr) * exp(-M / d0$n_season)
                 }
             } else {
+                # MFCL splits each year's M equally among the year's fishing
+                # periods (rnaux2.cpp: fraction = -log(n periods)), with F and
+                # M acting together in each period (Baranov)
                 tt = sort(unique(yi$t))
-                t_end = c(tt[-1], 1)
-                t_now = 0
+                Mp = M / length(tt)
                 for (j in seq_along(tt)) {
-                    N = N * exp(-M * (tt[j] - t_now))
                     ii = yi[t == tt[j]]
                     K = nrow(ii)
                     sel = matrix(0, K, n_age)
@@ -152,16 +153,13 @@
                         sel[k, ] = sel_of(ii$fishery[k], ii$season[k])
                         if (d0$catch_units_f[ii$fishery[k]] == 1) cw[k, ] = w
                     }
-                    Mp = M * (t_end[j] - tt[j])
                     F = ii$catch / rowSums(sweep(sel * cw, 2, N, "*"))
                     for (it in 1:30) {
                         Z = colSums(F * sel) + Mp
                         F = F * ii$catch / rowSums(sweep(F * sel * cw, 2, N / Z * (1 - exp(-Z)), "*"))
                     }
                     N = N * exp(-colSums(F * sel) - Mp)
-                    t_now = t_end[j]
                 }
-                N = N * exp(-M * (1 - t_now))
             }
             if (iy < n_year) {
                 N_next = c(mf$recruitment_y[iy + 1], N[-n_age])

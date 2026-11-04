@@ -10,8 +10,9 @@
 #       sel_fa_external; nothing estimated.
 #   Replays: standalone simulations of the population with MFCL's estimates
 #       (not opal code), crossing (a) catch removal at the start of each
-#       quarter (opal) or at each fishing incident's time with M and F acting
-#       together until the next incident (MFCL's Baranov), with (b) MFCL's
+#       quarter (opal) or in each of MFCL's fishing periods (the year's
+#       incident dates, each with an equal share of the year's M, F and M
+#       together: MFCL's Baranov), with (b) MFCL's
 #       season-averaged selectivity (opal) or its seasonal selectivity. The
 #       opal/average replay reproduces O0; the MFCL/seasonal replay
 #       approaches MFCL. The others measure the two missing opal features.

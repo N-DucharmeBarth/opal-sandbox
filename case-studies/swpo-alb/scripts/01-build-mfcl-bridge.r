@@ -13,10 +13,11 @@
 #       populations; warm-started from 09.par and re-estimated with the
 #       diagnostic model's phase 9 settings.
 #   M1b 01b-aligned-movement: M1 with the movement weeks moved onto fishing
-#       dates (37 5 17 29 -> 5 17 29 41, model months 2, 5, 8 and 11). MFCL
-#       adds a period at each movement week, in multi-region models only, and
-#       shares the year's M equally among the periods; week 37 (model month
-#       10, calendar July) is not a fishing date in region 1, so M1 has one
+#       dates (calendar weeks 37 5 17 29 -> 5 17 29 41: February, May, August
+#       and November). MFCL adds a period at each movement week, in
+#       multi-region models only, and shares the year's M equally among the
+#       periods; week 37 (1 October, the start of the model year after MFCL's
+#       month_1 renumbering) is not a fishing date in region 1, so M1 has one
 #       period a year more than a one-region model. M1b removes it, so that
 #       M1b -> M2 changes only the regions. Warm-started from M1.
 #   M2  02-region-1: region 1 only. The EPO fisheries (14-17) and EPO index
@@ -59,7 +60,7 @@
     dir_m1 = file.path(dir_mfcl, "01-no-movement")
     dir_m1b = file.path(dir_mfcl, "01b-aligned-movement")
     dir_m2 = file.path(dir_mfcl, "02-region-1")
-    aligned_weeks = c(5, 17, 29, 41)   # model months 2, 5, 8, 11: the fishing dates
+    aligned_weeks = c(5, 17, 29, 41)   # calendar Feb, May, Aug, Nov: the fishing dates
     dir_m3 = file.path(dir_mfcl, "03-fixed-growth")
 
 # Run MFCL in `dir`; `args` after the frq file. Output goes to `log`.

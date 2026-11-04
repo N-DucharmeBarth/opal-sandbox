@@ -45,6 +45,8 @@ bridge = readRDS(file.path("data", "swpo-alb-mfcl-bridge.rds"))
 oc     = readRDS(file.path("data", "swpo-alb-opal-cache.rds"))
 lfd    = readRDS(file.path("data", "swpo-alb-lf-diagnostics.rds"))
 sel    = readRDS(file.path("data", "swpo-alb-opal-sel-fits.rds"))
+sdg    = readRDS(file.path("data", "swpo-alb-sel-diagnostics.rds"))
+lft    = readRDS(file.path("data", "swpo-alb-lf-tests.rds"))
 
 theme_set(theme_bw(base_size = 11) +
           theme(legend.position = "bottom", panel.grid.minor = element_blank()))
@@ -589,24 +591,71 @@ to MFCL. O1i converges (largest gradient `r sci(SS[model == "O1i", max_gradient]
 with `r fmt(SS[model == "O1i", sb_end] / 1e3, 0)` kt in 2022 and depletion
 `r fmt(SS[model == "O1i", depletion_end], 2)`, against MFCL's
 `r fmt(TR[model == "MFCL M3" & year == max(year), sb] / 1e3, 0)` kt and
-`r fmt(TR[model == "MFCL M3" & year == max(year), dynamic_depletion], 2)`. O1q also
-converges and matches MFCL's 1954 spawning biomass, but through a degenerate
-initial age structure: the shared level of the classes between age 1 and the
-plus group goes to `r fmt(unique(sel$fits$O1q$parameters$init_rdev_a[sel$fits$O1q$parameters$init_rdev_a > -20])[2], 1)`
-(nearly empty) and the plus group carries the initial stock; the initial
-structure needs constraining (e.g. the plus group tied to the shared level).
+`r fmt(TR[model == "MFCL M3" & year == max(year), dynamic_depletion], 2)`. O1q
+(quarterly ages) agrees with it: the age-1 and older-age initial deviations
+are close to O1i's and it ends at `r fmt(SS[model == "O1q", sb_end] / 1e3, 0)` kt.
+In the quarterly models the plus group shares the older ages' initial level,
+with its equilibrium offset supplied through `init_bias_adj_a` (a fixed
+input; opal's map cannot tie parameters with an offset); estimated on its
+own, it took the whole initial stock while the classes between went empty.
 
-With opal's selectivity the fits still do not settle on sensible curves,
-even with three of the six parameters free. In O2 and O2q many double-normal
-widths go to their bounds (knife-edge limbs), the largest gradients stay
-above 1, and the stock is a quarter of MFCL's in 2022. O2-split ends at a
-point where the gradient explodes as its curves collapse. MFCL estimates the same selectivities as three- or
-four-node cubic splines, with selectivity held at zero for the youngest ages
-of most fisheries and non-decreasing for the longline index; opal's double
-normal, even with three parameters free, is not well determined by these
-length compositions. Constraining the curves further (fixing a width, priors
-on the parameters, the double Richards curve or age-based selectivity) is
-the next step.
+With opal's selectivity the fits do not settle on sensible curves, even with
+three of the six parameters free. In O2 and O2q many double-normal widths go
+to their bounds (knife-edge limbs), the largest gradients stay above 1, and
+the stock is a quarter of MFCL's in 2022. O2-split ends at a point where the
+gradient explodes as its curves collapse.
+
+## Why the double normals collapse {#sec-collapse}
+
+```{r}
+#| label: tbl-collapse
+#| tbl-cap: "O2 (opal's selectivity) against O1i (MFCL's), by fishery: length-composition negative log-likelihood, and the standard deviation of the observed and predicted compositions pooled over years (cm)."
+sdv = function(p, L) { m = sum(p * L) / sum(p); sqrt(sum(p * (L - m)^2) / sum(p)) }
+spread = sdg$pooled[, .(obs_sd = sdv(observed, length), O1i_sd = sdv(O1i, length), O2_sd = sdv(O2, length)), by = fishery]
+bf = merge(sdg$by_fishery, spread, by = "fishery")[order(-gain)]
+knitr::kable(bf[, .(name, `n obs` = n_obs, `O1i NLL` = fmt(O1i_nll, 1), `O2 NLL` = fmt(O2_nll, 1),
+                    `observed SD` = fmt(obs_sd, 1), `O1i SD` = fmt(O1i_sd, 1), `O2 SD` = fmt(O2_sd, 1))],
+             format = "pipe")
+```
+
+O2 gains most on the troll fisheries 11 and 12 and the longline fishery 3, and
+loses on fishery 6. The northern longline fisheries' (3, 4, 6, 7) and the
+longline index's compositions are narrower (SD 5.8-7.4 cm) than the model
+predicts even with MFCL's selectivity, and about as narrow as the spread of
+length within a single age at the ages they catch (MFCL's SD of length is
+5.9-7.6 cm at ages 5-12). Under the multinomial likelihood every tail bin
+counts, so opal narrows its predicted catch with a window-shaped selectivity
+in length: the knife-edge widths, which flatten selectivity-at-age over the
+older ages (@fig-o2-sel). MFCL's robust normal likelihood is much less
+sensitive to the tails.
+
+```{r}
+#| label: tbl-lftests
+#| tbl-cap: "Tests on O2 (and O1i) of the length-composition treatment (`scripts/07-test-lf-likelihood.r`): pool: tail bins below 0.5% and above 99.5% of each fishery's observed composition pooled; DM: Dirichlet-multinomial with each fishery's dispersion estimated; SD2: the SD of length at the oldest age estimated; all: the three together. Widths at bound: double-normal widths at a bound (of 22). Length-composition likelihoods differ in form between variants. SB in thousand tonnes."
+LT = lft$summary
+knitr::kable(LT[, .(model, `max grad.` = sci(max_gradient), `widths at bound` = widths_at_bound,
+                    CPUE = fmt(cpue, 1), `length comps` = fmt(lf, 1), `SD oldest age` = fmt(sd2, 2),
+                    `SB 1954` = fmt(sb_1954 / 1e3, 0), `SB 2022` = fmt(sb_2022 / 1e3, 0),
+                    depletion = fmt(depletion_2022, 3))], format = "pipe")
+```
+
+Pooling the tails changes little. The Dirichlet-multinomial's dispersion
+goes to its upper bound (the multinomial) for most fisheries, since the
+sample sizes already carry MFCL's Francis weights, except the longline index
+and the troll fisheries; the knife-edges remain. Estimating the SD of length
+at the oldest age matters: the compositions want
+`r fmt(min(LT[model %in% c("O2-SD2", "O2-all"), sd2]), 1)`-`r fmt(max(LT[model %in% c("O2-SD2", "O2-all"), sd2]), 1)` cm
+instead of MFCL's `r fmt(LT[model == "O2", sd2], 1)`, fewer widths reach their
+bounds, the index fit improves, and the scale changes from a quarter of
+MFCL's to more than it. With all three (O2-all) the fit to both data types is
+the best and the stock is closest to MFCL's
+(`r fmt(LT[model == "O2-all", sb_2022] / 1e3, 0)` kt and
+`r fmt(LT[model == "O2-all", depletion_2022], 2)` in 2022). The scale is
+therefore sensitive to the assumed spread of length at age, which MFCL fixes
+from its growth estimates with the age-at-length data. None of these fits is
+fully converged (largest gradients 0.25-1.4) and 10-19 widths still sit at
+bounds, so the selectivity remains to be constrained further (a width fixed,
+priors, or age-based curves) with the SD of length estimated.
 
 # What opal would need {#sec-gaps}
 

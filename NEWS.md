@@ -28,7 +28,10 @@
     estimating opal's initial population (O1i) brings it to 709 against
     860 kt (depletion 0.72 against 0.75). Fits with opal's own double-normal
     selectivity (O2, O2q, O2-split; three parameters free) collapse to
-    knife-edge curves. Seasonal fishery
+    knife-edge curves: the longline compositions are narrower than the
+    model's spread of length within an age. Estimating the SD of length at the
+    oldest age (4-5 cm against MFCL's 7.6), with tail pooling and a
+    Dirichlet-multinomial, gives the best fits and a stock near MFCL's. Seasonal fishery
     splits (`mfcl_split_seasonal_fisheries()`) change little; a quarterly-age
     set-up (`mfcl_quarterly_ages()`: quarterly ages and steps, recruitment
     kept annual) also profiles to MFCL's B0 and fits the indices best.

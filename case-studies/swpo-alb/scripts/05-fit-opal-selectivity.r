@@ -18,8 +18,9 @@
 #             group, whose selectivity-at-age varies by quarter through growth).
 #
 # The double normals estimate their peak, plateau and two widths (columns
-# 1-4) with the initial and final selectivity (columns 5-6) held at their
-# starting values; the logistic estimates both its parameters. Starting curves
+# 1-4; the peak bounded to +/-2 SD of the length bins, the widths to
+# [-6, 3]), with the initial and final selectivity (columns 5-6) fixed at
+# -8 and 0 (near zero and 0.5); the logistic estimates both its parameters. Starting curves
 # are fitted to MFCL's selectivity-at-age through opal's own
 # probability-of-length-at-age. Everything else (growth, steepness, sigma_R,
 # M, biology) is held as in O1.
@@ -49,19 +50,25 @@
                            log_SD1 = p$log_SD1, log_SD2 = p$log_SD2, A1 = data$A1, A2 = data$A2)
         get_pla(data$len_lower, data$len_upper, mu, as.numeric(sd))
     }
-    # Starting curve: fit to target selectivity-at-age (rows = targets sharing the curve)
+    # Starting curve: fit to target selectivity-at-age (rows = targets sharing
+    # the curve), from a grid of starts (peak across the length range, widths
+    # from narrow to wide), then refined
     seed_curve = function(type, targets, pla, len_mid) {
         targets = matrix(targets, ncol = ncol(pla))
+        full = function(x) if (type == 1L) c(x, 0, 0, 0, 0) else c(x, -8, 0)
         obj = function(x) {
-            par = if (type == 1L) c(x, 0, 0, 0, 0) else x
-            sa = c(t(pla) %*% sel_length(len_mid, par, type))
+            sa = c(t(pla) %*% sel_length(len_mid, full(x), type))
             sum(sweep(targets, 2, sa)^2)
         }
-        st = if (type == 1L) c(0, 0) else c(0.5, -1, 0, 0, -8, 0)
-        o = optim(st, obj, method = "BFGS", control = list(maxit = 5000, reltol = 1e-12))
-        o = optim(o$par, obj, method = "Nelder-Mead", control = list(maxit = 20000, reltol = 1e-12))
-        list(par = pmin(pmax(if (type == 1L) c(o$par, 0, 0, 0, 0) else o$par, -7), 7),
-             rmse = sqrt(o$value / length(targets)))
+        starts = if (type == 1L) as.matrix(expand.grid(a = seq(-1.5, 1.5, 0.5), b = c(-2, -1, 0))) else
+            as.matrix(expand.grid(a = seq(-1.5, 1.5, 0.375), b = c(-4, -1), c = c(-4, -2.5, -1), d = c(-4, -2.5, -1, 1)))
+        val = apply(starts, 1, obj)
+        best = order(val)[1:5]
+        fits = lapply(best, function(i) optim(starts[i, ], obj, method = "Nelder-Mead",
+                                              control = list(maxit = 20000, reltol = 1e-12)))
+        o = fits[[which.min(vapply(fits, `[[`, 0, "value"))]]
+        o = optim(o$par, obj, method = "BFGS", control = list(maxit = 5000, reltol = 1e-14))
+        list(par = full(o$par), rmse = sqrt(o$value / length(targets)))
     }
     # Selectivity map: estimated columns per type, shared within curve groups
     sel_map = function(curve_f, type_f) {
@@ -73,7 +80,9 @@
             m[f, cols] = rep(k + seq_along(cols), each = length(f))
             k = k + length(cols)
         }
-        factor(as.vector(m))
+        out = factor(as.vector(m))
+        attr(out, "col") = vapply(seq_len(k), function(j) which(m == j, arr.ind = TRUE)[1, 2], 1L)
+        out
     }
 
     fixed_all = function(p) lapply(p, function(z) factor(rep(NA, length(z))))
@@ -84,6 +93,12 @@
         nm = names(ob$par)
         lower = ifelse(nm == "log_B0", 0, ifelse(nm == "par_sel", -7, ifelse(nm == "log_cpue_q", -15, -10)))
         upper = ifelse(nm == "log_B0", 22, ifelse(nm == "par_sel", 7, ifelse(nm == "log_cpue_q", 15, 10)))
+        sc = attr(map$par_sel, "col")
+        if (!is.null(sc)) {
+            i = which(nm == "par_sel")
+            lower[i] = c(-2, -7, -6, -6)[sc]
+            upper[i] = c(2, 7, 3, 3)[sc]
+        }
         par = pmin(pmax(ob$par, lower + 1e-6), upper - 1e-6)
         for (pass in 1:3) {
             op = nlminb(par, ob$fn, ob$gr, lower = lower, upper = upper,

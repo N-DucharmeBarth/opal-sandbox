@@ -14,6 +14,11 @@
 #   O3-SD2   O3 with the SD of length at the oldest age (log_SD2) estimated.
 #   O3-all   O3 with tail pooling, the Dirichlet-multinomial and log_SD2
 #            estimated (as O2-all, 07-test-lf-likelihood.r).
+#   O4       hybrid: age-based curves for the longline fisheries and index,
+#            length-based for the troll and driftnet fisheries (11, 12, 13,
+#            15), which catch young, fast-growing fish whose compositions an
+#            age-based curve at whole ages cannot follow through the year.
+#   O4-all   O4 with tail pooling, the Dirichlet-multinomial and log_SD2.
 #
 # All start from O1i's estimates (MFCL's selectivity).
 #
@@ -37,7 +42,8 @@
     ages = seq_len(n_age)
     tb = lf_tests$tail_bins
 
-    make_data = function(pool = FALSE, dm = FALSE) {
+    length_based = c(11L, 12L, 13L, 15L)     # troll and driftnet (O4)
+    make_data = function(pool = FALSE, dm = FALSE, basis = rep(2L, d0$n_fishery)) {
         dd = prep_lf_data(cv$data, as.data.frame(cv$lf), lf_switch = if (dm) 3L else 1L,
                           lf_var_adjust = cv$meta$lf_var_adjust,
                           lf_minbin = if (pool) tb$minbin else NULL, lf_maxbin = if (pool) tb$maxbin else NULL)
@@ -45,7 +51,7 @@
         dd$k_mult_ages = d0$k_mult_ages
         dd$growth_sd_model = d0$growth_sd_model
         dd$sel_type_f = sel_type_f
-        dd$sel_basis_f = rep(2L, dd$n_fishery)        # age-based
+        dd$sel_basis_f = basis                         # 2 = age-based, 1 = length-based
         dd
     }
 
@@ -65,9 +71,21 @@
         paste(which(group_f == cg), collapse = ","), ""), rmse = vapply(seeds, `[[`, 0, "rmse"))
     print(seed_rmse)
 
-    variant = function(label, pool = FALSE, dm = FALSE, sd2 = FALSE) {
-        dd = make_data(pool, dm)
-        p = p_start
+    # Hybrid starting curves: length-based ones fitted through opal's
+    # length-at-age key (mid-year growth), as in 05
+    basis_hybrid = ifelse(seq_len(d0$n_fishery) %in% length_based, 1L, 2L)
+    p_hybrid = p_start
+    pla_a = pla_of(make_data(), p_start)
+    for (cg in unique(group_f[length_based])) {
+        f = which(group_f == cg)
+        sq = seed_curve(sel_type_f[f[1]], cv$selectivity$sel_fa_external[f, , drop = FALSE], pla_a, d0$len_mid)
+        p_hybrid$par_sel[f, ] = matrix(sq$par, length(f), 6, byrow = TRUE)
+    }
+
+    variant = function(label, pool = FALSE, dm = FALSE, sd2 = FALSE, basis = rep(2L, d0$n_fishery),
+                       start = p_start) {
+        dd = make_data(pool, dm, basis)
+        p = start
         if (dm) p$log_lf_tau = rep(log(50), dd$n_fishery)
         m = a_map(p, sel_map(group_f, sel_type_f))
         if (dm) {
@@ -90,6 +108,10 @@
     fits$`O3-SD2` = variant("O3-SD2", sd2 = TRUE)
     saveRDS(list(fits = fits), out_file)
     fits$`O3-all` = variant("O3-all", pool = TRUE, dm = TRUE, sd2 = TRUE)
+    saveRDS(list(fits = fits), out_file)
+    fits$O4 = variant("O4", basis = basis_hybrid, start = p_hybrid)
+    saveRDS(list(fits = fits), out_file)
+    fits$`O4-all` = variant("O4-all", pool = TRUE, dm = TRUE, sd2 = TRUE, basis = basis_hybrid, start = p_hybrid)
 
 #_____________________________________________________________________________
 # Summary

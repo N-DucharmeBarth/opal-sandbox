@@ -47,6 +47,7 @@ lfd    = readRDS(file.path("data", "swpo-alb-lf-diagnostics.rds"))
 sel    = readRDS(file.path("data", "swpo-alb-opal-sel-fits.rds"))
 sdg    = readRDS(file.path("data", "swpo-alb-sel-diagnostics.rds"))
 lft    = readRDS(file.path("data", "swpo-alb-lf-tests.rds"))
+asel   = readRDS(file.path("data", "swpo-alb-age-sel-fits.rds"))
 
 theme_set(theme_bw(base_size = 11) +
           theme(legend.position = "bottom", panel.grid.minor = element_blank()))
@@ -656,6 +657,58 @@ from its growth estimates with the age-at-length data. None of these fits is
 fully converged (largest gradients 0.25-1.4) and 10-19 widths still sit at
 bounds, so the selectivity remains to be constrained further (a width fixed,
 priors, or age-based curves) with the SD of length estimated.
+
+## Age-based and hybrid selectivity {#sec-agesel}
+
+`scripts/08-fit-age-selectivity.r` evaluates the double normals on age
+(opal's `sel_basis_f = 2`) instead of on length through the length-at-age
+key, with the same three parameters free and the same groups; starting
+curves are fitted directly to MFCL's selectivity-at-age. Growth then affects
+only the predicted length compositions.
+
+* **O3**: age-based curves for every fishery (the longline index logistic).
+* **O3-SD2**, **O3-all**: as O2-SD2 and O2-all.
+* **O4**: hybrid, with age-based curves for the longline fisheries and the
+  index and length-based ones for the troll and driftnet fisheries (11, 12,
+  13, 15).
+* **O4-all**: O4 with tail pooling, the Dirichlet-multinomial and the SD of
+  length at the oldest age estimated.
+
+```{r}
+#| label: tbl-agesel
+#| tbl-cap: "Fits with age-based or hybrid selectivity, against O1i (MFCL's selectivity), O2 and O2-all (length-based). Widths at bound: double-normal widths at a bound (of 22). Length-composition likelihoods of the -all variants (pooled, Dirichlet-multinomial) differ in form from the others. SB in thousand tonnes."
+AS = asel$summary
+knitr::kable(AS[, .(model, `max grad.` = sci(max_gradient), `widths at bound` = widths_at_bound,
+                    CPUE = fmt(cpue, 1), `length comps` = fmt(lf, 1), `SD oldest age` = fmt(sd2, 2),
+                    `SB 1954` = fmt(sb_1954 / 1e3, 0), `SB 2022` = fmt(sb_2022 / 1e3, 0),
+                    depletion = fmt(depletion_2022, 3))], format = "pipe")
+```
+
+```{r}
+#| label: fig-agesel
+#| fig-cap: "Selectivity-at-age: MFCL's (averaged over seasons), O3's (age-based) and O4's (hybrid) for selected fisheries."
+sa = asel$sel_age[model %in% c("MFCL", "O3", "O4") & fishery %in% c(3, 4, 6, 8, 11, 14)]
+ggplot(sa, aes(age, sel, colour = model)) + geom_line() + geom_point(size = 0.8) +
+    facet_wrap(~name) + labs(x = "age", y = "selectivity", colour = NULL)
+```
+
+Age-based curves keep MFCL's domed shapes, with far fewer widths at their
+bounds, and fit every longline fishery's compositions better than MFCL's own
+selectivity does (O1i). They fail for the troll fisheries: these catch young
+fish (ages 1-4) whose lengths change quickly through the year, and a curve
+on whole ages cannot follow which lengths are caught in each season, so O3
+loses about 1000 units on fishery 11 alone. The hybrid O4 keeps the
+age-based curves for the longline fisheries and length-based ones for troll
+and driftnet. It fits the compositions better than any other multinomial
+fit (O1i included), and its stock is the closest to MFCL's:
+`r fmt(AS[model == "O4", sb_2022] / 1e3, 0)` kt and depletion
+`r fmt(AS[model == "O4", depletion_2022], 2)` in 2022, against
+`r fmt(TR[model == "MFCL M3" & year == max(year), sb] / 1e3, 0)` kt and
+`r fmt(TR[model == "MFCL M3" & year == max(year), dynamic_depletion], 2)`. It is
+not fully converged (largest gradient `r fmt(AS[model == "O4", max_gradient], 1)`)
+and 7 widths are at bounds; with the SD of length estimated as well (O4-all)
+the gradient is smaller but the stock lower
+(`r fmt(AS[model == "O4-all", sb_2022] / 1e3, 0)` kt).
 
 # What opal would need {#sec-gaps}
 

@@ -5,7 +5,8 @@
 # (it scales its initial population apart from its stock-recruitment
 # relationship): one deviation for the first year's recruits (age 1) and one
 # shared by ages 2 and over (the level of the initial age structure; in the
-# quarterly models the plus group's own), unpenalised (lambda init_rec = 0).
+# quarterly models the plus group keeps its equilibrium offset through
+# init_bias_adj_a), unpenalised (lambda init_rec = 0).
 #
 #   O1i       annual ages, mid-year growth, MFCL's selectivity fixed (O1-mid
 #             with the initial population estimated).
@@ -138,7 +139,15 @@
     pq0 = mfcl_match_recruitment_quarterly(qm, mf, report_q, cv = cv)
     pq_start = pq0
     pq_start$init_rdev_a[qm$age_season == 1L] = 0
-    pq_start$init_rdev_a[max(which(qm$age_season == 1L))] = -log(1 - exp(-d0$M[n_age]))
+    # The plus group's class (quarterly age 45) holds the 12+ equilibrium, a
+    # factor 1 / (1 - exp(-M)) above one cohort. opal's map cannot tie it to
+    # the shared level with an offset, so the offset is supplied through
+    # init_bias_adj_a (opal multiplies initial numbers at age a by
+    # exp(init_rdev_a[a] - init_bias_adj_a[a] sigma_R^2 / 2)): a fixed input,
+    # not a model change. The initial-recruitment penalty does not use it.
+    q_plus = max(which(qm$age_season == 1L))
+    plus_offset = -log(1 - exp(-d0$M[n_age]))
+    dq$init_bias_adj_a[q_plus] = -2 * plus_offset / exp(pq0$log_sigma_r)^2
     pq_start$rdev_y[qm$rdev_steps] = 0
     est_q = qm$rdev_steps[d0$years[qm$rec_year_of_step] <= 2020]
     q_map = function(p, sel = NULL) {
@@ -149,11 +158,11 @@
         i[est_q] = seq_along(est_q)
         m$rdev_y = factor(i)
         # initial numbers: quarterly ages of existing cohorts (first quarter of
-        # each annual class); age 1 and the plus group's class on their own,
-        # the classes between sharing one level
+        # each annual class); age 1 on its own, the older classes (the plus
+        # group with its equilibrium offset) sharing one level
         e = which(qm$age_season == 1L)
         j = rep(NA_integer_, length(p$init_rdev_a))
-        j[e] = c(1L, rep(2L, length(e) - 2L), 3L)
+        j[e] = c(1L, rep(2L, length(e) - 1L))
         m$init_rdev_a = factor(j)
         if (!is.null(sel)) m$par_sel = sel
         m

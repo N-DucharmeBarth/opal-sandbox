@@ -17,10 +17,11 @@
 #   O2q       O1q with opal's own length-based selectivity (one curve per MFCL
 #             group, whose selectivity-at-age varies by quarter through growth).
 #
-# The double normals estimate their peak, plateau and two widths (columns
-# 1-4; the peak bounded to +/-2 SD of the length bins, the widths to
-# [-6, 3]), with the initial and final selectivity (columns 5-6) fixed at
-# -8 and 0 (near zero and 0.5); the logistic estimates both its parameters. Starting curves
+# The double normals estimate their peak, plateau, two widths and final
+# selectivity (columns 1-4 and 6; the peak bounded to +/-2 SD of the length
+# bins, the widths to [-6, 3], the final selectivity's logit to [-8, 8]),
+# with the initial selectivity (column 5) fixed at -8 (near zero); the
+# logistic estimates both its parameters. Starting curves
 # are fitted to MFCL's selectivity-at-age through opal's own
 # probability-of-length-at-age. Everything else (growth, steepness, sigma_R,
 # M, biology) is held as in O1.
@@ -55,19 +56,21 @@
     # from narrow to wide), then refined
     seed_curve = function(type, targets, pla, len_mid) {
         targets = matrix(targets, ncol = ncol(pla))
-        full = function(x) if (type == 1L) c(x, 0, 0, 0, 0) else c(x, -8, 0)
+        full = function(x) if (type == 1L) c(x, 0, 0, 0, 0) else c(x[1:4], -8, x[5])
         obj = function(x) {
             sa = c(t(pla) %*% sel_length(len_mid, full(x), type))
             sum(sweep(targets, 2, sa)^2)
         }
         starts = if (type == 1L) as.matrix(expand.grid(a = seq(-1.5, 1.5, 0.5), b = c(-2, -1, 0))) else
-            as.matrix(expand.grid(a = seq(-1.5, 1.5, 0.375), b = c(-4, -1), c = c(-4, -2.5, -1), d = c(-4, -2.5, -1, 1)))
+            as.matrix(expand.grid(a = seq(-1.5, 1.5, 0.375), b = c(-4, -1), c = c(-4, -2.5, -1), d = c(-4, -2.5, -1, 1),
+                                  f = c(-6, 0, 4)))
         val = apply(starts, 1, obj)
         best = order(val)[1:5]
-        fits = lapply(best, function(i) optim(starts[i, ], obj, method = "Nelder-Mead",
-                                              control = list(maxit = 20000, reltol = 1e-12)))
+        lo = if (type == 1L) c(-2, -7) else c(-2, -7, -6, -6, -8)
+        hi = if (type == 1L) c(2, 7) else c(2, 7, 3, 3, 8)
+        fits = lapply(best, function(i) optim(pmin(pmax(starts[i, ], lo), hi), obj, method = "L-BFGS-B",
+                                              lower = lo, upper = hi, control = list(maxit = 5000, factr = 1e2)))
         o = fits[[which.min(vapply(fits, `[[`, 0, "value"))]]
-        o = optim(o$par, obj, method = "BFGS", control = list(maxit = 5000, reltol = 1e-14))
         list(par = full(o$par), rmse = sqrt(o$value / length(targets)))
     }
     # Selectivity map: estimated columns per type, shared within curve groups
@@ -76,7 +79,7 @@
         k = 0L
         for (cg in unique(curve_f)) {
             f = which(curve_f == cg)
-            cols = if (type_f[f[1]] == 1L) 1:2 else 1:4
+            cols = if (type_f[f[1]] == 1L) 1:2 else c(1:4, 6)
             m[f, cols] = rep(k + seq_along(cols), each = length(f))
             k = k + length(cols)
         }
@@ -96,8 +99,8 @@
         sc = attr(map$par_sel, "col")
         if (!is.null(sc)) {
             i = which(nm == "par_sel")
-            lower[i] = c(-2, -7, -6, -6)[sc]
-            upper[i] = c(2, 7, 3, 3)[sc]
+            lower[i] = c(-2, -7, -6, -6, -10, -8)[sc]
+            upper[i] = c(2, 7, 3, 3, 10, 8)[sc]
         }
         par = pmin(pmax(ob$par, lower + 1e-6), upper - 1e-6)
         for (pass in 1:3) {

@@ -58,7 +58,7 @@ RP = oc$replays
 PR = oc$profile
 P  = lfd$profiles
 lb_mfcl = oc$log_B0_mfcl
-step_col = c(M0 = "grey20", M1 = "#7D3C98", M2 = "#2471A3", M3 = "#C0392B")
+step_col = c(M0 = "grey20", M1 = "#7D3C98", M1b = "#B07CC6", M2 = "#2471A3", M3 = "#C0392B")
 model_col = c("MFCL M3" = "grey20", O0 = "#7D3C98", O1 = "#2471A3", `O1-mid` = "#C0392B")
 sb_at = function(s, y) TS[step == s & year == y, sb]
 dep_at = function(s, y) TS[step == s & year == y, depletion]
@@ -78,10 +78,10 @@ simplified (in MFCL) or the difference is measured with replays (standalone
 simulations) and documented. The comparisons are meant as advice to opal's
 developers on the features the stock would need.
 
-* **An MFCL bridge to model region 1** (@sec-bridge). Four steps, each a
-  refitted MFCL model: the diagnostic model (M0), no movement (M1), region 1
-  only (M2), and growth fixed without the conditional age-at-length data
-  (M3). Region 1's spawning biomass roughly doubles at each step: the
+* **An MFCL bridge to model region 1** (@sec-bridge). Five steps, each a
+  refitted MFCL model: the diagnostic model (M0), no movement (M1), the
+  movement weeks moved onto fishing dates (M1b), region 1 only (M2), and
+  growth fixed without the conditional age-at-length data (M3). Region 1's spawning biomass roughly doubles at each step: the
   stock's scale is weakly determined, and each source of information removed
   lets it drift up.
 * **The conversion** (@sec-convert) maps MFCL's October-September model
@@ -150,7 +150,7 @@ including estimation uncertainty).
 
 ```{r}
 #| label: tbl-bridge
-#| tbl-cap: "The MFCL bridge (M0 diagnostic, M1 no movement, M2 region 1 only, M3 growth fixed without age-at-length). Objective (negative log-likelihood plus penalties) and its components; region 1 spawning (adult) biomass in thousand tonnes; depletion in 2022 against the unfished projection. M0's region 1 values are from the two-region model."
+#| tbl-cap: "The MFCL bridge (M0 diagnostic, M1 no movement, M1b movement weeks on fishing dates, M2 region 1 only, M3 growth fixed without age-at-length). Objective (negative log-likelihood plus penalties) and its components; region 1 spawning (adult) biomass in thousand tonnes; depletion in 2022 against the unfished projection (none for M1b, whose zero-fishing projection MFCL stops). M0-M1b's region 1 values are from two-region models."
 B = merge(L, TS[year == min(year), .(step, sb_1954 = sb / 1000)], by = "step")
 B = merge(B, TS[year == max(year), .(step, sb_2022 = sb / 1000, depletion)], by = "step")
 knitr::kable(B[, .(step, objective = fmt(objective, 1),
@@ -172,9 +172,19 @@ times 10^-6^.
   share the recruitment deviations (total recruitment split 0.819 / 0.181)
   and the stock-recruitment relationship, so the EPO data still inform
   region 1's recruitment.
+* **M1b, movement weeks on fishing dates.** The movement weeks change from
+  37, 5, 17 and 29 (1 October and the first weeks of February, May and
+  August) to 5, 17, 29 and 41 (February, May, August and November), all
+  region 1 fishing dates. With no movement this changes nothing but MFCL's
+  time steps: it removes the extra period at the start of each year that
+  MFCL adds at a movement week in a multi-region model, which a one-region
+  model does not have (see the transplant check below), so that M1b-M2
+  changes only the regions. MFCL's zero-fishing projection for M1b stops
+  with a "sanity error" (the first period of a year is no longer a movement
+  period), so M1b has no depletion; its fit converges.
 * **M2, region 1 only.** The EPO fisheries (14-17) and EPO index (20) are
   dropped and the region 1 indices renumbered 14 and 15. The par file is
-  built from M1's: fishery- and region-indexed values are subset, region 1's
+  built from M1b's: fishery- and region-indexed values are subset, region 1's
   recruitment is kept by shifting the total population scaling parameter by
   log(0.818971), and the sections shaped by regions, movement or catch
   records come from MFCL's `-makepar` for the one-region files (all zero or
@@ -205,19 +215,19 @@ it drifts up as each is removed.
 
 ```{r}
 #| label: tbl-transplant
-#| tbl-cap: "Transplant check: M2's one-region structure evaluated at M1's estimates (no refit) against M1's region 1. Largest relative difference."
-knitr::kable(bridge$transplant_check[, .(quantity, `max rel. diff.` = sci(max_rel_diff, 1))], format = "pipe")
+#| tbl-cap: "Transplant checks: M2's one-region structure evaluated (no refit) at M1's and at M1b's estimates against their region 1. Largest relative difference."
+knitr::kable(bridge$transplant_check[, .(quantity, `vs M1` = sci(vs_m1, 1), `vs M1b` = sci(vs_m1b, 1))], format = "pipe")
 ```
 
 With no movement, region 1 in M1 is unaffected by region 2's catch or
 abundance (tested by setting region 2's catch and recruitment near zero),
-and M2's inputs match M1's region 1 exactly: every `.frq` record (catch,
+and M2's inputs match its region 1 exactly: every `.frq` record (catch,
 effort, CV and length frequencies) and every flag and parameter section of
 the par file, with the total population scaling parameter shifted by exactly
 log(0.818971). Recruitment, selectivity, growth, M and the predicted catches
-agree, but the numbers at the oldest ages drift up by a few percent and
-adult biomass by up to
-`r pct(bridge$transplant_check[quantity == "adult biomass", max_rel_diff])`.
+agree, but against M1 the numbers at the oldest ages drift up by a few
+percent and adult biomass by up to
+`r pct(bridge$transplant_check[quantity == "adult biomass", vs_m1])`.
 
 The cause is in how MFCL builds its time steps. Each region's year is split
 into periods at its fishing incidents and, in a multi-region model only, at
@@ -231,15 +241,19 @@ October-September model year like the records (`get_history_data()`,
 1 October (the start of the model year) and the first weeks of February, May
 and August. Region 1 fishes in February, May and August but never in
 October, so M1's region 1 has an extra period at the start of every year,
-which M2 (one region) does not. Moving M1's movement weeks onto fishing
-dates (5, 17, 29, 41: February, May, August, November) removes the extra periods and the difference falls
-from 3.7% to 0.3% in numbers-at-age and from 1.3% to 0.15% in adult
+which M2 (one region) does not. Moving the movement weeks onto fishing
+dates (M1b) removes the extra periods and the difference falls from
+`r pct(bridge$transplant_check[quantity == "numbers at age (all years)", vs_m1])` to
+`r pct(bridge$transplant_check[quantity == "numbers at age (all years)", vs_m1b], 2)` in
+numbers-at-age and from
+`r pct(bridge$transplant_check[quantity == "adult biomass", vs_m1])` to
+`r pct(bridge$transplant_check[quantity == "adult biomass", vs_m1b], 2)` in adult
 biomass. What is left is confined to the initial age structure (0.02% per
 age in 1954, gone by 1990), which MFCL builds from the average Z of the
 first ten periods, whose layout at the start of the series still differs.
-Removing region 2 therefore changes MFCL's within-year timing of M as well
-as the data and the recruitment link: part of the M1-M2 step is this
-structural effect.
+Removing regions therefore changes MFCL's within-year timing of M as well
+as the data and the recruitment link; M1b separates that structural effect
+(M1-M1b) from the change of regions (M1b-M2).
 
 # Conversion to opal {#sec-convert}
 

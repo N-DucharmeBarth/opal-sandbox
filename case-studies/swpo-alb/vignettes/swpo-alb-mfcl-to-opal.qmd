@@ -225,12 +225,14 @@ the movement dates (`check_for_missing_node()` in `rnaux2.cpp` returns the
 movement nodes only `if (num_regions > 1)`). Natural mortality is shared
 equally among a year's periods (`fraction = -log(n)`), not by elapsed time,
 and acts together with F in each period. MFCL's year has 48 weeks (four per
-month) and the movement weeks are read in model time, after the shift to the
-October-September model year: the diagnostic model's weeks 37, 5, 17 and 29
-are model months 10, 2, 5 and 8 (calendar July, November, February and May).
-Region 1 fishes in November, February and May but never in July, so M1's
-region 1 has an extra period every year, which M2 (one region) does not. Moving M1's movement weeks onto fishing
-dates (5, 17, 29, 41) removes the extra periods and the difference falls
+month); the movement weeks are calendar weeks, renumbered into the
+October-September model year like the records (`get_history_data()`,
+"renumber for month_1"). The diagnostic model's weeks 37, 5, 17 and 29 are
+1 October (the start of the model year) and the first weeks of February, May
+and August. Region 1 fishes in February, May and August but never in
+October, so M1's region 1 has an extra period at the start of every year,
+which M2 (one region) does not. Moving M1's movement weeks onto fishing
+dates (5, 17, 29, 41: February, May, August, November) removes the extra periods and the difference falls
 from 3.7% to 0.3% in numbers-at-age and from 1.3% to 0.15% in adult
 biomass. What is left is confined to the initial age structure (0.02% per
 age in 1954, gone by 1990), which MFCL builds from the average Z of the

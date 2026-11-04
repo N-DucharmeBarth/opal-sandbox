@@ -103,8 +103,9 @@ developers on the features the stock would need.
   MFCL's mid-year lengths (O1-mid) the fit is bounded, with B0 at MFCL's
   Beverton-Holt B0; opal's stock is still about half MFCL's in 2022,
   because MFCL starts far above its own unfished equilibrium (@sec-start).
-  With opal's own selectivity (@sec-o2) the double normals collapse to
-  knife-edges and the stock is smaller still.
+  Estimating the initial population (O1i) brings it close to MFCL's. With
+  opal's own selectivity (@sec-o2) the double normals collapse to
+  knife-edges and the stock is a quarter of MFCL's.
 * **Seasonal set-ups** (@sec-seasonal). Splitting the fisheries with
   seasonal selectivity into one fishery per season, and an opal model with
   quarterly age classes and time steps (recruitment kept annual), are set up
@@ -454,6 +455,8 @@ spawning biomass is
 `r fmt(TR[model == "O1-mid" & year == min(year), sb] / 1e3, 0)` kt in 1954 and
 `r fmt(TR[model == "O1-mid" & year == max(year), sb] / 1e3, 0)` kt in 2022,
 against MFCL's `r fmt(TR[model == "MFCL M3" & year == max(year), sb] / 1e3, 0)` kt.
+Estimating the initial population, as MFCL does, closes most of the gap
+(O1i, @sec-o2).
 
 The quarterly-age model, which gives each quarter MFCL's length-at-age and
 selectivity and fits the length compositions by quarter, also has its
@@ -521,19 +524,29 @@ parameter.
 
 # Fits with the quarterly ages and opal's own selectivity {#sec-o2}
 
-Four further fits (`scripts/05-fit-opal-selectivity.r`), with growth,
-steepness, sigma~R~, M and the biology held as in O1:
+Five further fits (`scripts/05-fit-opal-selectivity.r`), with growth,
+steepness, sigma~R~, M and the biology held as in O1. All estimate the
+initial population (@sec-start): one deviation for the 1954 recruits (age 1)
+and one shared by the older ages, which sets the level of the initial age
+structure (in the quarterly models the plus group has its own), without the
+penalty against the stock-recruitment relationship (opal's
+`lambdas$init_rec = 0`), as in MFCL.
 
+* **O1i**: O1-mid (annual, mid-year growth, MFCL's selectivity) with the
+  initial population estimated.
 * **O1q**: the quarterly-age model with MFCL's seasonal selectivity fixed;
-  B0, the first-quarter recruitment deviations (1955-2020) and the
-  catchabilities estimated.
+  B0, the first-quarter recruitment deviations (1955-2020), the initial
+  population and the catchabilities estimated.
 * **O2**: the annual model with mid-year growth (O1-mid) and opal's own
   length-based selectivity: double normals (a logistic for the longline
   index, which MFCL holds non-decreasing), shared within MFCL's selectivity
-  groups (fisheries 1 and 3, 2 and 4, 5 and 6). The peak, plateau, both
-  widths and the final selectivity are estimated, within bounds (peak within
-  2 SD of the length bins, widths in [-6, 3]); starting curves are fitted to
-  MFCL's selectivity-at-age through opal's length-at-age.
+  groups (fisheries 1 and 3, 2 and 4, 5 and 6). Three of the double
+  normal's six parameters are estimated: the peak and the two widths, within
+  bounds (peak within 2 SD of the length bins, widths in [-6, 3]). The
+  plateau and final selectivity are held at the starting curves', which are
+  fitted to MFCL's selectivity-at-age through opal's length-at-age, and the
+  initial selectivity near zero. (A first attempt with five of the six free
+  ran most widths, plateaus and final selectivities to their bounds.)
 * **O2-split**: O2 with fisheries 1-7 split into one fishery per season,
   sharing parameters within MFCL's groups and seasons.
 * **O2q**: O1q with opal's own selectivity (one curve per group, whose
@@ -550,9 +563,9 @@ knitr::kable(SS[, .(model, `n par` = n_par, `max grad.` = sci(max_gradient), `at
 
 ```{r}
 #| label: fig-o2
-#| fig-cap: "Spawning biomass: MFCL M3 and the opal fits with MFCL's selectivity (O1-mid, O1q) or opal's own (O2, O2q)."
+#| fig-cap: "Spawning biomass: MFCL M3 and the opal fits with MFCL's selectivity (O1-mid with the initial population at equilibrium; O1i and O1q with it estimated) or opal's own (O2, O2q)."
 tr2 = rbind(TR[model %in% c("MFCL M3", "O1-mid"), .(model, year, sb)],
-            sel$trajectory[model %in% c("O1q", "O2", "O2q"), .(model, year, sb)])
+            sel$trajectory[model %in% c("O1i", "O1q", "O2", "O2q"), .(model, year, sb)])
 ggplot(tr2, aes(year, sb / 1e3, colour = model)) + geom_line() +
     labs(x = NULL, y = "SB (kt)", colour = NULL)
 ```
@@ -571,22 +584,29 @@ ggplot(sel_dt, aes(age, sel, colour = source)) + geom_line() + geom_point(size =
     facet_wrap(~name) + labs(x = "age", y = "selectivity", colour = NULL)
 ```
 
-O1q converges (largest gradient
-`r sci(SS[model == "O1q", max_gradient])`) with no parameter at a bound, but
-like O1-mid it ends with about half MFCL's 2022 stock, for the reason in
-@sec-start.
+With MFCL's selectivity, estimating the initial population brings opal close
+to MFCL. O1i converges (largest gradient `r sci(SS[model == "O1i", max_gradient])`)
+with `r fmt(SS[model == "O1i", sb_end] / 1e3, 0)` kt in 2022 and depletion
+`r fmt(SS[model == "O1i", depletion_end], 2)`, against MFCL's
+`r fmt(TR[model == "MFCL M3" & year == max(year), sb] / 1e3, 0)` kt and
+`r fmt(TR[model == "MFCL M3" & year == max(year), dynamic_depletion], 2)`. O1q also
+converges and matches MFCL's 1954 spawning biomass, but through a degenerate
+initial age structure: the shared level of the classes between age 1 and the
+plus group goes to `r fmt(unique(sel$fits$O1q$parameters$init_rdev_a[sel$fits$O1q$parameters$init_rdev_a > -20])[2], 1)`
+(nearly empty) and the plus group carries the initial stock; the initial
+structure needs constraining (e.g. the plus group tied to the shared level).
 
-With opal's selectivity the fits do not settle on sensible curves. In O2 and
-O2q many double-normal widths go to their lower bound (knife-edge limbs) and
-the longline index's logistic to the top of its range, the largest gradients
-stay near 0.5, and the stock is a quarter of MFCL's in 2022. O2-split, with
-twice as many curves, ends at a point where the gradient explodes as its
-curves collapse. MFCL estimates the same selectivities as three- or
+With opal's selectivity the fits still do not settle on sensible curves,
+even with three of the six parameters free. In O2 and O2q many double-normal
+widths go to their bounds (knife-edge limbs), the largest gradients stay
+above 1, and the stock is a quarter of MFCL's in 2022. O2-split ends at a
+point where the gradient explodes as its curves collapse. MFCL estimates the same selectivities as three- or
 four-node cubic splines, with selectivity held at zero for the youngest ages
 of most fisheries and non-decreasing for the longline index; opal's double
-normal, fitted freely to these length compositions, is not well determined.
-Constraining the curves (fixing their widths, priors on the parameters, the
-double Richards curve or age-based selectivity) is the next step.
+normal, even with three parameters free, is not well determined by these
+length compositions. Constraining the curves further (fixing a width, priors
+on the parameters, the double Richards curve or age-based selectivity) is
+the next step.
 
 # What opal would need {#sec-gaps}
 

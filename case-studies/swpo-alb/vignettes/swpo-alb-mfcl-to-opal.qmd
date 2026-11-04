@@ -44,6 +44,7 @@ library(patchwork)
 bridge = readRDS(file.path("data", "swpo-alb-mfcl-bridge.rds"))
 oc     = readRDS(file.path("data", "swpo-alb-opal-cache.rds"))
 lfd    = readRDS(file.path("data", "swpo-alb-lf-diagnostics.rds"))
+sel    = readRDS(file.path("data", "swpo-alb-opal-sel-fits.rds"))
 
 theme_set(theme_bw(base_size = 11) +
           theme(legend.position = "bottom", panel.grid.minor = element_blank()))
@@ -99,7 +100,11 @@ developers on the features the stock would need.
   unexploited stock. The cause (@sec-lf) is length-at-age timing: MFCL
   predicts each length sample at its date with lengths that grow through
   the year, opal from start-of-year length-at-age. With opal's growth at
-  MFCL's mid-year lengths (O1-mid) the fit converges at MFCL's scale.
+  MFCL's mid-year lengths (O1-mid) the fit is bounded, with B0 at MFCL's
+  Beverton-Holt B0; opal's stock is still about half MFCL's in 2022,
+  because MFCL starts far above its own unfished equilibrium (@sec-start).
+  With opal's own selectivity (@sec-o2) the double normals collapse to
+  knife-edges and the stock is smaller still.
 * **Seasonal set-ups** (@sec-seasonal). Splitting the fisheries with
   seasonal selectivity into one fishery per season, and an opal model with
   quarterly age classes and time steps (recruitment kept annual), are set up
@@ -367,7 +372,9 @@ ggplot(pr, aes(log_B0, delta, colour = variable)) + geom_line() + geom_point() +
     labs(x = "log(B0)", y = "change in negative log-likelihood", colour = NULL)
 ```
 
-The index and the recruitment penalty are best near MFCL's scale; the length
+Here and below, "MFCL's scale" is MFCL's Beverton-Holt B0 (log(B0)
+`r fmt(lb_mfcl, 2)`), the value O0 uses. The index and the recruitment
+penalty are best near it; the length
 compositions keep improving towards an unexploited stock and win.
 
 # Why the length compositions favour an unexploited stock {#sec-lf}
@@ -431,6 +438,23 @@ converges at log(B0) `r fmt(o1m_lb, 2)` against MFCL's `r fmt(lb_mfcl, 2)`.
 The length compositions on their own still favour a somewhat larger stock
 than MFCL's.
 
+## Starting population {#sec-start}
+
+A B0 at MFCL's does not give MFCL's stock. MFCL scales its initial
+population with its own parameter (the total population scaling), separately
+from its stock-recruitment relationship, and its 1954 spawning biomass
+(`r fmt(TR[model == "MFCL M3" & year == min(year), sb] / 1e3, 0)` kt) is about
+`r fmt(TR[model == "MFCL M3" & year == min(year), sb] / exp(lb_mfcl), 0)` times its
+Beverton-Holt B0, with 1954 recruitment
+`r fmt(TR[model == "MFCL M3" & year == min(year), recruits] / mean(TR[model == "MFCL M3", recruits][-1]), 1)`
+times its mean. O0 reproduces it only by imposing MFCL's initial numbers
+(`init_rdev_a`); fitted opal models start from the unfished equilibrium at
+B0, as the assessment report describes but MFCL does not implement. O1-mid's
+spawning biomass is
+`r fmt(TR[model == "O1-mid" & year == min(year), sb] / 1e3, 0)` kt in 1954 and
+`r fmt(TR[model == "O1-mid" & year == max(year), sb] / 1e3, 0)` kt in 2022,
+against MFCL's `r fmt(TR[model == "MFCL M3" & year == max(year), sb] / 1e3, 0)` kt.
+
 The quarterly-age model, which gives each quarter MFCL's length-at-age and
 selectivity and fits the length compositions by quarter, also has its
 minimum at MFCL's scale and fits the indices far better than any annual
@@ -438,7 +462,7 @@ variant (CPUE negative log-likelihood
 `r fmt(P[variant == "quarterly" & abs(dlog_B0) < 1e-8, cpue], 2)` at MFCL's
 scale, against `r fmt(P[variant == "annual-mid" & abs(dlog_B0) < 1e-8, cpue], 2)`
 for annual-mid and `r fmt(P[variant == "annual" & abs(dlog_B0) < 1e-8, cpue], 2)`
-for the O1 set-up). Its depletion at MFCL's scale
+for the O1 set-up). Its depletion at that B0
 (`r fmt(P[variant == "quarterly" & abs(dlog_B0) < 1e-8, depletion_end], 3)`) is
 lower than the annual variants', partly because its stock-recruitment curve
 is evaluated differently (@sec-seasonal); its B0 is not comparable with the
@@ -495,6 +519,75 @@ usual relative stock size, which changes what steepness means. Depletion has
 to be taken against opal's unfished projection, and B0 treated as a scale
 parameter.
 
+# Fits with the quarterly ages and opal's own selectivity {#sec-o2}
+
+Four further fits (`scripts/05-fit-opal-selectivity.r`), with growth,
+steepness, sigma~R~, M and the biology held as in O1:
+
+* **O1q**: the quarterly-age model with MFCL's seasonal selectivity fixed;
+  B0, the first-quarter recruitment deviations (1955-2020) and the
+  catchabilities estimated.
+* **O2**: the annual model with mid-year growth (O1-mid) and opal's own
+  length-based selectivity: double normals (a logistic for the longline
+  index, which MFCL holds non-decreasing), shared within MFCL's selectivity
+  groups (fisheries 1 and 3, 2 and 4, 5 and 6). The peak, plateau, both
+  widths and the final selectivity are estimated, within bounds (peak within
+  2 SD of the length bins, widths in [-6, 3]); starting curves are fitted to
+  MFCL's selectivity-at-age through opal's length-at-age.
+* **O2-split**: O2 with fisheries 1-7 split into one fishery per season,
+  sharing parameters within MFCL's groups and seasons.
+* **O2q**: O1q with opal's own selectivity (one curve per group, whose
+  selectivity-at-age varies by quarter through growth).
+
+```{r}
+#| label: tbl-o2
+#| tbl-cap: "Fits with quarterly ages or opal's selectivity. Objectives of the quarterly models include a constant from the recruitment deviations fixed at -30 and are not comparable with the annual models'. At bound: estimated parameters at a bound. SB in thousand tonnes; depletion against opal's unfished projection."
+SS = sel$summary
+knitr::kable(SS[, .(model, `n par` = n_par, `max grad.` = sci(max_gradient), `at bound` = at_bound,
+                    CPUE = fmt(cpue, 1), `length comps` = fmt(lf, 1),
+                    `SB 2022` = fmt(sb_end / 1e3, 0), depletion = fmt(depletion_end, 3))], format = "pipe")
+```
+
+```{r}
+#| label: fig-o2
+#| fig-cap: "Spawning biomass: MFCL M3 and the opal fits with MFCL's selectivity (O1-mid, O1q) or opal's own (O2, O2q)."
+tr2 = rbind(TR[model %in% c("MFCL M3", "O1-mid"), .(model, year, sb)],
+            sel$trajectory[model %in% c("O1q", "O2", "O2q"), .(model, year, sb)])
+ggplot(tr2, aes(year, sb / 1e3, colour = model)) + geom_line() +
+    labs(x = NULL, y = "SB (kt)", colour = NULL)
+```
+
+```{r}
+#| label: fig-o2-sel
+#| fig-cap: "Selectivity-at-age: MFCL's (averaged over seasons) and O2's estimates, for selected fisheries."
+ff = c(3, 4, 6, 8, 11, 14)
+sel_dt = rbind(
+  data.table(source = "MFCL", fishery = rep(ff, each = 12), age = rep(1:12, length(ff)),
+             sel = as.vector(t(oc$selectivity$average[ff, ]))),
+  data.table(source = "O2", fishery = rep(ff, each = 12), age = rep(1:12, length(ff)),
+             sel = as.vector(t(sel$fits$O2$sel_fya[ff, ]))))
+sel_dt[, name := oc$fishery_names[fishery]]
+ggplot(sel_dt, aes(age, sel, colour = source)) + geom_line() + geom_point(size = 0.8) +
+    facet_wrap(~name) + labs(x = "age", y = "selectivity", colour = NULL)
+```
+
+O1q converges (largest gradient
+`r sci(SS[model == "O1q", max_gradient])`) with no parameter at a bound, but
+like O1-mid it ends with about half MFCL's 2022 stock, for the reason in
+@sec-start.
+
+With opal's selectivity the fits do not settle on sensible curves. In O2 and
+O2q many double-normal widths go to their lower bound (knife-edge limbs) and
+the longline index's logistic to the top of its range, the largest gradients
+stay near 0.5, and the stock is a quarter of MFCL's in 2022. O2-split, with
+twice as many curves, ends at a point where the gradient explodes as its
+curves collapse. MFCL estimates the same selectivities as three- or
+four-node cubic splines, with selectivity held at zero for the youngest ages
+of most fisheries and non-decreasing for the longline index; opal's double
+normal, fitted freely to these length compositions, is not well determined.
+Constraining the curves (fixing their widths, priors on the parameters, the
+double Richards curve or age-based selectivity) is the next step.
+
 # What opal would need {#sec-gaps}
 
 ```{r}
@@ -510,7 +603,8 @@ gaps = data.table(
            "VB growth with independent mean lengths at ages 2-4; SD log-linear in length",
            "Length compositions per incident, robust normal likelihood",
            "Index abundance at the incident's date",
-           "Recruitment from the previous year's spawning potential; last two at the mean"),
+           "Recruitment from the previous year's spawning potential; last two at the mean",
+           "Initial population scaled by its own parameter, apart from the stock-recruitment relationship"),
   opal = c("one region",
            "none",
            "start-of-year length-at-age; annual compositions",
@@ -520,7 +614,8 @@ gaps = data.table(
            "VB, Richards, cessation, age-specific K; SD or CV linear in length",
            "annual compositions; multinomial, Dirichlet, Dirichlet-multinomial",
            "start of the season",
-           "same year's spawning biomass; free deviations"),
+           "same year's spawning biomass; free deviations",
+           "unfished (or init_F) equilibrium at B0, with optional initial deviations"),
   here = c("MFCL bridge to region 1 (M1, M2); scale doubles at each step",
            "dropped with growth fixed (M3); scale doubles",
            "the main cause of O1's unbounded scale; mid-year growth or quarterly ages fix it",
@@ -530,7 +625,8 @@ gaps = data.table(
            "age-specific K at ages 1-4 (0.5 cm RMSE)",
            "summed by fishery and year; Francis divisors kept",
            "as opal (season-start numbers)",
-           "MFCL's recruitment imposed (O0); last two deviations fixed (O1)"))
+           "MFCL's recruitment imposed (O0); last two deviations fixed (O1)",
+           "MFCL's initial numbers imposed in O0; fits start lower (MFCL's 1954 SB is ~5x its B0)"))
 knitr::kable(gaps, col.names = c("MFCL", "opal", "here"), format = "pipe")
 ```
 

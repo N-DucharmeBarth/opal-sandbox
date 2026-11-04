@@ -22,10 +22,12 @@
   - The cause is length-at-age timing: MFCL predicts each length sample at
     its date with lengths that grow through the year, opal from start-of-year
     lengths. With opal's growth at MFCL's mid-year lengths (O1-mid) the fit
-    converges at MFCL's scale (log B0 13.95 against 14.04). Seasonal fishery
+    is bounded, with B0 at MFCL's Beverton-Holt B0 (log 13.96 against 14.04);
+    its stock is still about half MFCL's in 2022, because MFCL scales its
+    initial population apart from its stock-recruitment relationship. Seasonal fishery
     splits (`mfcl_split_seasonal_fisheries()`) change little; a quarterly-age
     set-up (`mfcl_quarterly_ages()`: quarterly ages and steps, recruitment
-    kept annual) also profiles to MFCL's scale and fits the indices best.
+    kept annual) also profiles to MFCL's B0 and fits the indices best.
     The M1 -> M2 transplant difference (up to 1.3% in adult biomass with
     identical inputs) is MFCL's period structure: movement weeks add periods
     only in multi-region models and M is shared equally among periods;

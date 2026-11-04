@@ -225,3 +225,14 @@ build_region_par = function(src, template, keep_fish, region = 1L, rec_share) {
   }
   out
 }
+
+#' Set the movement weeks of an .frq file (MFCL's 48-week year of the model
+#' year: week = 4 (model month - 1) + week of month).
+set_frq_move_weeks = function(frq_in, frq_out, weeks) {
+  x = mfcl_read_lines(frq_in)
+  i = after_header(x, "# Number of movements per year")
+  stopifnot(as.integer(mfcl_num(x[i])) == length(weeks))
+  j = after_header(x, "# Weeks in which movement occurs")
+  x[j] = paste(weeks, collapse = " ")
+  writeLines(x, frq_out)
+}

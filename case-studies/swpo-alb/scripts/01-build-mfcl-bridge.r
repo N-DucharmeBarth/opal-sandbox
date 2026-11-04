@@ -12,9 +12,16 @@
 #       matrices set to the identity, so the two regions are closed
 #       populations; warm-started from 09.par and re-estimated with the
 #       diagnostic model's phase 9 settings.
+#   M1b 01b-aligned-movement: M1 with the movement weeks moved onto fishing
+#       dates (37 5 17 29 -> 5 17 29 41, model months 2, 5, 8 and 11). MFCL
+#       adds a period at each movement week, in multi-region models only, and
+#       shares the year's M equally among the periods; week 37 (model month
+#       10, calendar July) is not a fishing date in region 1, so M1 has one
+#       period a year more than a one-region model. M1b removes it, so that
+#       M1b -> M2 changes only the regions. Warm-started from M1.
 #   M2  02-region-1: region 1 only. The EPO fisheries (14-17) and EPO index
 #       (20) are dropped, the WCPFC-CA indices 18 and 19 become 14 and 15. The
-#       par is built from M1's estimates (region 1's recruitment kept by
+#       par is built from M1b's estimates (region 1's recruitment kept by
 #       shifting the total population scaling parameter by log(0.818971), the
 #       region 1 recruitment share); growth is still estimated and the
 #       conditional age-at-length data kept. Re-estimated with the phase 9
@@ -29,6 +36,7 @@
 # OUTPUTS (model-files/mfcl/):
 #   00-diagnostic/plot-m0-eval.par.rep
 #   01-no-movement/start.par, 01.par, plot-01.par.rep
+#   01b-aligned-movement/alb.frq, 01b.par, plot-01b.par.rep
 #   02-region-1/alb.frq, alb.ini, template.par, check.par, start.par, 02.par, plot-02.par.rep
 #   03-fixed-growth/start.par, 03.par, plot-03.par.rep
 #
@@ -49,7 +57,9 @@
 
     dir_m0 = file.path(dir_mfcl, "00-diagnostic")
     dir_m1 = file.path(dir_mfcl, "01-no-movement")
+    dir_m1b = file.path(dir_mfcl, "01b-aligned-movement")
     dir_m2 = file.path(dir_mfcl, "02-region-1")
+    aligned_weeks = c(5, 17, 29, 41)   # model months 2, 5, 8, 11: the fishing dates
     dir_m3 = file.path(dir_mfcl, "03-fixed-growth")
 
 # Run MFCL in `dir`; `args` after the frq file. Output goes to `log`.
@@ -92,12 +102,22 @@
     }
 
 #_____________________________________________________________________________
+# M1b: M1 with the movement weeks on fishing dates
+    dir.create(dir_m1b, showWarnings = FALSE)
+    invisible(file.copy(file.path(dir_m1, c("alb.ini", "alb.age_length", "mfcl.cfg")), dir_m1b, overwrite = TRUE))
+    set_frq_move_weeks(file.path(dir_m1, "alb.frq"), file.path(dir_m1b, "alb.frq"), aligned_weeks)
+    invisible(file.copy(file.path(dir_m1, "01.par"), file.path(dir_m1b, "start.par"), overwrite = TRUE))
+    if (refit || !file.exists(file.path(dir_m1b, "01b.par"))) {
+        phase9(dir_m1b, "start.par", "01b.par")
+    }
+
+#_____________________________________________________________________________
 # M2: region 1 only
     dir.create(dir_m2, showWarnings = FALSE)
     invisible(file.copy(file.path(dir_m0, c("mfcl.cfg", "alb.age_length")), dir_m2, overwrite = TRUE))
     # The age-at-length samples are all from fisheries 3-11, whose numbers do
     # not change.
-    frq_map = subset_frq_region(file.path(dir_m0, "alb.frq"), file.path(dir_m2, "alb.frq"),
+    frq_map = subset_frq_region(file.path(dir_m1b, "alb.frq"), file.path(dir_m2, "alb.frq"),
                                 keep_fish = keep_fish, region = 1L)
     subset_ini_region(file.path(dir_m0, "alb.ini"), file.path(dir_m2, "alb.ini"), region = 1L)
     unlink(file.path(dir_m2, "template.par"))
@@ -105,11 +125,12 @@
              file.path(dir_m2, "makepar.log"))
     stopifnot("makepar failed" = file.exists(file.path(dir_m2, "template.par")))
 
-    p2 = build_region_par(mfcl_read_par(file.path(dir_m1, "01.par")),
+    p2 = build_region_par(mfcl_read_par(file.path(dir_m1b, "01b.par")),
                           mfcl_read_par(file.path(dir_m2, "template.par")),
                           keep_fish = keep_fish, region = 1L, rec_share = rec_share_r1)
-    # Transplant check at M1's estimates: with no movement, region 1's
-    # dynamics should be unchanged (see 02-compare-mfcl-bridge.r).
+    # Transplant check at M1b's estimates: with no movement and the same
+    # periods, region 1's dynamics should be unchanged (see
+    # 02-compare-mfcl-bridge.r).
     mfcl_write_par(p2, file.path(dir_m2, "check.par"))
     run_mfcl(dir_m2, c("alb.frq", "check.par", "check-eval.par", "-switch", "1", "1", "1", "0"),
              file.path(dir_m2, "check-eval.log"))

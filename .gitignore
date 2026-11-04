@@ -35,6 +35,9 @@
 !case-studies/swpo-alb/model-files/mfcl/01-no-movement/01.par
 !case-studies/swpo-alb/model-files/mfcl/01-no-movement/plot-01.par.rep
 !case-studies/swpo-alb/model-files/mfcl/01-no-movement/alb.age_length
+!case-studies/swpo-alb/model-files/mfcl/01b-aligned-movement/01b.par
+!case-studies/swpo-alb/model-files/mfcl/01b-aligned-movement/plot-01b.par.rep
+!case-studies/swpo-alb/model-files/mfcl/01b-aligned-movement/alb.age_length
 !case-studies/swpo-alb/model-files/mfcl/02-region-1/template.par
 !case-studies/swpo-alb/model-files/mfcl/02-region-1/check.par
 !case-studies/swpo-alb/model-files/mfcl/02-region-1/plot-check-eval.par.rep

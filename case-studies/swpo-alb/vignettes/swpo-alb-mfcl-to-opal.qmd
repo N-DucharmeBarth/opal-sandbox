@@ -55,6 +55,13 @@ theme_set(theme_bw(base_size = 11) +
 fmt = function(x, d = 2) ifelse(is.na(x), "", formatC(x, format = "f", digits = d, big.mark = ","))
 sci = function(x, d = 1) formatC(x, format = "e", digits = d)
 pct = function(x, d = 1) paste0(fmt(100 * x, d), "%")
+# Pipe table with relative column widths (dash counts), for wide text tables
+pipe_table = function(x, widths) {
+    x = as.data.frame(x)
+    row = function(v) paste0("| ", paste(gsub("\\|", "/", v), collapse = " | "), " |")
+    cat(row(names(x)), paste0("|", paste0(":", strrep("-", widths), collapse = "|"), "|"),
+        apply(x, 1, row), sep = "\n")
+}
 
 L  = bridge$likelihood
 TS = bridge$timeseries
@@ -63,8 +70,30 @@ RP = oc$replays
 PR = oc$profile
 P  = lfd$profiles
 lb_mfcl = oc$log_B0_mfcl
-step_col = c(M0 = "grey20", M1 = "#7D3C98", M1b = "#B07CC6", M2 = "#2471A3", M3 = "#C0392B")
-model_col = c("MFCL M3" = "grey20", O0 = "#7D3C98", O1 = "#2471A3", `O1-mid` = "#C0392B")
+# One colour per model in every figure: MFCL in black, the bridge steps in
+# browns, O0 purple, fits with MFCL's selectivity (O1 family) blue,
+# length-based double normals (O2 family) orange-red, age-based and hybrid
+# (O3/O4 family) green; quarterly-age models dashed in their family's colour.
+# The profile set-ups take the colour of the fit with the same set-up.
+model_col = c(MFCL = "black", `MFCL M3` = "black", M3 = "black",
+              M0 = "grey60", M1 = "#B9770E", M1b = "#F0B27A", M2 = "#6E2C00",
+              O0 = "#7D3C98",
+              O1 = "#85C1E9", `O1-mid` = "#2E86C1", O1i = "#138D75", O1q = "#5DADE2",
+              O2 = "#E67E22", `O2-split` = "#F5B041", `O2-all` = "#C0392B", O2q = "#E67E22",
+              O3 = "#82E0AA", O4 = "#28B463", `O4-fix` = "#145A32", `O4q-fix` = "#28B463",
+              annual = "#85C1E9", `annual-mid` = "#2E86C1", quarterly = "#5DADE2",
+              split = "#F06292", `split-mid` = "#AD1457")
+model_lty = setNames(ifelse(grepl("q|quarterly", names(model_col)), "22", "solid"), names(model_col))
+scale_models = function() list(scale_colour_manual(values = model_col, breaks = names(model_col)),
+                               scale_linetype_manual(values = model_lty, breaks = names(model_col)))
+# All spawning-biomass trajectories in one table (depletion against opal's
+# unfished projection, MFCL's against its own)
+ALL = unique(rbindlist(list(
+    TR[, .(model, year, sb, depletion = dynamic_depletion)],
+    sel$trajectory[, .(model, year, sb, depletion = dynamic_depletion)],
+    lft$trajectory[, .(model, year, sb, depletion)],
+    asel$trajectory[, .(model, year, sb, depletion)],
+    hyb$trajectory[, .(model, year, sb, depletion)])), by = c("model", "year"))
 sb_at = function(s, y) TS[step == s & year == y, sb]
 dep_at = function(s, y) TS[step == s & year == y, depletion]
 o1_lb = oc$o1$par[["log_B0"]]
@@ -121,7 +150,9 @@ developers on the features the stock would need.
   seasonal selectivity into one fishery per season, and an opal model with
   quarterly age classes and time steps (recruitment kept annual), are set up
   through opal's inputs alone.
-* **What opal would need** is summarised in @sec-gaps.
+* **From MFCL to the best opal model** (@sec-progression): the steps to
+  O4-fix, and the remaining differences, the workarounds and what opal would
+  need (@sec-gaps).
 
 # The 2024 assessment {#sec-assessment}
 
@@ -214,9 +245,9 @@ times 10^-6^.
 #| label: fig-bridge
 #| fig-cap: "Region 1 spawning biomass and depletion along the MFCL bridge."
 p1 = ggplot(TS, aes(year, sb / 1e3, colour = step)) + geom_line() +
-    scale_colour_manual(values = step_col) + labs(x = NULL, y = "SB (kt)", colour = NULL)
+    scale_colour_manual(values = model_col) + labs(x = NULL, y = "SB (kt)", colour = NULL)
 p2 = ggplot(TS, aes(year, depletion, colour = step)) + geom_line() +
-    scale_colour_manual(values = step_col) + labs(x = NULL, y = "SB / SB(F=0)", colour = NULL) +
+    scale_colour_manual(values = model_col) + labs(x = NULL, y = "SB / SB(F=0)", colour = NULL) +
     coord_cartesian(ylim = c(0, 1))
 p1 + p2 + plot_layout(guides = "collect")
 ```
@@ -428,10 +459,12 @@ the same with fisheries 1-7 split into one fishery per season
 #| label: fig-lf-profiles
 #| fig-cap: "Profiles over log(B0) (relative to MFCL's): change in the total objective (left) and in the length-composition component (right). annual: O1's set-up; -mid: growth at MFCL's mid-year lengths; split: one fishery per season for fisheries 1-7; quarterly: quarterly ages (B0 on the annual model's scale)."
 pp = P[is.finite(objective)]
-g1 = ggplot(pp, aes(dlog_B0, d_objective, colour = variant)) + geom_line() + geom_point() +
-    geom_vline(xintercept = 0, linetype = 2) + labs(x = "log(B0) - MFCL's", y = "change in objective", colour = NULL)
-g2 = ggplot(pp, aes(dlog_B0, d_lf, colour = variant)) + geom_line() + geom_point() +
-    geom_vline(xintercept = 0, linetype = 2) + labs(x = "log(B0) - MFCL's", y = "change in length comps", colour = NULL)
+g1 = ggplot(pp, aes(dlog_B0, d_objective, colour = variant, linetype = variant)) + geom_line() + geom_point() +
+    geom_vline(xintercept = 0, linetype = 2) + scale_models() +
+    labs(x = "log(B0) - MFCL's", y = "change in objective", colour = NULL, linetype = NULL)
+g2 = ggplot(pp, aes(dlog_B0, d_lf, colour = variant, linetype = variant)) + geom_line() + geom_point() +
+    geom_vline(xintercept = 0, linetype = 2) + scale_models() +
+    labs(x = "log(B0) - MFCL's", y = "change in length comps", colour = NULL, linetype = NULL)
 g1 + g2 + plot_layout(guides = "collect")
 ```
 
@@ -485,10 +518,11 @@ Estimating the initial population, as MFCL does, closes most of the gap
 #| label: fig-fits
 #| fig-cap: "Spawning biomass and dynamic depletion: MFCL M3, O0, O1 and O1-mid. O1's spawning biomass is off the scale."
 g1 = ggplot(TR[model != "O1"], aes(year, sb / 1e3, colour = model)) + geom_line() +
-    scale_colour_manual(values = model_col) + labs(x = NULL, y = "SB (kt)", colour = NULL)
+    scale_colour_manual(values = model_col, limits = c("MFCL M3", "O0", "O1", "O1-mid")) +
+    labs(x = NULL, y = "SB (kt)", colour = NULL)
 g2 = ggplot(TR, aes(year, dynamic_depletion, colour = model)) + geom_line() +
-    scale_colour_manual(values = model_col) + coord_cartesian(ylim = c(0, 1.05)) +
-    labs(x = NULL, y = "SB / SB(F=0)", colour = NULL)
+    scale_colour_manual(values = model_col, limits = c("MFCL M3", "O0", "O1", "O1-mid")) +
+    coord_cartesian(ylim = c(0, 1.05)) + labs(x = NULL, y = "SB / SB(F=0)", colour = NULL)
 g1 + g2 + plot_layout(guides = "collect")
 ```
 
@@ -578,8 +612,8 @@ knitr::kable(SS[, .(model, `n par` = n_par, `max grad.` = sci(max_gradient), `at
 #| fig-cap: "Spawning biomass: MFCL M3 and the opal fits with MFCL's selectivity (O1-mid with the initial population at equilibrium; O1i and O1q with it estimated) or opal's own (O2, O2q)."
 tr2 = rbind(TR[model %in% c("MFCL M3", "O1-mid"), .(model, year, sb)],
             sel$trajectory[model %in% c("O1i", "O1q", "O2", "O2q"), .(model, year, sb)])
-ggplot(tr2, aes(year, sb / 1e3, colour = model)) + geom_line() +
-    labs(x = NULL, y = "SB (kt)", colour = NULL)
+ggplot(tr2, aes(year, sb / 1e3, colour = model, linetype = model)) + geom_line() + scale_models() +
+    labs(x = NULL, y = "SB (kt)", colour = NULL, linetype = NULL)
 ```
 
 ```{r}
@@ -593,7 +627,7 @@ sel_dt = rbind(
              sel = as.vector(t(sel$fits$O2$sel_fya[ff, ]))))
 sel_dt[, name := oc$fishery_names[fishery]]
 ggplot(sel_dt, aes(age, sel, colour = source)) + geom_line() + geom_point(size = 0.8) +
-    facet_wrap(~name) + labs(x = "age", y = "selectivity", colour = NULL)
+    scale_colour_manual(values = model_col) + facet_wrap(~name) + labs(x = "age", y = "selectivity", colour = NULL)
 ```
 
 With MFCL's selectivity, estimating the initial population brings opal close
@@ -699,7 +733,7 @@ knitr::kable(AS[, .(model, `max grad.` = sci(max_gradient), `widths at bound` = 
 #| fig-cap: "Selectivity-at-age: MFCL's (averaged over seasons), O3's (age-based) and O4's (hybrid) for selected fisheries."
 sa = asel$sel_age[model %in% c("MFCL", "O3", "O4") & fishery %in% c(3, 4, 6, 8, 11, 14)]
 ggplot(sa, aes(age, sel, colour = model)) + geom_line() + geom_point(size = 0.8) +
-    facet_wrap(~name) + labs(x = "age", y = "selectivity", colour = NULL)
+    scale_colour_manual(values = model_col) + facet_wrap(~name) + labs(x = "age", y = "selectivity", colour = NULL)
 ```
 
 Age-based curves keep MFCL's domed shapes, with far fewer widths at their
@@ -770,46 +804,147 @@ curves' seasonality is the cause; if not, the troll and driftnet curves or
 the plus group are. A seasonal split of the hybrid on annual ages would test
 the same from the other side.
 
-# What opal would need {#sec-gaps}
+# From MFCL to the best opal model {#sec-progression}
+
+@tbl-progression and @fig-progression trace the steps from MFCL M3 to
+O4-fix, the best converged opal model here. Each step changes one thing
+from the step it follows, through opal's inputs only. The quarterly-age branch (O1q, O4q-fix) is listed for comparison.
+
+```{r}
+#| label: tbl-progression
+#| tbl-cap: "Steps from MFCL M3 to O4-fix (and the quarterly-age branch). Each row's change is relative to the step named in 'from'. SB in thousand tonnes; depletion in 2022 against the unfished projection."
+#| results: asis
+PG = data.table(
+  model = c("MFCL M3", "O0", "O1", "O1-mid", "O1i", "O2", "O2-all", "O4", "O4-fix", "O1q", "O4q-fix"),
+  from  = c("", "MFCL M3", "O0", "O1", "O1-mid", "O1i", "O2", "O2", "O4", "O1i", "O1q"),
+  change = c("target: region 1, no movement, growth fixed without age-at-length",
+             "opal at MFCL's values: season-averaged selectivity, growth (age-specific K), M, recruitment and initial numbers imposed",
+             "B0, recruitment deviations and catchabilities estimated; unfished initial population",
+             "growth refitted to MFCL's mid-year lengths",
+             "initial population estimated (two deviations, no stock-recruitment penalty)",
+             "opal's length-based double normals (peak and two widths estimated)",
+             "SD of length at the oldest age estimated, tail pooling, Dirichlet-multinomial",
+             "age-based double normals for longline, length-based for troll and driftnet",
+             "selectivity parameters at bounds fixed there",
+             "quarterly ages and steps (recruitment annual), MFCL's seasonal selectivity",
+             "hybrid selectivity on quarterly ages, parameters at bounds fixed"),
+  fit = c("", "not fitted", "log(B0) at its bound", "converged", "converged",
+          "not converged; 16 at bounds", "not converged; 22 at bounds", "not converged; 7 at bounds",
+          "converged", "converged", "converged"))
+PG = merge(PG, ALL[year == min(year), .(model, sb_1954 = sb)], by = "model", sort = FALSE)
+PG = merge(PG, ALL[year == max(year), .(model, sb_2022 = sb, dep_2022 = depletion)], by = "model", sort = FALSE)
+sb_kt = function(x) ifelse(x > 1e8, sci(x / 1e3), fmt(x / 1e3, 0))
+pipe_table(PG[, .(model, from, change, fit, `SB 1954` = sb_kt(sb_1954),
+                  `SB 2022` = sb_kt(sb_2022), `dep. 2022` = fmt(dep_2022, 2))],
+           c(9, 9, 40, 16, 9, 9, 8))
+```
+
+```{r}
+#| label: fig-progression
+#| fig-cap: "Spawning biomass at each step (coloured) against MFCL M3 (black) and the step it changes (grey dashed). O1's spawning biomass is off the scale. The last panel is the quarterly-age branch."
+#| fig-height: 7
+steps = PG[model != "MFCL M3" & model != "O1q"]
+lab = setNames(paste0(steps$model, " (from ", steps$from, ")"), steps$model)
+pg_dt = rbindlist(lapply(steps$model, function(m) rbind(
+    ALL[model == m, .(panel = lab[m], model, role = "step", year, sb)],
+    ALL[model == steps[model == m, from], .(panel = lab[m], model, role = "from", year, sb)],
+    ALL[model == "MFCL M3", .(panel = lab[m], model, role = "MFCL", year, sb)])))
+pg_dt[, panel := factor(panel, levels = lab)]
+y_top = 1.03 * max(pg_dt[model != "O1", sb]) / 1e3
+ggplot(mapping = aes(year, sb / 1e3)) +
+    geom_line(data = pg_dt[role == "from"], colour = "grey60", linetype = 2) +
+    geom_line(data = pg_dt[role == "MFCL"], colour = "black") +
+    geom_line(data = pg_dt[role == "step"], aes(colour = model, linetype = model), linewidth = 0.9) +
+    geom_text(data = data.table(panel = factor(lab[["O1"]], levels = lab), year = 1988, sb = 0.9e3 * y_top),
+              aes(label = "O1 off scale"), size = 3.2) +
+    scale_models() + coord_cartesian(ylim = c(0, y_top)) + facet_wrap(~panel, ncol = 3) +
+    labs(x = NULL, y = "SB (kt)", colour = NULL, linetype = NULL) + guides(colour = "none", linetype = "none")
+```
+
+* **O0** shows that opal's population dynamics reproduce MFCL's when given
+  its values; the
+  `r pct(max(abs(TR[model == "O0", sb] / TR[model == "MFCL M3", sb] - 1)))`
+  gap is catch timing (@sec-o0).
+* **O1 to O1-mid** removes the length-composition pull towards an unfished
+  stock by giving opal MFCL's mid-year lengths at age (@sec-lf).
+* **O1-mid to O1i** frees the initial population from the stock-recruitment
+  relationship, as MFCL does (@sec-start); with MFCL's selectivity this is
+  enough to come close to MFCL.
+* **O1i to O2** replaces MFCL's selectivity with opal's length-based double
+  normals, which collapse (@sec-collapse). Estimating the SD of length
+  (O2-all) restores the scale but does not converge.
+* **O2 to O4 to O4-fix** evaluates the longline curves on age, which keeps
+  their domed shapes, and fixes the parameters left at bounds. O4-fix is the
+  only fit with opal's own selectivity that converges and is close to MFCL:
+  `r fmt(PG[model == "O4-fix", sb_1954] / 1e3, 0)` against
+  `r fmt(PG[model == "MFCL M3", sb_1954] / 1e3, 0)` kt in 1954 and
+  `r fmt(PG[model == "O4-fix", sb_2022] / 1e3, 0)` against
+  `r fmt(PG[model == "MFCL M3", sb_2022] / 1e3, 0)` kt in 2022 (depletion
+  `r fmt(PG[model == "O4-fix", dep_2022], 2)` against
+  `r fmt(PG[model == "MFCL M3", dep_2022], 2)`), with a higher peak in the
+  early 1960s (`r fmt(ALL[model == "O4-fix", max(sb)] / 1e3, 0)` against
+  `r fmt(ALL[model == "MFCL M3", max(sb)] / 1e3, 0)` kt).
+* **The quarterly branch** reproduces O1i with MFCL's seasonal selectivity
+  (O1q) but not O4-fix with the hybrid curves (O4q-fix; open issue in the
+  hybrid section).
+
+# Remaining differences and what opal would need {#sec-gaps}
+
+@tbl-gaps lists the features of the MFCL model that opal does not have, the
+workaround used here to minimise the difference, and what remains different
+in O4-fix.
 
 ```{r}
 #| label: tbl-gaps
-#| tbl-cap: "Features of the MFCL model that opal does not have, how they were handled here, and their effect."
+#| tbl-cap: "Features of the MFCL model that opal does not have: opal's nearest equivalent, the workaround used here (and the step it enters), and what remains different in O4-fix."
+#| results: asis
 gaps = data.table(
   MFCL = c("Two regions with movement; recruitment distributed over regions",
            "Conditional age-at-length likelihood",
+           "VB growth with independent mean lengths at ages 2-4; SD log-linear in length",
            "Length compositions predicted at each sample's date, with within-year growth",
            "Seasonal selectivity (fisheries 1-7)",
            "Catch-conditioned Baranov at each fishing incident's date (several per quarter for troll)",
            "Length-based cubic-spline selectivity, grouped across fisheries",
-           "VB growth with independent mean lengths at ages 2-4; SD log-linear in length",
            "Length compositions per incident, robust normal likelihood",
            "Index abundance at the incident's date",
            "Recruitment from the previous year's spawning potential; last two at the mean",
            "Initial population scaled by its own parameter, apart from the stock-recruitment relationship"),
   opal = c("one region",
            "none",
+           "VB, Richards, cessation, age-specific K; SD or CV linear in length",
            "start-of-year length-at-age; annual compositions",
            "selectivity by year",
            "Pope removal at the start of each season",
-           "logistic, double normal, double Richards; no mirrors (sharing via map)",
-           "VB, Richards, cessation, age-specific K; SD or CV linear in length",
+           "logistic, double normal, double Richards, on length or age; no mirrors (sharing via map)",
            "annual compositions; multinomial, Dirichlet, Dirichlet-multinomial",
            "start of the season",
            "same year's spawning biomass; free deviations",
            "unfished (or init_F) equilibrium at B0, with optional initial deviations"),
-  here = c("MFCL bridge to region 1 (M1, M1b, M2); scale roughly doubles with M1 and M2",
-           "dropped with growth fixed (M3); scale doubles",
-           "the main cause of O1's unbounded scale; mid-year growth or quarterly ages fix it",
-           "catch-weighted average; <0.1% on SB; seasonal fisheries or quarterly ages represent it",
-           "up to ~2% on SB (O0 against the replays)",
-           "MFCL's selectivity-at-age fixed (O0, O1, O1i); opal's length-based double normals collapse (O2); age-based longline and length-based troll curves work (O4-fix)",
-           "age-specific K at ages 1-4 (0.5 cm RMSE)",
-           "summed by fishery and year; Francis divisors kept",
-           "as opal (season-start numbers)",
-           "MFCL's recruitment imposed (O0); last two deviations fixed (O1)",
-           "MFCL's initial numbers imposed in O0; estimated initial deviations without the stock-recruitment penalty (O1i and later; MFCL's 1954 SB is ~5x its B0)"))
-knitr::kable(gaps, col.names = c("MFCL", "opal", "here"), format = "pipe")
+  workaround = c("MFCL bridge to region 1 (M1, M1b, M2)",
+                 "dropped, growth fixed at MFCL's estimates (M3)",
+                 "age-specific K fitted to MFCL's lengths at age (O0; 0.5 cm RMSE); SD from MFCL",
+                 "growth fitted to MFCL's mid-year lengths (O1-mid on); or quarterly ages (O1q)",
+                 "catch-weighted average (O0-O1i); estimated non-seasonal curves (O4-fix); or seasonal fisheries / quarterly ages",
+                 "none",
+                 "double normals with 3 of 6 parameters free, shared within MFCL's groups; age-based for longline, length-based for troll and driftnet (O4); parameters at bounds fixed (O4-fix)",
+                 "summed by fishery and year; Francis divisors kept; multinomial",
+                 "none",
+                 "MFCL's recruitment imposed (O0); last two deviations at the curve (O1 on)",
+                 "two initial deviations (age 1, older ages) without the stock-recruitment penalty (O1i on)"),
+  remaining = c("compared with the bridge model, not the assessment: region 1's 1954 SB is 7.6 times M0's",
+                "none beyond the bridge",
+                "MFCL's SD of length (7.6 cm at the oldest age); the longline compositions want 4-5 cm",
+                "one length-at-age per year; troll fisheries (young, fast-growing fish) need length-based curves",
+                "<0.1% on SB at MFCL's values; effect on estimated selectivity untested (O4q-fix's lower stock unexplained)",
+                "up to ~2% on SB (O0 against the replays)",
+                "7 parameters fixed at bounds; curves estimated, not MFCL's",
+                "tail bins weigh more than under MFCL's likelihood; drives the knife-edges in O2",
+                "small (not measured)",
+                "recruitment estimated by opal; timing of the stock-recruitment link differs",
+                "initial age structure has two levels, not MFCL's shape; 1954 SB 14% below MFCL's"))
+setnames(gaps, c("MFCL", "opal", "workaround here", "remaining in O4-fix"))
+pipe_table(gaps, c(25, 20, 30, 25))
 ```
 
 In order of their effect on this stock: length-at-age at the time of

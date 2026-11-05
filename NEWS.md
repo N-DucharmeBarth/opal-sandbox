@@ -1,5 +1,53 @@
 # opal-sandbox (development)
 
+- 2026/11/03: South-west Pacific albacore case study (`case-studies/swpo-alb/`).
+  - An MFCL bridge from the 2024 WCPFC diagnostic model (two regions, MFCL
+    2.2.7.0, now in `executables/`) to model region 1: M0 reproduces the
+    supplied objective; M1 sets movement to zero; M2 keeps region 1 only (par
+    built from M1's estimates); M3 fixes growth and drops the conditional
+    age-at-length data. Region 1's spawning biomass roughly doubles at each
+    step (1954: 0.87, 1.7, 3.4, 6.6 Mt; 2022 depletion 0.50, 0.57, 0.62, 0.75).
+  - New shared code `shared/mfcl-to-opal/`: base-R readers for MFCL par and
+    plot-report files and `mfcl_to_opal()`, which maps MFCL's
+    October-September model year (`.frq` month_1), catch, CPUE (time-varying
+    CVs), length compositions and biology onto a quarterly opal model.
+    `parse_frq()` now reads `.frq` files without weight frequencies.
+  - At MFCL's values opal (O0) reproduces MFCL's initial numbers and
+    recruitment exactly and its spawning biomass within 2.1%; replays put
+    almost all of the gap on catch timing (start-of-quarter removal against
+    MFCL's Baranov at each incident), little on seasonal selectivity. Fitted
+    with MFCL's selectivity (O1), opal's scale is unbounded: CPUE and the
+    recruitment penalty favour MFCL's scale but the annual length
+    compositions favour an unexploited stock.
+  - The cause is length-at-age timing: MFCL predicts each length sample at
+    its date with lengths that grow through the year, opal from start-of-year
+    lengths. With opal's growth at MFCL's mid-year lengths (O1-mid) the fit
+    is bounded, with B0 at MFCL's Beverton-Holt B0 (log 13.96 against 14.04);
+    its stock is still about half MFCL's in 2022, because MFCL scales its
+    initial population apart from its stock-recruitment relationship;
+    estimating opal's initial population (O1i) brings it to 709 against
+    860 kt (depletion 0.72 against 0.75). Fits with opal's own double-normal
+    selectivity (O2, O2q, O2-split; three parameters free) collapse to
+    knife-edge curves: the longline compositions are narrower than the
+    model's spread of length within an age. Estimating the SD of length at the
+    oldest age (4-5 cm against MFCL's 7.6), with tail pooling and a
+    Dirichlet-multinomial, gives the best fits and a stock near MFCL's.
+    Age-based double normals fit the longline compositions better than
+    MFCL's selectivity but miss the troll fisheries; a hybrid (age-based
+    longline, length-based troll and driftnet; O4) fits best and gives 886 kt
+    and depletion 0.76 in 2022 (MFCL 860, 0.75), and converges with the
+    selectivity parameters left at bounds fixed there (O4-fix); the
+    quarterly version (O4q-fix) converges with about half the stock. Seasonal fishery
+    splits (`mfcl_split_seasonal_fisheries()`) change little; a quarterly-age
+    set-up (`mfcl_quarterly_ages()`: quarterly ages and steps, recruitment
+    kept annual) also profiles to MFCL's B0 and fits the indices best.
+    The M1 -> M2 transplant difference (up to 1.3% in adult biomass with
+    identical inputs) is MFCL's period structure: movement weeks add periods
+    only in multi-region models and M is shared equally among periods;
+    aligning the movement weeks with fishing dates removes nearly all of it.
+    The vignette `vignettes/swpo-alb-mfcl-to-opal.qmd` (HTML and PDF)
+    documents the case study and the opal features the stock would need.
+
 - 2026/10/28: North Pacific blue shark case study (`case-studies/npo-bsh/`).
   - An SS3 bridge from the 2022 ISC assessment (S6, two sexes) to a
     single-sex SS3 model, one change per step: single sex, F18 spline to

@@ -67,3 +67,22 @@ studies and `tests/testthat/` the tests of the shared code, which
   (cached; `EPO_BET_REFIT=true` refits), the catch-timing replays, and the
   cache for `vignettes/epo-bet-ss3-to-opal.qmd`. The longline and index
   generalised size compositions are opal's second composition bin scheme.
+
+## MFCL -> opal (case-studies/swpo-alb)
+
+* 2024 south Pacific albacore diagnostic model (two regions; MFCL 2.2.7.0 in
+  `executables/mfcl/2.2.7.0/`). MFCL fits take 15-20 min (~0.5 s/evaluation).
+* `scripts/01-build-mfcl-bridge.r`: M0 (evaluate 09.par), M1 (no movement),
+  M2 (region 1 only; par transplanted from M1 with `build_region_par()` in
+  `scripts/mfcl-edit-helpers.r`), M3 (growth fixed, no age-at-length).
+  Fits cached; `SWPO_ALB_REFIT=true` refits.
+* The `.frq` dimension line's field 9 is MFCL's month_1 (10 here): the model
+  year runs October-September and calendar months >= 10 belong to the next
+  model year. `mfcl_to_opal()` handles this.
+* data.table: the incident tables have columns `y` and `s`; do not use those
+  names as loop variables inside `[...]`.
+* MFCL splits each year into periods at the fishing incidents and, only in
+  multi-region models, at the movement weeks (`check_for_missing_node()`,
+  `rnaux2.cpp`), and shares the year's M equally among the periods. Dropping
+  regions therefore changes the within-year timing of M (the M1 -> M2
+  transplant difference).

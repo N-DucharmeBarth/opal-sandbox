@@ -48,6 +48,7 @@ sel    = readRDS(file.path("data", "swpo-alb-opal-sel-fits.rds"))
 sdg    = readRDS(file.path("data", "swpo-alb-sel-diagnostics.rds"))
 lft    = readRDS(file.path("data", "swpo-alb-lf-tests.rds"))
 asel   = readRDS(file.path("data", "swpo-alb-age-sel-fits.rds"))
+hyb    = readRDS(file.path("data", "swpo-alb-hybrid-fits.rds"))
 
 theme_set(theme_bw(base_size = 11) +
           theme(legend.position = "bottom", panel.grid.minor = element_blank()))
@@ -709,6 +710,37 @@ not fully converged (largest gradient `r fmt(AS[model == "O4", max_gradient], 1)
 and 7 widths are at bounds; with the SD of length estimated as well (O4-all)
 the gradient is smaller but the stock lower
 (`r fmt(AS[model == "O4-all", sb_2022] / 1e3, 0)` kt).
+
+### Converging the hybrid, and its quarterly version
+
+`scripts/09-fit-hybrid-selectivity.r` fixes each selectivity parameter that
+O4 left at a bound at that bound and refits the rest (O4-fix), and fits the
+hybrid on the quarterly-age model (O4q: age-based curves over the 48
+quarterly ages for the longline fisheries and index, length-based for troll
+and driftnet, the initial population estimated with the plus group tied,
+started from O1q), then fixes its bounded parameters too (O4q-fix).
+
+```{r}
+#| label: tbl-hybrid
+#| tbl-cap: "The hybrid selectivity model converged (O4-fix) and on quarterly ages (O4q, O4q-fix), with O1i and O1q (MFCL's selectivity) and O4. Fixed: selectivity parameters fixed at the bound O4 or O4q left them at. Quarterly models' objectives and length-composition likelihoods (by quarter) are not comparable with the annual models'. SB in thousand tonnes."
+HY = hyb$summary
+knitr::kable(HY[, .(model, `n par` = n_par, `max grad.` = sci(max_gradient), fixed = sel_fixed,
+                    CPUE = fmt(cpue, 1), `length comps` = fmt(lf, 1),
+                    `SB 1954` = fmt(sb_1954 / 1e3, 0), `SB 2022` = fmt(sb_2022 / 1e3, 0),
+                    depletion = fmt(depletion_2022, 3))], format = "pipe")
+```
+
+Fixing the bounded parameters leaves the objectives unchanged and the fits
+converge: O4's and O4q's large gradients were only those of parameters
+pressing on their bounds. O4-fix (largest gradient
+`r sci(HY[model == "O4-fix", max_gradient])`) keeps O4's result, the closest to
+MFCL of the fits here. The quarterly hybrid O4q-fix also converges and fits
+both the indices and the quarterly compositions better than O1q, but its
+stock is about half O1q's (`r fmt(HY[model == "O4q-fix", sb_2022] / 1e3, 0)` kt and
+depletion `r fmt(HY[model == "O4q-fix", depletion_2022], 2)` in 2022): on
+quarterly ages the age-based curves are smooth in age across the seasons, so
+they cannot follow MFCL's seasonal selectivity the way a quarterly-age
+selectivity fixed at MFCL's values (O1q) does, and the scale moves with them.
 
 # What opal would need {#sec-gaps}
 

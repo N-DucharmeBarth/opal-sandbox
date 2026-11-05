@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Nicholas Ducharme-Barth">
-<meta name="dcterms.date" content="2026-11-04">
+<meta name="dcterms.date" content="2026-11-05">
 
 <title>MULTIFAN-CL to opal: south-west Pacific albacore</title>
 <style>
@@ -2276,7 +2276,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 4, 2026</p>
+      <p class="date">November 5, 2026</p>
     </div>
   </div>
   
@@ -2304,26 +2304,27 @@ vertical-align: -.125em;
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>sdg    <span class="ot">=</span> <span class="fu">readRDS</span>(<span class="fu">file.path</span>(<span class="st">&quot;data&quot;</span>, <span class="st">&quot;swpo-alb-sel-diagnostics.rds&quot;</span>))</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>lft    <span class="ot">=</span> <span class="fu">readRDS</span>(<span class="fu">file.path</span>(<span class="st">&quot;data&quot;</span>, <span class="st">&quot;swpo-alb-lf-tests.rds&quot;</span>))</span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>asel   <span class="ot">=</span> <span class="fu">readRDS</span>(<span class="fu">file.path</span>(<span class="st">&quot;data&quot;</span>, <span class="st">&quot;swpo-alb-age-sel-fits.rds&quot;</span>))</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">theme_set</span>(<span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">11</span>) <span class="sc">+</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>          <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>, <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>()))</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>fmt <span class="ot">=</span> <span class="cf">function</span>(x, <span class="at">d =</span> <span class="dv">2</span>) <span class="fu">ifelse</span>(<span class="fu">is.na</span>(x), <span class="st">&quot;&quot;</span>, <span class="fu">formatC</span>(x, <span class="at">format =</span> <span class="st">&quot;f&quot;</span>, <span class="at">digits =</span> d, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>))</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>sci <span class="ot">=</span> <span class="cf">function</span>(x, <span class="at">d =</span> <span class="dv">1</span>) <span class="fu">formatC</span>(x, <span class="at">format =</span> <span class="st">&quot;e&quot;</span>, <span class="at">digits =</span> d)</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>pct <span class="ot">=</span> <span class="cf">function</span>(x, <span class="at">d =</span> <span class="dv">1</span>) <span class="fu">paste0</span>(<span class="fu">fmt</span>(<span class="dv">100</span> <span class="sc">*</span> x, d), <span class="st">&quot;%&quot;</span>)</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>L  <span class="ot">=</span> bridge<span class="sc">$</span>likelihood</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>TS <span class="ot">=</span> bridge<span class="sc">$</span>timeseries</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>TR <span class="ot">=</span> oc<span class="sc">$</span>trajectory</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>RP <span class="ot">=</span> oc<span class="sc">$</span>replays</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>PR <span class="ot">=</span> oc<span class="sc">$</span>profile</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>P  <span class="ot">=</span> lfd<span class="sc">$</span>profiles</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>lb_mfcl <span class="ot">=</span> oc<span class="sc">$</span>log_B0_mfcl</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>step_col <span class="ot">=</span> <span class="fu">c</span>(<span class="at">M0 =</span> <span class="st">&quot;grey20&quot;</span>, <span class="at">M1 =</span> <span class="st">&quot;#7D3C98&quot;</span>, <span class="at">M1b =</span> <span class="st">&quot;#B07CC6&quot;</span>, <span class="at">M2 =</span> <span class="st">&quot;#2471A3&quot;</span>, <span class="at">M3 =</span> <span class="st">&quot;#C0392B&quot;</span>)</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>model_col <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;MFCL M3&quot;</span> <span class="ot">=</span> <span class="st">&quot;grey20&quot;</span>, <span class="at">O0 =</span> <span class="st">&quot;#7D3C98&quot;</span>, <span class="at">O1 =</span> <span class="st">&quot;#2471A3&quot;</span>, <span class="st">`</span><span class="at">O1-mid</span><span class="st">`</span> <span class="ot">=</span> <span class="st">&quot;#C0392B&quot;</span>)</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>sb_at <span class="ot">=</span> <span class="cf">function</span>(s, y) TS[step <span class="sc">==</span> s <span class="sc">&amp;</span> year <span class="sc">==</span> y, sb]</span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>dep_at <span class="ot">=</span> <span class="cf">function</span>(s, y) TS[step <span class="sc">==</span> s <span class="sc">&amp;</span> year <span class="sc">==</span> y, depletion]</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>o1_lb <span class="ot">=</span> oc<span class="sc">$</span>o1<span class="sc">$</span>par[[<span class="st">&quot;log_B0&quot;</span>]]</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>o1m_lb <span class="ot">=</span> oc<span class="sc">$</span>o1_mid<span class="sc">$</span>par[[<span class="st">&quot;log_B0&quot;</span>]]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>hyb    <span class="ot">=</span> <span class="fu">readRDS</span>(<span class="fu">file.path</span>(<span class="st">&quot;data&quot;</span>, <span class="st">&quot;swpo-alb-hybrid-fits.rds&quot;</span>))</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">theme_set</span>(<span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">11</span>) <span class="sc">+</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>          <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>, <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>()))</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>fmt <span class="ot">=</span> <span class="cf">function</span>(x, <span class="at">d =</span> <span class="dv">2</span>) <span class="fu">ifelse</span>(<span class="fu">is.na</span>(x), <span class="st">&quot;&quot;</span>, <span class="fu">formatC</span>(x, <span class="at">format =</span> <span class="st">&quot;f&quot;</span>, <span class="at">digits =</span> d, <span class="at">big.mark =</span> <span class="st">&quot;,&quot;</span>))</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>sci <span class="ot">=</span> <span class="cf">function</span>(x, <span class="at">d =</span> <span class="dv">1</span>) <span class="fu">formatC</span>(x, <span class="at">format =</span> <span class="st">&quot;e&quot;</span>, <span class="at">digits =</span> d)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>pct <span class="ot">=</span> <span class="cf">function</span>(x, <span class="at">d =</span> <span class="dv">1</span>) <span class="fu">paste0</span>(<span class="fu">fmt</span>(<span class="dv">100</span> <span class="sc">*</span> x, d), <span class="st">&quot;%&quot;</span>)</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>L  <span class="ot">=</span> bridge<span class="sc">$</span>likelihood</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>TS <span class="ot">=</span> bridge<span class="sc">$</span>timeseries</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>TR <span class="ot">=</span> oc<span class="sc">$</span>trajectory</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>RP <span class="ot">=</span> oc<span class="sc">$</span>replays</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>PR <span class="ot">=</span> oc<span class="sc">$</span>profile</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>P  <span class="ot">=</span> lfd<span class="sc">$</span>profiles</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>lb_mfcl <span class="ot">=</span> oc<span class="sc">$</span>log_B0_mfcl</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>step_col <span class="ot">=</span> <span class="fu">c</span>(<span class="at">M0 =</span> <span class="st">&quot;grey20&quot;</span>, <span class="at">M1 =</span> <span class="st">&quot;#7D3C98&quot;</span>, <span class="at">M1b =</span> <span class="st">&quot;#B07CC6&quot;</span>, <span class="at">M2 =</span> <span class="st">&quot;#2471A3&quot;</span>, <span class="at">M3 =</span> <span class="st">&quot;#C0392B&quot;</span>)</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>model_col <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;MFCL M3&quot;</span> <span class="ot">=</span> <span class="st">&quot;grey20&quot;</span>, <span class="at">O0 =</span> <span class="st">&quot;#7D3C98&quot;</span>, <span class="at">O1 =</span> <span class="st">&quot;#2471A3&quot;</span>, <span class="st">`</span><span class="at">O1-mid</span><span class="st">`</span> <span class="ot">=</span> <span class="st">&quot;#C0392B&quot;</span>)</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>sb_at <span class="ot">=</span> <span class="cf">function</span>(s, y) TS[step <span class="sc">==</span> s <span class="sc">&amp;</span> year <span class="sc">==</span> y, sb]</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>dep_at <span class="ot">=</span> <span class="cf">function</span>(s, y) TS[step <span class="sc">==</span> s <span class="sc">&amp;</span> year <span class="sc">==</span> y, depletion]</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>o1_lb <span class="ot">=</span> oc<span class="sc">$</span>o1<span class="sc">$</span>par[[<span class="st">&quot;log_B0&quot;</span>]]</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>o1m_lb <span class="ot">=</span> oc<span class="sc">$</span>o1_mid<span class="sc">$</span>par[[<span class="st">&quot;log_B0&quot;</span>]]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <section id="overview" class="level1" data-number="1">
@@ -3884,6 +3885,126 @@ Figure 9: Selectivity-at-age: MFCL’s (averaged over seasons), O3’s (age-bas
 </div>
 </div>
 <p>Age-based curves keep MFCL’s domed shapes, with far fewer widths at their bounds, and fit every longline fishery’s compositions better than MFCL’s own selectivity does (O1i). They fail for the troll fisheries: these catch young fish (ages 1-4) whose lengths change quickly through the year, and a curve on whole ages cannot follow which lengths are caught in each season, so O3 loses about 1000 units on fishery 11 alone. The hybrid O4 keeps the age-based curves for the longline fisheries and length-based ones for troll and driftnet. It fits the compositions better than any other multinomial fit (O1i included), and its stock is the closest to MFCL’s: 886 kt and depletion 0.76 in 2022, against 860 kt and 0.75. It is not fully converged (largest gradient 1.0) and 7 widths are at bounds; with the SD of length estimated as well (O4-all) the gradient is smaller but the stock lower (591 kt).</p>
+<section id="converging-the-hybrid-and-its-quarterly-version" class="level3" data-number="9.2.1">
+<h3 data-number="9.2.1" class="anchored" data-anchor-id="converging-the-hybrid-and-its-quarterly-version"><span class="header-section-number">9.2.1</span> Converging the hybrid, and its quarterly version</h3>
+<p><code>scripts/09-fit-hybrid-selectivity.r</code> fixes each selectivity parameter that O4 left at a bound at that bound and refits the rest (O4-fix), and fits the hybrid on the quarterly-age model (O4q: age-based curves over the 48 quarterly ages for the longline fisheries and index, length-based for troll and driftnet, the initial population estimated with the plus group tied, started from O1q), then fixes its bounded parameters too (O4q-fix).</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>HY <span class="ot">=</span> hyb<span class="sc">$</span>summary</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(HY[, .(model, <span class="st">`</span><span class="at">n par</span><span class="st">`</span> <span class="ot">=</span> n_par, <span class="st">`</span><span class="at">max grad.</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">sci</span>(max_gradient), <span class="at">fixed =</span> sel_fixed,</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>                    <span class="at">CPUE =</span> <span class="fu">fmt</span>(cpue, <span class="dv">1</span>), <span class="st">`</span><span class="at">length comps</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(lf, <span class="dv">1</span>),</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>                    <span class="st">`</span><span class="at">SB 1954</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(sb_1954 <span class="sc">/</span> <span class="fl">1e3</span>, <span class="dv">0</span>), <span class="st">`</span><span class="at">SB 2022</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">fmt</span>(sb_2022 <span class="sc">/</span> <span class="fl">1e3</span>, <span class="dv">0</span>),</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>                    <span class="at">depletion =</span> <span class="fu">fmt</span>(depletion_2022, <span class="dv">3</span>))], <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="tbl-hybrid" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-hybrid-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 13: The hybrid selectivity model converged (O4-fix) and on quarterly ages (O4q, O4q-fix), with O1i and O1q (MFCL’s selectivity) and O4. Fixed: selectivity parameters fixed at the bound O4 or O4q left them at. Quarterly models’ objectives and length-composition likelihoods (by quarter) are not comparable with the annual models’. SB in thousand tonnes.
+</figcaption>
+<div aria-describedby="tbl-hybrid-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="cell caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 10%">
+<col style="width: 8%">
+<col style="width: 13%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 17%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 13%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">model</th>
+<th style="text-align: right;">n par</th>
+<th style="text-align: left;">max grad.</th>
+<th style="text-align: right;">fixed</th>
+<th style="text-align: left;">CPUE</th>
+<th style="text-align: left;">length comps</th>
+<th style="text-align: left;">SB 1954</th>
+<th style="text-align: left;">SB 2022</th>
+<th style="text-align: left;">depletion</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">O1i</td>
+<td style="text-align: right;">71</td>
+<td style="text-align: left;">1.1e-04</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">-3.6</td>
+<td style="text-align: left;">5,812.3</td>
+<td style="text-align: left;">4,322</td>
+<td style="text-align: left;">709</td>
+<td style="text-align: left;">0.720</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">O1q</td>
+<td style="text-align: right;">71</td>
+<td style="text-align: left;">1.0e-03</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">-6.5</td>
+<td style="text-align: left;">8,567.0</td>
+<td style="text-align: left;">4,231</td>
+<td style="text-align: left;">695</td>
+<td style="text-align: left;">0.671</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">O4</td>
+<td style="text-align: right;">106</td>
+<td style="text-align: left;">1.0e+00</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">-7.1</td>
+<td style="text-align: left;">5,598.9</td>
+<td style="text-align: left;">5,669</td>
+<td style="text-align: left;">886</td>
+<td style="text-align: left;">0.764</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">O4-fix</td>
+<td style="text-align: right;">99</td>
+<td style="text-align: left;">7.7e-04</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: left;">-7.1</td>
+<td style="text-align: left;">5,598.9</td>
+<td style="text-align: left;">5,669</td>
+<td style="text-align: left;">886</td>
+<td style="text-align: left;">0.764</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">O4q</td>
+<td style="text-align: right;">106</td>
+<td style="text-align: left;">6.3e+00</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">-11.1</td>
+<td style="text-align: left;">8,423.7</td>
+<td style="text-align: left;">1,994</td>
+<td style="text-align: left;">359</td>
+<td style="text-align: left;">0.505</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">O4q-fix</td>
+<td style="text-align: right;">97</td>
+<td style="text-align: left;">1.9e-03</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: left;">-11.1</td>
+<td style="text-align: left;">8,423.7</td>
+<td style="text-align: left;">1,994</td>
+<td style="text-align: left;">359</td>
+<td style="text-align: left;">0.505</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+<p>Fixing the bounded parameters leaves the objectives unchanged and the fits converge: O4’s and O4q’s large gradients were only those of parameters pressing on their bounds. O4-fix (largest gradient 7.7e-04) keeps O4’s result, the closest to MFCL of the fits here. The quarterly hybrid O4q-fix also converges and fits both the indices and the quarterly compositions better than O1q, but its stock is about half O1q’s (359 kt and depletion 0.50 in 2022): on quarterly ages the age-based curves are smooth in age across the seasons, so they cannot follow MFCL’s seasonal selectivity the way a quarterly-age selectivity fixed at MFCL’s values (O1q) does, and the scale moves with them.</p>
+</section>
 </section>
 </section>
 <section id="sec-gaps" class="level1" data-number="10">
@@ -3891,46 +4012,46 @@ Figure 9: Selectivity-at-age: MFCL’s (averaged over seasons), O3’s (age-bas
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>gaps <span class="ot">=</span> <span class="fu">data.table</span>(</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">MFCL =</span> <span class="fu">c</span>(<span class="st">&quot;Two regions with movement; recruitment distributed over regions&quot;</span>,</span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Conditional age-at-length likelihood&quot;</span>,</span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Length compositions predicted at each sample&#39;s date, with within-year growth&quot;</span>,</span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Seasonal selectivity (fisheries 1-7)&quot;</span>,</span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Catch-conditioned Baranov at each fishing incident&#39;s date (several per quarter for troll)&quot;</span>,</span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Length-based cubic-spline selectivity, grouped across fisheries&quot;</span>,</span>
-<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;VB growth with independent mean lengths at ages 2-4; SD log-linear in length&quot;</span>,</span>
-<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Length compositions per incident, robust normal likelihood&quot;</span>,</span>
-<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Index abundance at the incident&#39;s date&quot;</span>,</span>
-<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Recruitment from the previous year&#39;s spawning potential; last two at the mean&quot;</span>,</span>
-<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Initial population scaled by its own parameter, apart from the stock-recruitment relationship&quot;</span>),</span>
-<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">opal =</span> <span class="fu">c</span>(<span class="st">&quot;one region&quot;</span>,</span>
-<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;none&quot;</span>,</span>
-<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;start-of-year length-at-age; annual compositions&quot;</span>,</span>
-<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;selectivity by year&quot;</span>,</span>
-<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Pope removal at the start of each season&quot;</span>,</span>
-<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;logistic, double normal, double Richards; no mirrors (sharing via map)&quot;</span>,</span>
-<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;VB, Richards, cessation, age-specific K; SD or CV linear in length&quot;</span>,</span>
-<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;annual compositions; multinomial, Dirichlet, Dirichlet-multinomial&quot;</span>,</span>
-<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;start of the season&quot;</span>,</span>
-<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;same year&#39;s spawning biomass; free deviations&quot;</span>,</span>
-<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;unfished (or init_F) equilibrium at B0, with optional initial deviations&quot;</span>),</span>
-<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">here =</span> <span class="fu">c</span>(<span class="st">&quot;MFCL bridge to region 1 (M1, M2); scale doubles at each step&quot;</span>,</span>
-<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;dropped with growth fixed (M3); scale doubles&quot;</span>,</span>
-<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;the main cause of O1&#39;s unbounded scale; mid-year growth or quarterly ages fix it&quot;</span>,</span>
-<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;catch-weighted average; &lt;0.1% on SB; seasonal fisheries or quarterly ages represent it&quot;</span>,</span>
-<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;up to ~2% on SB (O0 against the replays)&quot;</span>,</span>
-<span id="cb23-29"><a href="#cb23-29" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MFCL&#39;s selectivity-at-age fixed (O0, O1)&quot;</span>,</span>
-<span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;age-specific K at ages 1-4 (0.5 cm RMSE)&quot;</span>,</span>
-<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;summed by fishery and year; Francis divisors kept&quot;</span>,</span>
-<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;as opal (season-start numbers)&quot;</span>,</span>
-<span id="cb23-33"><a href="#cb23-33" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MFCL&#39;s recruitment imposed (O0); last two deviations fixed (O1)&quot;</span>,</span>
-<span id="cb23-34"><a href="#cb23-34" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MFCL&#39;s initial numbers imposed in O0; fits start lower (MFCL&#39;s 1954 SB is ~5x its B0)&quot;</span>))</span>
-<span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(gaps, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;MFCL&quot;</span>, <span class="st">&quot;opal&quot;</span>, <span class="st">&quot;here&quot;</span>), <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>gaps <span class="ot">=</span> <span class="fu">data.table</span>(</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">MFCL =</span> <span class="fu">c</span>(<span class="st">&quot;Two regions with movement; recruitment distributed over regions&quot;</span>,</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Conditional age-at-length likelihood&quot;</span>,</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Length compositions predicted at each sample&#39;s date, with within-year growth&quot;</span>,</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Seasonal selectivity (fisheries 1-7)&quot;</span>,</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Catch-conditioned Baranov at each fishing incident&#39;s date (several per quarter for troll)&quot;</span>,</span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Length-based cubic-spline selectivity, grouped across fisheries&quot;</span>,</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;VB growth with independent mean lengths at ages 2-4; SD log-linear in length&quot;</span>,</span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Length compositions per incident, robust normal likelihood&quot;</span>,</span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Index abundance at the incident&#39;s date&quot;</span>,</span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Recruitment from the previous year&#39;s spawning potential; last two at the mean&quot;</span>,</span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Initial population scaled by its own parameter, apart from the stock-recruitment relationship&quot;</span>),</span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">opal =</span> <span class="fu">c</span>(<span class="st">&quot;one region&quot;</span>,</span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;none&quot;</span>,</span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;start-of-year length-at-age; annual compositions&quot;</span>,</span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;selectivity by year&quot;</span>,</span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;Pope removal at the start of each season&quot;</span>,</span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;logistic, double normal, double Richards; no mirrors (sharing via map)&quot;</span>,</span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;VB, Richards, cessation, age-specific K; SD or CV linear in length&quot;</span>,</span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;annual compositions; multinomial, Dirichlet, Dirichlet-multinomial&quot;</span>,</span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;start of the season&quot;</span>,</span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;same year&#39;s spawning biomass; free deviations&quot;</span>,</span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;unfished (or init_F) equilibrium at B0, with optional initial deviations&quot;</span>),</span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">here =</span> <span class="fu">c</span>(<span class="st">&quot;MFCL bridge to region 1 (M1, M2); scale doubles at each step&quot;</span>,</span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;dropped with growth fixed (M3); scale doubles&quot;</span>,</span>
+<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;the main cause of O1&#39;s unbounded scale; mid-year growth or quarterly ages fix it&quot;</span>,</span>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;catch-weighted average; &lt;0.1% on SB; seasonal fisheries or quarterly ages represent it&quot;</span>,</span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;up to ~2% on SB (O0 against the replays)&quot;</span>,</span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MFCL&#39;s selectivity-at-age fixed (O0, O1)&quot;</span>,</span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;age-specific K at ages 1-4 (0.5 cm RMSE)&quot;</span>,</span>
+<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;summed by fishery and year; Francis divisors kept&quot;</span>,</span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;as opal (season-start numbers)&quot;</span>,</span>
+<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MFCL&#39;s recruitment imposed (O0); last two deviations fixed (O1)&quot;</span>,</span>
+<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a>           <span class="st">&quot;MFCL&#39;s initial numbers imposed in O0; fits start lower (MFCL&#39;s 1954 SB is ~5x its B0)&quot;</span>))</span>
+<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(gaps, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;MFCL&quot;</span>, <span class="st">&quot;opal&quot;</span>, <span class="st">&quot;here&quot;</span>), <span class="at">format =</span> <span class="st">&quot;pipe&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div id="tbl-gaps" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gaps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 13: Features of the MFCL model that opal does not have, how they were handled here, and their effect.
+Table 14: Features of the MFCL model that opal does not have, how they were handled here, and their effect.
 </figcaption>
 <div aria-describedby="tbl-gaps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -4015,11 +4136,11 @@ Table 13: Features of the MFCL model that opal does not have, how they were han
 <section id="reproducing-this-document" class="level1" data-number="11">
 <h1 data-number="11"><span class="header-section-number">11</span> Reproducing this document</h1>
 <p>From any working directory (<code>CLAUDE.md</code> has the R environment):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">--no-init-file</span> case-studies/swpo-alb/scripts/01-build-mfcl-bridge.r</span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">--no-init-file</span> case-studies/swpo-alb/scripts/02-compare-mfcl-bridge.r</span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">--no-init-file</span> case-studies/swpo-alb/scripts/03-convert-fit-swpo-alb-opal.r</span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">--no-init-file</span> case-studies/swpo-alb/scripts/04-length-comp-diagnostics.r</span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render case-studies/swpo-alb/vignettes/swpo-alb-mfcl-to-opal.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">--no-init-file</span> case-studies/swpo-alb/scripts/01-build-mfcl-bridge.r</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">--no-init-file</span> case-studies/swpo-alb/scripts/02-compare-mfcl-bridge.r</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">--no-init-file</span> case-studies/swpo-alb/scripts/03-convert-fit-swpo-alb-opal.r</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">--no-init-file</span> case-studies/swpo-alb/scripts/04-length-comp-diagnostics.r</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render case-studies/swpo-alb/vignettes/swpo-alb-mfcl-to-opal.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The MFCL fits, opal fits and profiles are cached (<code>SWPO_ALB_REFIT=true</code> repeats them). The document reads only <code>vignettes/data/</code>.</p>
 </section>
 <section id="references" class="level1 unnumbered">

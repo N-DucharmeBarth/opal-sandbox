@@ -35,7 +35,9 @@
     Age-based double normals fit the longline compositions better than
     MFCL's selectivity but miss the troll fisheries; a hybrid (age-based
     longline, length-based troll and driftnet; O4) fits best and gives 886 kt
-    and depletion 0.76 in 2022 (MFCL 860, 0.75). Seasonal fishery
+    and depletion 0.76 in 2022 (MFCL 860, 0.75), and converges with the
+    selectivity parameters left at bounds fixed there (O4-fix); the
+    quarterly version (O4q-fix) converges with about half the stock. Seasonal fishery
     splits (`mfcl_split_seasonal_fisheries()`) change little; a quarterly-age
     set-up (`mfcl_quarterly_ages()`: quarterly ages and steps, recruitment
     kept annual) also profiles to MFCL's B0 and fits the indices best.

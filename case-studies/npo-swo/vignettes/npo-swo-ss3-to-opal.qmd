@@ -238,7 +238,10 @@ sex, but the model files have two sexes.
 * **B1s** (built from B0): as B1, with sex-averaged biology. M
   at age is the rate that takes the unfished numbers of both sexes from one
   age to the next. L1, L2 and K are fitted to the mean length-at-age of the
-  two sexes, weighted by their unfished numbers.
+  two sexes, weighted by their unfished numbers. For the plus group, the two
+  sexes' M are weighted by their unfished numbers at age 15, a slight
+  overestimate of the plus group's M (its sex ratio shifts further towards
+  females at older ages).
 * **B2**: the selectivity blocks become fleets, together with every fleet
   that mirrors a blocked fleet. The 1994-97 fleets are F1, F12 and the index
   S2 (fleets 28-30). The 2004-09 fleets are F2, F15, F16 and F19 (fleets
@@ -344,9 +347,9 @@ raises it to `r fmt(b3s$depletion, 3)`, and B7s ends at
 `r fmt(b7s$depletion, 3)` (B7: `r fmt(b7$depletion, 3)`). One difference is
 that merging the quarters costs fit in this chain. The NLL rises from
 `r fmt(b3s$nll, 2)` to `r fmt(b4s$nll, 2)`, against a fall from
-`r fmt(b3$nll, 2)` to `r fmt(b4$nll, 2)` in the female chain. Twelve
-starts (initial F 0.1-1.0, ln(R~0~) raised by 0-0.6) all converge to the same
-B4s minimum. In the sex-averaged chain F4's logistic inflection lies within
+`r fmt(b3$nll, 2)` to `r fmt(b4$nll, 2)` in the female chain. In both
+chains, twelve starts (initial F 0.1-1.0, ln(R~0~) raised by 0-0.6) all
+converge to the committed B4 or B4s minimum. In the sex-averaged chain F4's logistic inflection lies within
 SS3's status margin of its 150 cm upper bound, as it nearly does in the base
 case (148.3 cm).
 
@@ -360,8 +363,10 @@ through the control file's `read_recdevs` option. Each step is then re-run
 from its own par file until its maximum gradient is below 1e-3, because the
 control file's INIT values are rounded to six digits. B4 starts from B3's
 estimates with the initial F at 0.6 and ln(R~0~) raised by 0.5, and B4s
-starts from B3s's estimates in the same way. From B3's initial F of 1.59 the annual model's
-initial stock is a few percent of SSB~0~ and cannot support the catch.
+starts from B3s's estimates in the same way. At B3's own initial F (1.59)
+the annual model starts from a crashed stock. SS3 still reaches the same
+minimum from there, but the modified start keeps the minimiser away from
+the crashed region.
 
 # Converting B7 to opal {#sec-conversion}
 
@@ -511,7 +516,11 @@ seven catchabilities. SS3 floats q, and opal estimates it.
   estimates are estimated (26, with the mirrors sharing their source
   fleet's).
 * **O2b**: O2 refitted with the selectivity parameters it cannot determine
-  fixed at their O2 values (@tbl-selfixed).
+  fixed at their O2 values (@tbl-selfixed). Which parameters are fixed is
+  decided from each fit (on a bound, or dominating a flat direction of the
+  Hessian), so the fixed sets differ between the variants and in phase D.
+  Comparisons of O2b and D across variants are therefore not exactly
+  like-for-like.
 * **O1-noLF**: O1 without the length compositions.
 * **O1-noS6**: O1 without the recruitment index (the report's sensitivity
   15).
@@ -786,6 +795,17 @@ than the observed quarterly pattern. The initial equilibrium also moves
 closer to SS3's (1975: `r pct(rel_ss3(opal_c, "D0")[1], 1)` against
 `r pct(rel_ss3(opal_c, "O0")[1], 1)`): opal spreads the initial F over the
 seasons.
+
+Two caveats apply to these comparisons. First, SS3 B7 is an annual model
+whose catch is removed through the year at a constant F. The bridge has
+no quarterly SS3 model with B7's timing: B3 is quarterly but still settles
+recruits in month 7, and settlement moves to month 1 (B6) only after the
+quarters are merged. The differences between D0 and
+SS3 therefore combine the effect of opal's start-of-quarter removal with
+that of the observed quarterly catch pattern, which D0-even removes.
+Second, phase D uses mid-year weights in every quarter. This avoids the
+collapse, but it converts first-quarter catch in tonnes into too few fish
+and fourth-quarter catch into too many.
 
 Fitted, D moves opal's terminal state towards SS3's. Depletion is
 `r fmt(o("D")$depletion_2021, 3)` against O2b's

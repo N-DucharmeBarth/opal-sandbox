@@ -204,7 +204,9 @@
     n_m = exp(-c(0, cumsum(m_m[-length(m_m)])))
     n_all = n_f + n_m
     m_avg = -log(n_all[-1] / n_all[-length(n_all)])
-    # plus group: the two sexes' M weighted by their numbers at age 15
+    # plus group: the two sexes' M weighted by their unfished numbers at age
+    # 15 (an approximation: the plus group's own sex ratio shifts further
+    # towards females at older ages, so its M is slightly lower)
     a_max = length(m_f)
     m_avg = c(m_avg, (n_f[a_max] * m_f[a_max] + n_m[a_max] * m_m[a_max]) / n_all[a_max])
     mg = ctl$MG_parms
@@ -361,11 +363,12 @@ build_chain = function(sfx) {
         ct = ct[, .(seas = 1L, catch = sum(catch), catch_se = catch_se[1]), by = .(year, fleet)]
         setcolorder(ct, c("year", "seas", "fleet", "catch", "catch_se"))
         dat$catch = as.data.frame(ct[order(fleet, year)])
-        # Start values: 03's estimates, except the initial F and ln(R0): from
-        # 03's initial F (1.39) the annual model's initial equilibrium is
-        # depleted to a few percent of SSB0 and the stock cannot support the
-        # catch; a small grid of starts (initial F 0.1-0.6, ln(R0) +0 or +0.5)
-        # found the best minimum from initial F 0.6 and ln(R0) + 0.5.
+        # Start values: 03's estimates, except the initial F and ln(R0). At
+        # 03's initial F (1.59 in B3, 1.16 in B3s) the annual model starts
+        # from a crashed stock (spawning biomass ~1e-11). SS3 still reaches the
+        # same minimum from there, as it does from 12 other starts (initial F
+        # 0.1-1.0, ln(R0) + 0-0.6), but starting from initial F 0.6 and
+        # ln(R0) + 0.5 keeps the minimiser away from the crashed region.
         p4 = read_par(file.path(dir_ss3, st("03-spawn-month-1"), "ss3.par"))
         p4[["# init_F[1]:"]] = "0.6"
         p4[["# SR_parm[1]:"]] = as.character(as.numeric(p4[["# SR_parm[1]:"]]) + 0.5)

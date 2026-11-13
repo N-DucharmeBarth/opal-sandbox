@@ -18,7 +18,7 @@ ISC/23/ANNEX/11 (July 2023).
 
 | Path | What it is |
 |---|---|
-| `model-files/ss3/00-base/` | The base case as supplied (`swo2023_v004.dat`, `swo2023_v007.ctl` renamed `data.ss`, `control.ss`; `forecast.ss` is the supplied run's `forecast.ss_new`; `ss-supplied.par`), re-run with SS3 3.30.22.1 from the supplied par file |
+| `model-files/ss3/00-base/` | The base case as supplied (`swo2023_v004.dat`, `swo2023_v007.ctl` renamed `data.ss`, `control.ss`; `forecast.ss` is the supplied run's `forecast.ss_new`, because SS3 3.30.22 rejects the supplied file's zero forecast years; `ss-supplied.par`), re-run with SS3 3.30.22.1 from the supplied par file (`starter.ss` is edited to read it: `init_values_src = 1`) |
 | `model-files/ss3/01-single-sex/` ... `07-index-month-1/` | The SS3 bridge, one change per step (see below) |
 | `model-files/ss3/01s-sex-averaged/` ... `07s-index-month-1/` | The same bridge with sex-averaged M and growth (B1s-B7s) |
 | `config/npo-swo-b7.yaml`, `config/npo-swo-b7s.yaml` | Converter settings for B7 and B7s -> opal |
@@ -99,7 +99,7 @@ See the vignette's "Limitations and differences from SS3" for the full list.
 ## Order of running
 
 ```
-scripts/01-build-ss3-bridge.r              # ~1 h with Hessians (NPO_SWO_NOHESS=true skips them)
+scripts/01-build-ss3-bridge.r              # ~2 h with Hessians (NPO_SWO_NOHESS=true skips them)
 scripts/02-convert-fit-npo-swo-opal.r      # female biology; fits cached; NPO_SWO_REFIT=true refits
 NPO_SWO_VARIANT=sexavg scripts/02-convert-fit-npo-swo-opal.r   # sex-averaged biology
 quarto render vignettes/npo-swo-ss3-to-opal.qmd
@@ -110,3 +110,13 @@ quarto render vignettes/npo-swo-ss3-to-opal.qmd
 Model files: ISC Billfish Working Group (2023), *Stock assessment report for
 swordfish (Xiphias gladius) in the North Pacific through 2021*,
 ISC/23/ANNEX/11.
+
+## Committed files
+
+Each SS3 step directory holds its input files, SS3's `*.ss_new` files,
+`ss3.par` and `ss_summary.sso`, which is what the tests read. The full
+`Report.sso` is committed only for B7 and B7s, which the conversion test and
+`scripts/02-convert-fit-npo-swo-opal.r` read. The other reports,
+`CompReport.sso` and the run logs are not committed:
+`scripts/01-build-ss3-bridge.r` rebuilds them.
+

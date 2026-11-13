@@ -5,7 +5,10 @@
 # Each step must have converged with an invertible Hessian and no parameter
 # on a bound, must contain exactly the structural change it is meant to make,
 # must keep the data unchanged, and must agree with the bridge summary cached
-# for the vignette.
+# for the vignette. The tests read each step's inputs and *.ss_new files,
+# ss3.par (final gradient) and ss_summary.sso (likelihood, parameters with
+# their standard errors and position in their bounds, derived quantities);
+# the full Report.sso is committed only for B7 and B7s.
 
 library(testthat)
 library(data.table)
@@ -25,47 +28,44 @@ chain = c("02-block-split", "03-spawn-month-1", "04-annual", "05-annual-comps",
 chain_s = sub("^([0-9]+)", "\\1s", chain)
 steps = c("00-base", "01-single-sex", chain, "01s-sex-averaged", chain_s)
 
-# Report.sso header lines: final gradient and ln(det(Hessian))
-report_header = function(step) {
-    h = readLines(file.path(dir_ss3, step, "Report.sso"), n = 40L)
-    list(
-        version  = h[1],
-        gradient = as.numeric(sub("^Convergence_Level: ([^ ]+).*", "\\1",
-                                  grep("^Convergence_Level:", h, value = TRUE))),
-        log_det  = suppressWarnings(as.numeric(sub("^Hessian: ([^ ]+).*", "\\1",
-                                                   grep("^Hessian:", h, value = TRUE))))
-    )
-}
 inputs = lapply(steps, function(s) suppressWarnings(
     r4ss::SS_read(file.path(dir_ss3, s), ss_new = TRUE, verbose = FALSE)))
 names(inputs) = steps
-reps = lapply(steps, function(s) suppressWarnings(
-    r4ss::SS_output(file.path(dir_ss3, s), covar = FALSE, verbose = FALSE, printstats = FALSE)))
-names(reps) = steps
-dq = function(s, label) {
-    x = reps[[s]]$derived_quants
-    x$Value[x$Label == label]
+sums = lapply(steps, function(s) r4ss::SS_read_summary(file.path(dir_ss3, s, "ss_summary.sso")))
+names(sums) = steps
+dq = function(s, label) sums[[s]]$derived_quants[label, "Value"]
+nll = function(s) sums[[s]]$likelihoods["TOTAL_LogL", 1]
+active = function(s) {
+    p = sums[[s]]$parameters
+    p[p[["Active?"]] == "Act", ]
 }
-nll = function(s) reps[[s]]$likelihoods_used["TOTAL", "values"]
+# the first line of ss3.par: "... Maximum gradient component = <value>"
+gradient = function(s) {
+    h = readLines(file.path(dir_ss3, s, "ss3.par"), n = 1L)
+    as.numeric(sub(".*Maximum gradient component = ", "", h))
+}
 
 test_that("every bridge step was run with SS3 3.30.22.1", {
-    for (s in steps) expect_match(report_header(s)$version, "3.30.22.1", fixed = TRUE, info = s)
+    for (s in steps) expect_match(sums[[s]]$header[1], "3.30.22.1", fixed = TRUE, info = s)
 })
 
 test_that("every bridge step converged with an invertible Hessian", {
     for (s in steps) {
-        h = report_header(s)
-        expect_lt(h$gradient, 2e-3)
-        expect_true(is.finite(h$log_det), info = paste(s, "Hessian not inverted"))
+        expect_lt(gradient(s), 2e-3)
+        # standard errors come from the inverted Hessian
+        se = active(s)$SE
+        expect_true(all(is.finite(se) & se > 0), info = paste(s, "Hessian not inverted"))
     }
 })
 
 test_that("no estimated parameter is on a bound (female chain)", {
-    # in the sex-averaged chain F4's logistic inflection lies within SS3's
-    # status margin of its 150 cm upper bound (as in the base case, 148.3 cm)
+    # Range is the position within the bounds (0 = lower, 1 = upper); SS3
+    # flags a parameter within 1% of a bound. In the sex-averaged chain F4's
+    # logistic inflection lies within 1% of its 150 cm upper bound (148.8 cm;
+    # the base case's is 148.3 cm).
     for (s in c("00-base", "01-single-sex", chain)) {
-        st = reps[[s]]$parameters$Status
-        expect_false(any(grepl("LO|HI", st)), info = s)
+        r = active(s)$Range
+        expect_true(all(r > 0.01 & r < 0.99), info = s)
     }
 })
 
@@ -158,10 +158,7 @@ test_that("combining the compositions (B5, B5s) leaves the estimates unchanged",
     for (sfx in c("", "s")) {
         s4 = paste0("04", sfx, "-annual")
         s5 = paste0("05", sfx, "-annual-comps")
-        p4 = reps[[s4]]$parameters
-        p5 = reps[[s5]]$parameters
-        est = !is.na(p4$Active_Cnt)
-        expect_equal(p5$Value[est], p4$Value[est], tolerance = 1e-4, info = s5)
+        expect_equal(active(s5)$Value, active(s4)$Value, tolerance = 1e-4, info = s5)
         expect_equal(dq(s5, "SSB_2021"), dq(s4, "SSB_2021"), tolerance = 1e-5, info = s5)
     }
 })
@@ -195,7 +192,8 @@ test_that("the vignette's bridge cache matches the committed SS3 runs", {
     skip_if_not(file.exists(cache_file), "bridge cache not built")
     cache = readRDS(cache_file)$summary
     for (s in steps) {
-        expect_equal(cache[step == s]$nll, nll(s), tolerance = 1e-6, info = s)
-        expect_equal(cache[step == s]$depletion, dq(s, "Bratio_2021"), tolerance = 1e-6, info = s)
+        # ss_summary.sso prints six significant digits
+        expect_equal(cache[step == s]$nll, nll(s), tolerance = 1e-5, info = s)
+        expect_equal(cache[step == s]$depletion, dq(s, "Bratio_2021"), tolerance = 1e-5, info = s)
     }
 })

@@ -122,7 +122,13 @@ test_that("opal at SS3's values tracks SS3's spawning biomass", {
     expect_lt(max(abs(ssb_rel)), 0.30)
 })
 
-test_that("SS3's dynamics replayed with Baranov catch and SS3's catch weights reproduce SS3", {
+# SS3's dynamics replayed with SS3's numbers-at-age at the start of 1975,
+# SS3's recruitment, SS3's selectivity-at-age, each year's catch removed
+# through the year (Baranov) and each fleet's SS3 catch weight-at-age;
+# returns spawning biomass relative to SS3's
+baranov_replay_rel = function(converted) {
+    rep_ss3 = converted$ss3$rep
+    fish = converted$meta$fisheries
     natage = as.data.table(rep_ss3$natage)[Era == "TIME" & `Beg/Mid` == "B" & Yr %in% yrs]
     ages = as.character(0:15)
     sel = converted$selectivity$sel_fa_external
@@ -150,7 +156,11 @@ test_that("SS3's dynamics replayed with Baranov catch and SS3's catch weights re
         N[16] = N[16] + N_end[16]
     }
     ts = as.data.table(rep_ss3$timeseries)[Era == "TIME" & Yr %in% yrs]
-    expect_lt(max(abs(ssb / ts$SpawnBio - 1)), 1e-4)
+    ssb / ts$SpawnBio - 1
+}
+
+test_that("SS3's dynamics replayed with Baranov catch and SS3's catch weights reproduce SS3", {
+    expect_lt(max(abs(baranov_replay_rel(converted))), 1e-4)
 })
 
 test_that("seeded double normals reproduce SS3's selectivity-at-length", {
@@ -172,3 +182,45 @@ test_that("the opal object builds with a finite objective", {
     expect_s3_class(bridge_obj, "opal_obj")
     expect_true(is.finite(bridge_obj$build$objective))
 })
+
+# The sex-averaged bridge model B7s (config npo-swo-b7s.yaml): same layout,
+# sex-averaged M and growth
+cfg_s = ss3_read_config(file.path(dir_config, "npo-swo-b7s.yaml"))
+converted_s = suppressWarnings(ss3_to_opal(cfg_s, dir_root = proj_dir))
+
+test_that("B7s converts with B7's layout and data", {
+    expect_equal(converted_s$meta$fisheries$extract_fleets, fish$extract_fleets)
+    expect_equal(as.data.frame(converted_s$meta$fisheries$index_map), as.data.frame(fish$index_map))
+    expect_equal(converted_s$data$catch_obs_ysf, converted$data$catch_obs_ysf)
+    expect_equal(converted_s$data$cpue_data, converted$data$cpue_data)
+    expect_equal(converted_s$lf, converted$lf)
+    # sex-averaged M lies between female and male M
+    expect_false(isTRUE(all.equal(converted_s$data$M, converted$data$M)))
+    checks = validate_opal_inputs(converted_s, strict = FALSE)
+    expect_true(all(checks$pass), info = paste(checks[pass == FALSE, check], collapse = "; "))
+    recon = ss3_reconcile(converted_s, tol = 1e-6)
+    expect_true(all(recon$pass, na.rm = TRUE), info = paste(recon[pass %in% FALSE, quantity], collapse = "; "))
+})
+
+test_that("B7s replayed with Baranov catch and SS3's catch weights reproduces SS3", {
+    expect_lt(max(abs(baranov_replay_rel(converted_s))), 1e-4)
+})
+
+test_that("the quarterly catch of B3 and B3s sums to B7's annual catch", {
+    # phase D takes each fleet's catch by quarter from the quarterly SS3
+    # model of its chain; summed over the quarters it must be B7's catch
+    for (step in c("03-spawn-month-1", "03s-spawn-month-1")) {
+        dat_q = suppressWarnings(r4ss::SS_read(file.path(proj_dir, "case-studies", "npo-swo",
+                                                         "model-files", "ss3", step),
+                                               ss_new = TRUE, verbose = FALSE))$dat
+        expect_equal(dat_q$nseas, 4, info = step)
+        cq = as.data.table(dat_q$catch)[year %in% yrs]
+        cq[, f := match(fleet, fish$extract_fleets)]
+        cq = cq[!is.na(f), .(catch = sum(catch), n_seas = uniqueN(seas[catch > 0])), by = .(year, f)]
+        annual = converted$data$catch_obs_ysf[cbind(cq$year - yrs[1] + 1L, 1L, cq$f)]
+        expect_lt(max(abs(cq$catch - annual) / pmax(annual, 1)), 1e-5, label = step)
+        # catch is spread over more than one quarter in most fleet-years
+        expect_gt(mean(cq$n_seas[cq$catch > 0] > 1), 0.5, label = step)
+    }
+})
+

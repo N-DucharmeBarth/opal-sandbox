@@ -85,6 +85,9 @@ index:
   month_labels: [1, 1, 1, 1, 1, 1, 1]
   keep_negative_fleets: false
   add_survey_var_adjust: true
+  # S6 (SS3 units 33): converted by the fitting script as an index in
+  # numbers with selectivity 1 at age 0
+  recruitment_fleet: 25
 
 # --- Length compositions -----------------------------------------------------
 # Fleets with length data and lambda 0.5 in SS3 (the lambda is applied as an

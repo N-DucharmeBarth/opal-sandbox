@@ -115,7 +115,8 @@
     # S6, the recruitment index: numbers at age 0. The converter reads SS3's
     # units code 33 as biomass (it knows 0 = numbers and 1 = biomass) and
     # SS3's selectivity-at-age for S6 (size pattern 0) as 1 at every age.
-    f_s6 = fish$index_map[ss3_fleet == 25L, opal_fleet]
+    f_s6 = fish$index_map[ss3_fleet == as.integer(cfg$index$recruitment_fleet), opal_fleet]
+    stopifnot(length(f_s6) == 1L)
     d$catch_units_f[f_s6] = 2
     d$cpue_data$units[d$cpue_data$fishery == f_s6] = 2
     sel_ss3 = converted$selectivity$sel_fa_external
@@ -364,11 +365,14 @@
     # deviation (2022) has no data and is fixed at 0. F6's initial F is
     # estimated, as in SS3 (whose initial-equilibrium catch has lambda 0).
     n_init = sum(converted$parameters$init_rdev_a != 0 | seq_len(n_age) <= 11L)
+    # fisheries with an SS3 initial F (F6 here)
+    f_init = match(ss3_init_F(converted$ss3)$fleet, fish$extract_fleets)
+    stopifnot(length(f_init) >= 1L, !anyNA(f_init))
     base_map = function(x) {
         m = x$map %||% get_map(x$parameters)
         m$init_rdev_a = factor(c(seq_len(n_init), rep(NA, n_age - n_init)))
         m$rdev_y = factor(c(seq_len(n_year - 1L), NA))
-        m$log_init_F_f = factor(ifelse(seq_len(n_f) == 6L, 1L, NA))
+        m$log_init_F_f = factor(ifelse(seq_len(n_f) %in% f_init, seq_along(f_init)[match(seq_len(n_f), f_init)], NA))
         m
     }
 
@@ -441,12 +445,15 @@
     # the one that dominates a direction in which the Hessian is flat
     # (eigenvalue below 1e-6)
     lvl_matrix = matrix(as.integer(as.character(m2$par_sel)), n_f)
-    sel_lvl_at_bound = function(fit) {
+    # positions (among the estimated selectivity parameters) that lie within
+    # 1e-3 of a bound on opal's scale
+    sel_on_bound = function(fit, tol = 1e-3) {
         opt = fit$fit$opt
         i = which(names(opt$par) == "par_sel")
         b = fit$bounds
-        which(abs(opt$par[i] - b$lower[i]) < 1e-3 | abs(opt$par[i] - b$upper[i]) < 1e-3)
+        which(abs(opt$par[i] - b$lower[i]) < tol | abs(opt$par[i] - b$upper[i]) < tol)
     }
+    sel_lvl_at_bound = function(fit) sel_on_bound(fit)
     sel_lvl_flat = function(fit, free_lvl) {
         obj = opal_rtmb(fit, fresh = TRUE)
         opt = fit$fit$opt
@@ -587,20 +594,23 @@
     o2b_obj = refit_fixing(fixed_lvl)$x
     fl_free = refit_fixing(fixed_lvl)$free_lvl
     sb = sel_bounds()
-    # O2b's estimates describe a stock too small for quarterly removals (with
-    # the catch taken through the year, M acts on fish before they are
-    # caught, so the same catch costs more fish): at O2b's values the
-    # quarterly population collapses after 2010. D therefore starts from
-    # O2b's estimates with B0 raised in steps of 0.1 on the log scale until
-    # the objective and its gradient are finite.
+    # With the catch taken through the year, M acts on fish before they are
+    # caught, so the same catch costs more fish. For the female variant
+    # O2b's estimates describe a stock too small for that (the quarterly
+    # population collapses after 2010), so D starts from O2b's estimates with
+    # B0 raised in steps of 0.1 on the log scale until the objective and its
+    # gradient are finite (one step of 0 for the sex-averaged variant).
     p_d = fit_o2b$fit$parameters
     d_obj = NULL
     for (k in 0:30) {
         p_try = p_d
         p_try$log_B0 = p_d$log_B0 + 0.1 * k
+        # only a non-finite start is caught; any other error stops the script
         d_obj = tryCatch(quarterly(opal_update(o2b_obj, parameters = p_try), catch_q) %>%
                              build_with_bounds(sel = list(lower = sb$lower[fl_free], upper = sb$upper[fl_free])),
-                         error = function(e) NULL)
+                         error = function(e) {
+                             if (grepl("not finite", conditionMessage(e))) NULL else stop(e)
+                         })
         if (!is.null(d_obj)) break
     }
     stopifnot(!is.null(d_obj))
@@ -614,11 +624,8 @@
     d_fixed_lvl = fixed_lvl
     if (!isTRUE(fit_d$validation$fit$passes) && is.null(attr(fit_d, "fixed_levels"))) {
         for (pass in 1:4) {
-            i = which(names(fit_d$fit$opt$par) == "par_sel")
-            b = fit_d$bounds
             free_now = refit_fixing(d_fixed_lvl)$free_lvl
-            at_b = free_now[abs(fit_d$fit$opt$par[i] - b$lower[i]) < 1e-2 |
-                            abs(fit_d$fit$opt$par[i] - b$upper[i]) < 1e-2]
+            at_b = free_now[sel_on_bound(fit_d)]
             new_lvl = unique(c(at_b, sel_lvl_flat(fit_d, free_now)))
             if (!length(new_lvl)) break
             d_fixed_lvl = c(d_fixed_lvl, new_lvl)
@@ -672,7 +679,7 @@
             positive_hessian = if (fitted) isTRUE(x$validation$fit$metrics$positive_hessian) else NA,
             seconds      = if (fitted) attr(x, "seconds") else NA_real_,
             B0           = exp((if (fitted) x$fit$opt$par[["log_B0"]] else x$parameters$log_B0)),
-            init_F6      = r$init_F_f[6],
+            init_F6      = r$init_F_f[f_init[1]],
             ssb_2021     = r$spawning_biomass_y[n_year],
             depletion_2021 = r$static_depletion_y[n_year],
             lp_cpue      = sum(r$lp_cpue),

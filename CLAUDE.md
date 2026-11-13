@@ -108,6 +108,11 @@ studies and `tests/testthat/` the tests of the shared code, which
   refits; `NPO_SWO_SS3_DIR` converts a copy elsewhere). opal's growth is
   fitted to SS3's mid-year lengths (biology stays start-of-year). S6 is an
   index in numbers with age-0 selectivity (age-based double normal in O2).
+* Committed SS3 files: inputs, `*.ss_new`, `ss3.par` and `ss_summary.sso`
+  per step; the full `Report.sso` only for 07 and 07s (`.gitignore` rules at
+  the end of the file). `tests/testthat/test-npo-swo-ss3-bridge.r` reads
+  `ss_summary.sso`, not `Report.sso`; `test-npo-swo-opal-cache.r` checks the
+  vignette caches against the bridge and the stored fits.
 * Quarto: a line starting `@label)` (e.g. a wrapped `(see\n@sec-x)`) is a
   pandoc example-list item and hijacks the cross-reference; keep `@sec-x`
   off the start of a line when followed by `)`.

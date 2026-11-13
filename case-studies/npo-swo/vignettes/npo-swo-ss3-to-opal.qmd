@@ -42,6 +42,7 @@ library(patchwork)
 
 bridge = readRDS(file.path("data", "npo-swo-ss3-bridge-cache.rds"))
 opal_c = readRDS(file.path("data", "npo-swo-opal-cache.rds"))
+opal_s = readRDS(file.path("data", "npo-swo-opal-cache-sexavg.rds"))
 
 theme_set(theme_bw(base_size = 11) +
           theme(legend.position = "bottom", panel.grid.minor = element_blank()))
@@ -51,10 +52,13 @@ pct = function(x, d = 0) paste0(formatC(100 * x, format = "f", digits = d), "%")
 
 B = bridge$summary
 S = opal_c$summary
+Ss = opal_s$summary
 b = function(s) B[step == s]
 o = function(m) S[model == m]
+os = function(m) Ss[model == m]
 model_col = c("SS3 B7" = "grey20", O0 = "#7D3C98", O1 = "#2471A3", O2 = "#E59866",
-              O2b = "#C0392B", `O1-noLF` = "#CA6F1E", `O1-noS6` = "#1E8449")
+              O2b = "#C0392B", `O1-noLF` = "#CA6F1E", `O1-noS6` = "#1E8449",
+              D0 = "#5DADE2", `D0-even` = "#A569BD", D = "#117A65")
 ```
 
 # Overview
@@ -89,6 +93,15 @@ documents these differences; it does not change opal.
 b0 = b("00-base"); b1 = b("01-single-sex"); b1s = b("01s-sex-averaged")
 b2 = b("02-block-split"); b3 = b("03-spawn-month-1"); b4 = b("04-annual")
 b5 = b("05-annual-comps"); b6 = b("06-settle-month-1"); b7 = b("07-index-month-1")
+b3s = b("03s-spawn-month-1"); b4s = b("04s-annual"); b7s = b("07s-index-month-1")
+tq = opal_c$timing_q[, .(end = rel[.N], max = max(abs(rel))), by = .(catch, weight)]
+tq_s = opal_s$timing_q[, .(end = rel[.N], max = max(abs(rel))), by = .(catch, weight)]
+rel_ss3 = function(cache, m) {
+    tr = cache$trajectory
+    ss = tr[grepl("^SS3", model)]
+    x = merge(tr[model == m], ss[, .(year, s = ssb)], by = "year")
+    x[, ssb / s - 1]
+}
 tm = opal_c$timing
 tm_end = tm[, .(end = rel[.N], max = max(abs(rel))), by = .(removal, weight)]
 br = opal_c$bridge
@@ -107,7 +120,7 @@ In brief:
   sex-averaged M and growth instead (sensitivity B1s), depletion is
   `r fmt(b1s$depletion, 3)`, close to the base case.
 * **The other steps** each move terminal depletion by at most
-  `r fmt(max(abs(diff(B[!step %in% c("00-base", "01s-sex-averaged")]$depletion))), 3)`.
+  `r fmt(max(abs(diff(B[grepl("^0[1-7]-", step)]$depletion))), 3)`.
   The blocks become fleets exactly. Merging the quarters requires spawning
   at the start of the year, and the B7 model has depletion
   `r fmt(b7$depletion, 3)`.
@@ -127,6 +140,19 @@ In brief:
   bound or cannot be determined. Fixed at their O2 values (O2b), the fit
   converges with the same objective and estimates depletion
   `r fmt(o("O2b")$depletion_2021, 3)`.
+* **With sex-averaged biology** (B7s and the same opal progression;
+  see @sec-sexavg), SS3 B7s has depletion `r fmt(b7s$depletion, 3)` against B7's
+  `r fmt(b7$depletion, 3)`. opal is converted as exactly as from B7, and its
+  fits relate to SS3 B7s much as they do to B7 (O1
+  `r fmt(os("O1")$depletion_2021, 3)`, O2b `r fmt(os("O2b")$depletion_2021, 3)`).
+* **Phase D, quarterly opal** (see @sec-quarterly) removes each quarter's catch at
+  the start of the quarter. At SS3's values it is within
+  `r pct(max(abs(rel_ss3(opal_c, "D0"))))` of SS3 B7 (annual opal:
+  `r pct(max(abs(rel_ss3(opal_c, "O0"))))`), and refitted from O2b (D) it
+  estimates depletion `r fmt(o("D")$depletion_2021, 3)` (sex-averaged:
+  `r fmt(os("D")$depletion_2021, 3)`). It needs mid-year weight-at-age: with
+  opal's single start-of-year weight vector, quarterly removals of catch in
+  tonnes collapse the stock.
 
 # The 2023 assessment {#sec-assessment}
 
@@ -220,6 +246,7 @@ sex, but the model files have two sexes.
   (sample sizes summed, proportions weighted by sample size).
 * **B6**: recruits settle in month 1 at age 0 instead of month 7.
 * **B7**: indices observed in month 1.
+* **B2s-B7s**: the same six steps built from B1s (sex-averaged biology).
 
 ```{r}
 #| label: tbl-bridge
@@ -235,17 +262,20 @@ knitr::kable(B[, .(Step = label, `Est. par.` = n_par, NLL = fmt(nll, 2),
 ```{r}
 #| label: fig-bridge
 #| fig-height: 6.5
-#| fig-cap: "Female spawning biomass (top) and depletion (bottom) along the SS3 bridge. B5 and B7 coincide with B4 and B6."
-ts = copy(bridge$timeseries)[!step %in% c("05-annual-comps", "07-index-month-1")]
-ts[, label := factor(label, levels = bridge$labels)]
-long = melt(ts[, .(label, year, `Spawning biomass (t)` = ssb, `SSB / SSB0` = depletion)],
-            id.vars = c("label", "year"))
-ggplot(long, aes(year, value, colour = label, linetype = label == "B1s sex-averaged biology")) +
-    geom_line(linewidth = 0.7) +
-    facet_wrap(~variable, ncol = 1, scales = "free_y") +
-    scale_linetype_manual(values = c(`FALSE` = "solid", `TRUE` = "22"), guide = "none") +
+#| fig-cap: "Female spawning biomass (top) and depletion (bottom) along the SS3 bridge: the female chain (left, with the base case B0) and the sex-averaged chain (right). B5 and B7 coincide with B4 and B6."
+ts = copy(bridge$timeseries)[!grepl("^0[57]", step)]
+ts[, chain := ifelse(grepl("^0[1-7]s", step), "Sex-averaged biology", "Female biology")]
+ts[step == "00-base", chain := "Female biology"]
+ts[, stage := sub("s? .*", "", label)]
+ts[stage == "B1s", stage := "B1"]
+ts = rbind(ts, copy(ts[step == "00-base"])[, chain := "Sex-averaged biology"])
+long = melt(ts[, .(chain, stage, year, `Spawning biomass (t)` = ssb, `SSB / SSB0` = depletion)],
+            id.vars = c("chain", "stage", "year"))
+ggplot(long, aes(year, value, colour = stage)) +
+    geom_line(linewidth = 0.6) +
+    facet_grid(variable ~ chain, scales = "free_y") +
     labs(x = NULL, y = NULL, colour = NULL) +
-    guides(colour = guide_legend(nrow = 2))
+    guides(colour = guide_legend(nrow = 1))
 ```
 
 **Single sex (B1).** This step changes the stock most. The compositions are
@@ -298,6 +328,19 @@ month 1 (B7) changes nothing for the fitted indices. With two subseasons,
 SS3 places observations in months 1-6 at the same time, and the indices
 moved are observed in months 1 or 4 (S6, a recruitment index, does not
 depend on timing). Only S5, with lambda 0, moves from month 7.
+
+**The sex-averaged chain (B2s-B7s).** The same steps built from B1s change
+the stock in the same direction. Blocks as fleets leave it unchanged
+(depletion `r fmt(b("02s-block-split")$depletion, 3)`), spawning in month 1
+raises it to `r fmt(b3s$depletion, 3)`, and B7s ends at
+`r fmt(b7s$depletion, 3)` (B7: `r fmt(b7$depletion, 3)`). One difference is
+that merging the quarters costs fit in this chain. The NLL rises from
+`r fmt(b3s$nll, 2)` to `r fmt(b4s$nll, 2)`, against a fall from
+`r fmt(b3$nll, 2)` to `r fmt(b4$nll, 2)` in the female chain. Twelve
+starts (initial F 0.1-1.0, ln(R~0~) raised by 0-0.6) all converge to the same
+B4s minimum. In the sex-averaged chain F4's logistic inflection lies within
+SS3's status margin of its 150 cm upper bound, as it nearly does in the base
+case (148.3 cm).
 
 **Starting values.** The control file's INIT values are the supplied
 estimates, but the recruitment deviations in the control file start at
@@ -514,7 +557,7 @@ knitr::kable(opal_c$sel_fixed[, .(Fishery = fishery, Name = name, Column = colum
 #| label: fig-fits
 #| fig-height: 7
 #| fig-cap: "Spawning biomass, depletion and age-0 recruitment: SS3 B7 and the opal models (O2, not converged, is not shown; O2b has the same estimates)."
-tr = copy(opal_c$trajectory)[model != "O2"]
+tr = copy(opal_c$trajectory)[!model %in% c("O2", "D0", "D0-even", "D")]
 tr[, model := factor(model, levels = names(model_col))]
 long = melt(tr, id.vars = c("model", "year"),
             measure.vars = c("ssb", "depletion", "recruits"))
@@ -530,7 +573,7 @@ ggplot(long, aes(year, value, colour = model)) +
 ```{r}
 #| label: fig-cpue
 #| fig-height: 7
-#| fig-cap: "Fits to the indices (points: observed, with 95% intervals from the input SE). S6 is the recruitment index; O1-noS6 does not fit it (not shown for S6)."
+#| fig-cap: "Fits to the indices (points: observed, with 95% intervals from the input SE). S6 is the recruitment index; O1-noS6 does not fit it (not shown for S6). D is the quarterly model (see @sec-quarterly)."
 cp = copy(opal_c$cpue)
 cp = merge(cp, opal_c$index_names, by = "index")
 cp[, name := sub("_WCNPO", "", name)]
@@ -560,6 +603,193 @@ ggplot(sel, aes(age, sel, colour = model)) +
     labs(x = "Age", y = "Selectivity", colour = NULL)
 ```
 
+# The sex-averaged variant {#sec-sexavg}
+
+B7s (@sec-bridge) is converted with `config/npo-swo-b7s.yaml`, which
+differs from B7's only in the SS3 model it reads. It is then taken through
+the same progression of opal models. The conversion is as exact as B7's: the
+reconciliation passes, and SS3's dynamics replayed with continuous catch and
+SS3's catch weights reproduce SS3 B7s to
+`r sci(opal_s$timing[grepl("Baranov", removal) & weight == "SS3 fleet catch weight", max(abs(rel))])`.
+opal's growth curve, fitted to the sex-averaged mid-year lengths, has RMSE
+`r fmt(opal_s$growth_fit$rmse, 2)` cm, and its starting selectivity-at-age
+is within `r fmt(max(opal_s$sel_start_diff$max_abs_diff), 3)` of SS3's.
+
+```{r}
+#| label: tbl-sexavg
+#| tbl-cap: "opal models for both variants: female biology (against SS3 B7) and sex-averaged biology (against SS3 B7s). Depletion is SSB2021/B0; 'Max. diff.' is the largest relative difference in spawning biomass from the variant's SS3 model over 1975-2021."
+row = function(cache, sm, m) {
+    x = cache$summary[model == m]
+    data.table(B0 = fmt(x$B0, 0), Dep = fmt(x$depletion_2021, 3),
+               Diff = if (grepl("^SS3", m)) "" else pct(max(abs(rel_ss3(cache, m)))),
+               Conv = if (is.na(x$positive_hessian)) "" else ifelse(x$check_passes, "yes", "no"))
+}
+mods = c("SS3", "O0", "O1", "O2", "O2b", "O1-noLF", "O1-noS6")
+tab = rbindlist(lapply(mods, function(m) {
+    a = row(opal_c, "B7", if (m == "SS3") "SS3 B7" else m)
+    b = row(opal_s, "B7s", if (m == "SS3") "SS3 B7s" else m)
+    data.table(Model = if (m == "SS3") "SS3 (B7 / B7s)" else m,
+               `B0, female` = a$B0, `Depl., female` = a$Dep, `Max. diff., female` = a$Diff,
+               `B0, sex-avg.` = b$B0, `Depl., sex-avg.` = b$Dep, `Max. diff., sex-avg.` = b$Diff,
+               `Converged (f / s)` = paste(a$Conv, b$Conv, sep = " / "))
+}))
+tab[Model == "SS3 (B7 / B7s)", `Converged (f / s)` := ""]
+knitr::kable(tab, format = "pipe", align = "lrrrrrrc")
+```
+
+```{r}
+#| label: fig-sexavg
+#| fig-height: 5
+#| fig-cap: "Depletion for both variants: SS3 B7 and B7s against the opal models O0, O1 and O2b."
+tr = rbind(copy(opal_c$trajectory)[, variant := "Female biology"],
+           copy(opal_s$trajectory)[, variant := "Sex-averaged biology"])
+tr = tr[model %in% c("SS3 B7", "SS3 B7s", "O0", "O1", "O2b")]
+tr[grepl("^SS3", model), model := "SS3 B7"]
+tr[, model := factor(model, levels = c("SS3 B7", "O0", "O1", "O2b"),
+                     labels = c("SS3 (B7 / B7s)", "O0", "O1", "O2b"))]
+ggplot(tr, aes(year, depletion, colour = model)) +
+    geom_line(linewidth = 0.6) +
+    facet_wrap(~variant) +
+    scale_colour_manual(values = c(`SS3 (B7 / B7s)` = "grey20", model_col[c("O0", "O1", "O2b")])) +
+    labs(x = NULL, y = "SSB / B0", colour = NULL)
+```
+
+Sex-averaged biology makes the stock less depleted in both SS3 and opal,
+and opal's models relate to SS3 B7s much as they relate to B7:
+
+* **O0** is closer to SS3 (largest difference
+  `r pct(max(abs(rel_ss3(opal_s, "O0"))))` against
+  `r pct(max(abs(rel_ss3(opal_c, "O0"))))`). The sex-averaged initial F is
+  smaller (`r fmt(os("SS3 B7s")$init_F6, 3)` against
+  `r fmt(o("SS3 B7")$init_F6, 3)`), so the initial equilibrium differs less.
+* **O1** again estimates a less depleted stock than SS3
+  (`r fmt(os("O1")$depletion_2021, 3)` against
+  `r fmt(os("SS3 B7s")$depletion_2021, 3)`).
+* **O2** again stops short with parameters on bounds (F3's descending width
+  and, here, F4's inflection, which SS3 itself nearly puts on its bound).
+  O2b, with `r nrow(opal_s$sel_fixed)` parameters fixed, converges at
+  depletion `r fmt(os("O2b")$depletion_2021, 3)`.
+* **Without the compositions (O1-noLF)**, the sex-averaged variant moves
+  much further than the female one: B~0~ `r fmt(os("O1-noLF")$B0, 0)` t and
+  depletion `r fmt(os("O1-noLF")$depletion_2021, 3)`.
+
+# Phase D: quarterly opal {#sec-quarterly}
+
+opal can run several seasons per year. In each season it removes a share of
+M and that season's catch at the season's start (Pope). It predicts indices
+from that season's numbers, and compositions from the year's total
+catch-at-age. Phase D runs the annual opal models with four seasons and each
+fleet's catch by quarter, taken from the quarterly SS3 model of the same
+chain (B3 or B3s, whose catch is B7's before the quarters were summed).
+Everything else stays as in B7: spawning and recruitment at the start of the
+year, the indices in season 1, and the compositions by year. The quarterly
+shares of the catch are close to even
+(`r paste(pct(opal_c$catch_season$share), collapse = ", ")` of the
+1975-2021 total in quarters 1-4).
+
+**Weight-at-age.** opal has one weight-at-age vector for the year. The annual
+models use SS3's start-of-year weights, which suit a start-of-year removal.
+With catch in tonnes taken in later quarters, those weights convert each
+tonne into far too many fish. Age-0 fish weigh
+0.03 kg at the start of the year and
+about 9 kg at mid-year. At SS3's values the quarterly opal population
+collapses after 2010. @tbl-timing-q replays SS3's dynamics (SS3's 1975
+numbers and recruits, SS3's selectivity) with each quarter's catch removed at
+the start of the quarter. With start-of-year weights, spawning biomass ends
+`r pct(-tq[catch == "by quarter" & weight == "start of year"]$end)` below
+SS3's. With mid-year weights it stays within
+`r pct(tq[catch == "by quarter" & weight == "mid-year"]$max)`. The phase D
+models therefore use SS3's mid-year weight-at-age; the spawning output is
+unchanged.
+
+```{r}
+#| label: tbl-timing-q
+#| tbl-cap: "SS3's dynamics replayed with each quarter's catch removed at the start of the quarter: spawning biomass relative to SS3 (B7 or B7s) in 2021 and the largest absolute difference over 1975-2021. 'Even' splits each year's catch equally over the quarters."
+tt = merge(tq[, .(catch, weight, `Female, 2021` = pct(end, 1), `Female, max.` = pct(max, 1))],
+           tq_s[, .(catch, weight, `Sex-avg., 2021` = pct(end, 1), `Sex-avg., max.` = pct(max, 1))],
+           by = c("catch", "weight"), sort = FALSE)
+knitr::kable(tt[, c(list(Catch = catch, `Catch weight` = weight), .SD), .SDcols = 3:6], format = "pipe")
+```
+
+Three models are run for each variant:
+
+* **D0**: O0 with quarterly catch (SS3's values, nothing estimated).
+* **D0-even**: O0 with each year's catch split evenly over the quarters.
+* **D**: O2b, the final annual opal configuration (opal's own selectivity,
+  with the same parameters fixed), refitted with quarterly catch. O2b's
+  estimates describe a stock too small for quarterly removals, because M now
+  acts on fish before they are caught. The fit therefore starts from O2b's
+  estimates with ln(B~0~) raised until the population stays positive
+  (`r fmt(opal_c$d_start_log_B0_step, 1)` for the female variant,
+  `r fmt(opal_s$d_start_log_B0_step, 1)` for the sex-averaged one). In the
+  sex-averaged D, `r nrow(opal_s$d_sel_fixed)` further selectivity parameter
+  (F8's descending width, close to its lower bound) dominates a flat direction
+  of the Hessian and is fixed as in O2b.
+
+```{r}
+#| label: tbl-phased
+#| tbl-cap: "Phase D against the annual opal models: depletion (SSB2021/B0) and the largest relative difference in spawning biomass from SS3 B7 (female) or B7s (sex-averaged). D is fitted; D0 and D0-even are at SS3's values."
+mods = c("O0", "D0", "D0-even", "O2b", "D")
+tab = rbindlist(lapply(mods, function(m) {
+    a = row(opal_c, "B7", m)
+    b = row(opal_s, "B7s", m)
+    data.table(Model = m, Seasons = ifelse(grepl("^D", m), 4, 1),
+               `B0, female` = a$B0, `Depl., female` = a$Dep, `Max. diff., female` = a$Diff,
+               `B0, sex-avg.` = b$B0, `Depl., sex-avg.` = b$Dep, `Max. diff., sex-avg.` = b$Diff,
+               `Converged (f / s)` = if (grepl("0", m)) "" else paste(a$Conv, b$Conv, sep = " / "))
+}))
+tab = rbind(data.table(Model = "SS3 (B7 / B7s)", Seasons = 1,
+                       `B0, female` = fmt(o("SS3 B7")$B0, 0), `Depl., female` = fmt(o("SS3 B7")$depletion_2021, 3),
+                       `Max. diff., female` = "",
+                       `B0, sex-avg.` = fmt(os("SS3 B7s")$B0, 0), `Depl., sex-avg.` = fmt(os("SS3 B7s")$depletion_2021, 3),
+                       `Max. diff., sex-avg.` = "", `Converged (f / s)` = ""), tab)
+knitr::kable(tab, format = "pipe", align = "lcrrrrrrc")
+```
+
+```{r}
+#| label: fig-phased
+#| fig-height: 6
+#| fig-cap: "Spawning biomass relative to SS3 (B7 or B7s): annual opal (O0, O2b) against quarterly opal (D0, D0-even, D)."
+rr = rbindlist(lapply(list(list(opal_c, "Female biology"), list(opal_s, "Sex-averaged biology")), function(a) {
+    rbindlist(lapply(c("O0", "D0", "D0-even", "O2b", "D"), function(m)
+        data.table(variant = a[[2]], model = m, year = 1975:2021, rel = rel_ss3(a[[1]], m))))
+}))
+rr[, kind := ifelse(model %in% c("O0", "D0", "D0-even"), "At SS3's values", "Fitted")]
+ggplot(rr, aes(year, rel, colour = model)) +
+    geom_hline(yintercept = 0, colour = "grey50") +
+    geom_line(linewidth = 0.6) +
+    facet_grid(kind ~ variant) +
+    scale_y_continuous(labels = scales::percent) +
+    scale_colour_manual(values = model_col[c("O0", "D0", "D0-even", "O2b", "D")]) +
+    labs(x = NULL, y = "Relative to SS3", colour = NULL)
+```
+
+At SS3's values, quarterly opal is much closer to SS3 than annual opal. D0
+stays within `r pct(max(abs(rel_ss3(opal_c, "D0"))))` (female) and
+`r pct(max(abs(rel_ss3(opal_s, "D0"))))` (sex-averaged) of SS3, against
+`r pct(max(abs(rel_ss3(opal_c, "O0"))))` and
+`r pct(max(abs(rel_ss3(opal_s, "O0"))))` for O0. With an even split (D0-even)
+the differences fall to `r pct(max(abs(rel_ss3(opal_c, "D0-even"))))` and
+`r pct(max(abs(rel_ss3(opal_s, "D0-even"))))`. SS3 B7 has one season, so its
+F is the same throughout the year, which an even split mimics more closely
+than the observed quarterly pattern. The initial equilibrium also moves
+closer to SS3's (1975: `r pct(rel_ss3(opal_c, "D0")[1], 1)` against
+`r pct(rel_ss3(opal_c, "O0")[1], 1)`): opal spreads the initial F over the
+seasons.
+
+Fitted, D moves opal's terminal state towards SS3's. Depletion is
+`r fmt(o("D")$depletion_2021, 3)` against O2b's
+`r fmt(o("O2b")$depletion_2021, 3)` (SS3 B7 `r fmt(o("SS3 B7")$depletion_2021, 3)`),
+and `r fmt(os("D")$depletion_2021, 3)` against
+`r fmt(os("O2b")$depletion_2021, 3)` for the sex-averaged variant (SS3 B7s
+`r fmt(os("SS3 B7s")$depletion_2021, 3)`). The objective also improves
+slightly (`r fmt(o("D")$objective, 2)` against `r fmt(o("O2b")$objective, 2)`).
+Like O2b, however, D starts the series well above SS3 (by
+`r pct(rel_ss3(opal_c, "D")[1])` in 1975, against
+`r pct(rel_ss3(opal_c, "O2b")[1])` for O2b). The difference in the early years
+therefore comes from opal's own selectivity fit, which O2b and D share, not
+from catch timing.
+
 # Limitations and differences from SS3 {#sec-limitations}
 
 ## Not available in opal
@@ -581,9 +811,12 @@ ggplot(sel, aes(age, sel, colour = model)) +
   - it spawns and recruits only at the start of season 1, whereas the base
     case spawns in month 5 and recruits settle in month 7.
 
-  The SS3-to-opal converter handles one season per year only. Seasonal opal
-  models would also need season-specific length-at-age (growth evaluated at
-  the season's midpoint) to predict quarterly compositions.
+  The SS3-to-opal converter handles one season per year only. Phase D
+  (see @sec-quarterly) expands B7's annual inputs to four quarters in the case-study
+  script. Seasonal opal models would also need season-specific weight-at-age
+  (with one start-of-year weight vector, quarterly removals of catch in tonnes
+  collapse the stock) and season-specific length-at-age to predict quarterly
+  compositions.
 * **Spawning and settlement timing.** opal's spawning biomass is that at the
   start of the year, before any mortality. B3 shows that moving spawning
   from month 5 to month 1 raises SSB~0~ by
@@ -609,8 +842,9 @@ ggplot(sel, aes(age, sel, colour = model)) +
   hybrid F removes it through the season. At SS3's values this leaves
   spawning biomass up to `r pct(tm_end[weight == "start of year (opal)"]$max)`
   above SS3's (@tbl-timing). A mid-season (Pope) removal would be within
-  `r pct(tm_end[grepl("Pope", removal)]$max)`. Quarterly opal seasons would
-  also approximate SS3's removal.
+  `r pct(tm_end[grepl("Pope", removal)]$max)`. Quarterly opal seasons
+  (see @sec-quarterly) come within `r pct(max(abs(rel_ss3(opal_c, "D0"))))`, given
+  mid-year weights.
 * **Initial equilibrium.** opal's initial equilibrium removes the initial-F
   catch at the start of the year. Its 1975 spawning biomass at SS3's values
   is `r pct(br$rel_opal[1], 1)` above SS3's. A Baranov or mid-year removal in
@@ -647,13 +881,14 @@ structure, not between SS3 and opal.
 | Step | Script | Writes |
 |---|---|---|
 | 1 | `scripts/01-build-ss3-bridge.r` | the SS3 bridge models and `vignettes/data/npo-swo-ss3-bridge-cache.rds` |
-| 2 | `scripts/02-convert-fit-npo-swo-opal.r` | `vignettes/data/npo-swo-opal-cache.rds` and the fitted models |
-| 3 | `quarto render vignettes/npo-swo-ss3-to-opal.qmd` | this document |
+| 2 | `scripts/02-convert-fit-npo-swo-opal.r` | `vignettes/data/npo-swo-opal-cache.rds` and the fitted models (female biology) |
+| 3 | `NPO_SWO_VARIANT=sexavg scripts/02-convert-fit-npo-swo-opal.r` | `vignettes/data/npo-swo-opal-cache-sexavg.rds` and the fitted models (sex-averaged biology) |
+| 4 | `quarto render vignettes/npo-swo-ss3-to-opal.qmd` | this document |
 
 ```{r}
 #| label: session
-cat(sprintf("Caches: bridge %s (SS3 %s); opal %s (opal %s, r4ss %s, R %s).\n",
-            bridge$made_at, bridge$ss3_version, opal_c$created,
+cat(sprintf("Caches: bridge %s (SS3 %s); opal %s and %s (opal %s, r4ss %s, R %s).\n",
+            bridge$made_at, bridge$ss3_version, opal_c$created, opal_s$created,
             opal_c$session$opal, opal_c$session$r4ss, opal_c$session$r))
 ```
 

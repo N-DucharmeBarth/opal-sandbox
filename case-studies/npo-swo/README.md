@@ -20,10 +20,10 @@ ISC/23/ANNEX/11 (July 2023).
 |---|---|
 | `model-files/ss3/00-base/` | The base case as supplied (`swo2023_v004.dat`, `swo2023_v007.ctl` renamed `data.ss`, `control.ss`; `forecast.ss` is the supplied run's `forecast.ss_new`; `ss-supplied.par`), re-run with SS3 3.30.22.1 from the supplied par file |
 | `model-files/ss3/01-single-sex/` ... `07-index-month-1/` | The SS3 bridge, one change per step (see below) |
-| `model-files/ss3/01s-sex-averaged/` | Sensitivity: B1 with sex-averaged M and growth |
-| `config/npo-swo-b7.yaml` | Converter settings for B7 -> opal |
+| `model-files/ss3/01s-sex-averaged/` ... `07s-index-month-1/` | The same bridge with sex-averaged M and growth (B1s-B7s) |
+| `config/npo-swo-b7.yaml`, `config/npo-swo-b7s.yaml` | Converter settings for B7 and B7s -> opal |
 | `scripts/01-build-ss3-bridge.r` | Builds and runs the SS3 bridge from the base case; writes the bridge cache |
-| `scripts/02-convert-fit-npo-swo-opal.r` | Converts B7, tests the conversion, replays SS3's dynamics with opal's catch timing, fits opal (O0-O2 and two diagnostics) |
+| `scripts/02-convert-fit-npo-swo-opal.r` | Converts B7 (or B7s with `NPO_SWO_VARIANT=sexavg`), tests the conversion, replays SS3's dynamics with opal's catch timing, fits opal (O0-O2b, two diagnostics) and the quarterly phase D models (D0, D0-even, D) |
 | `vignettes/npo-swo-ss3-to-opal.qmd` | The write-up (rendered HTML and PDF); reads only `vignettes/data/` |
 
 ## The SS3 bridge
@@ -32,7 +32,7 @@ ISC/23/ANNEX/11 (July 2023).
 |---|---|
 | 00 B0 | as supplied, re-run with 3.30.22.1 from the supplied par file (identical likelihood, 289.2996) |
 | 01 B1 | single sex (`Nsexes = -1`, SSB x female fraction 0.5); female growth, M and weight-length; the sex-combined compositions keep one copy of their vector |
-| 01s B1s | (sensitivity, from B0) as B1 with M and growth averaged over the sexes, weighted by unfished numbers-at-age |
+| 01s B1s | (from B0) as B1 with M and growth averaged over the sexes, weighted by unfished numbers-at-age; steps 02s-07s repeat 02-07 from B1s |
 | 02 B2 | selectivity blocks become fleets: F1, F12 and S2 in 1994-97 (F1's block), F2, F15, F16 and F19 in 2004-09 (F2's block); S2 1994-97 has its own floated q |
 | 03 B3 | spawning in month 1 (season 1) instead of month 5 |
 | 04 B4 | one season: catches summed over the quarters |
@@ -58,6 +58,17 @@ Notes on the bridge:
   settle, so the one-season model needs spawning in month 1 (B3) before the
   seasons can be merged (B4).
 
+## opal models
+
+Each variant (B7: female biology; B7s: sex-averaged biology) is taken
+through O0 (SS3's values), O1 (SS3's selectivity fixed), O2 (opal's own
+selectivity curves, not converged), O2b (O2 with the undetermined
+selectivity parameters fixed), O1-noLF and O1-noS6, and the phase D models:
+D0 and D0-even (quarterly catch, or catch split evenly over the quarters, at
+SS3's values) and D (O2b refitted with four seasons and quarterly catch).
+Phase D uses SS3's mid-year weight-at-age: with opal's single start-of-year
+weight vector, quarterly removals of catch in tonnes collapse the stock.
+
 ## Gaps in opal found here
 
 See the vignette's "Limitations and differences from SS3" for the full list.
@@ -71,7 +82,10 @@ See the vignette's "Limitations and differences from SS3" for the full list.
   observes quarterly compositions with each quarter's lengths. The SS3-to-opal
   converter handles one season only.
 * **Catch timing.** opal removes each season's catch at its start (Pope);
-  SS3's hybrid F removes it through the season.
+  SS3's hybrid F removes it through the season. Quarterly opal seasons
+  (phase D) bring opal at SS3's values within 13% of SS3 (annual: 28%).
+* **One weight-at-age for the year**, which seasonal models need to vary
+  by season.
 * **Time-varying selectivity** (blocks): reproduced exactly by splitting the
   fleets, including every fleet that mirrors a blocked fleet.
 * **Recruitment index** (SS3 units 33): represented by an index in numbers
@@ -86,7 +100,8 @@ See the vignette's "Limitations and differences from SS3" for the full list.
 
 ```
 scripts/01-build-ss3-bridge.r              # ~1 h with Hessians (NPO_SWO_NOHESS=true skips them)
-scripts/02-convert-fit-npo-swo-opal.r      # fits cached; NPO_SWO_REFIT=true refits
+scripts/02-convert-fit-npo-swo-opal.r      # female biology; fits cached; NPO_SWO_REFIT=true refits
+NPO_SWO_VARIANT=sexavg scripts/02-convert-fit-npo-swo-opal.r   # sex-averaged biology
 quarto render vignettes/npo-swo-ss3-to-opal.qmd
 ```
 

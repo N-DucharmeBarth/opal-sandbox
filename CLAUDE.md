@@ -96,13 +96,18 @@ studies and `tests/testthat/` the tests of the shared code, which
 * `scripts/01-build-ss3-bridge.r`: 00 (re-run from the supplied par, whose
   checksum line is fixed to 999) to 07 (single sex, blocks as fleets,
   spawning month 1, one season, combined compositions, settlement and index
-  month 1), plus the sensitivity 01s (sex-averaged biology). ~1 h with
+  month 1), and the same chain with sex-averaged biology (01s-07s). ~2 h with
   Hessians; `NPO_SWO_RERUN=true` reruns, `NPO_SWO_NOHESS=true` skips Hessians.
   Each step starts from the previous par file where the layout allows: from
   the control file (rec devs at 0) SS3 finds a worse minimum of the base case.
   SS3's q mirror (link 2) breaks the gradient; S2 1994-97 has its own q.
-* `scripts/02-convert-fit-npo-swo-opal.r`: converts B7 (`config/npo-swo-b7.yaml`),
-  replays catch timing and fits O0-O2b; fits cached (`NPO_SWO_REFIT=true`
+* `scripts/02-convert-fit-npo-swo-opal.r`: converts B7 (`config/npo-swo-b7.yaml`;
+  `NPO_SWO_VARIANT=sexavg` converts B7s, `npo-swo-b7s.yaml`), replays catch
+  timing, fits O0-O2b and the phase D models (four seasons, quarterly catch
+  from 03/03s, mid-year weight-at-age); fits cached (`NPO_SWO_REFIT=true`
   refits; `NPO_SWO_SS3_DIR` converts a copy elsewhere). opal's growth is
   fitted to SS3's mid-year lengths (biology stays start-of-year). S6 is an
   index in numbers with age-0 selectivity (age-based double normal in O2).
+* Quarto: a line starting `@label)` (e.g. a wrapped `(see\n@sec-x)`) is a
+  pandoc example-list item and hijacks the cross-reference; keep `@sec-x`
+  off the start of a line when followed by `)`.

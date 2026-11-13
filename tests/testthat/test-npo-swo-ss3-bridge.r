@@ -20,9 +20,10 @@ cache_file = file.path(proj_dir, "case-studies", "npo-swo", "vignettes", "data",
 
 context("NPO swordfish SS3 bridge")
 
-steps = c("00-base", "01-single-sex", "01s-sex-averaged", "02-block-split",
-          "03-spawn-month-1", "04-annual", "05-annual-comps",
+chain = c("02-block-split", "03-spawn-month-1", "04-annual", "05-annual-comps",
           "06-settle-month-1", "07-index-month-1")
+chain_s = sub("^([0-9]+)", "\\1s", chain)
+steps = c("00-base", "01-single-sex", chain, "01s-sex-averaged", chain_s)
 
 # Report.sso header lines: final gradient and ln(det(Hessian))
 report_header = function(step) {
@@ -59,8 +60,10 @@ test_that("every bridge step converged with an invertible Hessian", {
     }
 })
 
-test_that("no estimated parameter is on a bound", {
-    for (s in setdiff(steps, "01s-sex-averaged")) {
+test_that("no estimated parameter is on a bound (female chain)", {
+    # in the sex-averaged chain F4's logistic inflection lies within SS3's
+    # status margin of its 150 cm upper bound (as in the base case, 148.3 cm)
+    for (s in c("00-base", "01-single-sex", chain)) {
         st = reps[[s]]$parameters$Status
         expect_false(any(grepl("LO|HI", st)), info = s)
     }
@@ -125,9 +128,11 @@ test_that("B2 replaces the selectivity blocks with fleets", {
     # mirrors of the new fleets
     st = ctl$size_selex_types
     expect_equal(as.numeric(st[c(29, 30, 32, 33, 34), "Special"]), c(28, 28, 31, 31, 31))
-    # the split fleets start from the block replacement values
+    # the split fleets start from B1's estimated block replacement values
+    # (B2's input control file; control.ss_new holds B2's estimates)
     sp1 = inputs[["01-single-sex"]]$ctl$size_selex_parms_tv
-    sp2 = ctl$size_selex_parms
+    sp2 = suppressWarnings(r4ss::SS_read(file.path(dir_ss3, "02-block-split"), ss_new = FALSE,
+                                         verbose = FALSE))$ctl$size_selex_parms
     expect_equal(sp2[grep("\\(28\\)$", rownames(sp2)), "INIT"][1:4],
                  sp1[grep("^SizeSel_P_[1-4]_F1_", rownames(sp1)), "INIT"])
     # S2 1994-97 is a floated index of its own
@@ -149,12 +154,31 @@ test_that("B3-B7 make their one change each", {
     expect_true(all(inputs[["07-index-month-1"]]$dat$CPUE$month == 1))
 })
 
-test_that("combining the compositions (B5) leaves the estimates unchanged", {
-    p4 = reps[["04-annual"]]$parameters
-    p5 = reps[["05-annual-comps"]]$parameters
-    est = !is.na(p4$Active_Cnt)
-    expect_equal(p5$Value[est], p4$Value[est], tolerance = 1e-4)
-    expect_equal(dq("05-annual-comps", "SSB_2021"), dq("04-annual", "SSB_2021"), tolerance = 1e-5)
+test_that("combining the compositions (B5, B5s) leaves the estimates unchanged", {
+    for (sfx in c("", "s")) {
+        s4 = paste0("04", sfx, "-annual")
+        s5 = paste0("05", sfx, "-annual-comps")
+        p4 = reps[[s4]]$parameters
+        p5 = reps[[s5]]$parameters
+        est = !is.na(p4$Active_Cnt)
+        expect_equal(p5$Value[est], p4$Value[est], tolerance = 1e-4, info = s5)
+        expect_equal(dq(s5, "SSB_2021"), dq(s4, "SSB_2021"), tolerance = 1e-5, info = s5)
+    }
+})
+
+test_that("the sex-averaged chain differs from the female chain only in M and growth", {
+    for (i in seq_along(chain)) {
+        a = inputs[[chain[i]]]
+        b = inputs[[chain_s[i]]]
+        expect_equal(a$dat$catch, b$dat$catch, info = chain_s[i])
+        expect_equal(a$dat$CPUE, b$dat$CPUE, info = chain_s[i])
+        expect_equal(a$dat$lencomp, b$dat$lencomp, info = chain_s[i])
+        expect_equal(a$dat$spawn_month, b$dat$spawn_month, info = chain_s[i])
+        expect_equal(a$ctl$recr_dist_pattern, b$ctl$recr_dist_pattern, info = chain_s[i])
+        expect_equal(as.numeric(b$ctl$natM[1, ]), as.numeric(inputs[["01s-sex-averaged"]]$ctl$natM[1, ]))
+        mg = c("L_at_Amin_Fem_GP_1", "L_at_Amax_Fem_GP_1", "VonBert_K_Fem_GP_1")
+        expect_equal(b$ctl$MG_parms[mg, "INIT"], inputs[["01s-sex-averaged"]]$ctl$MG_parms[mg, "INIT"])
+    }
 })
 
 test_that("every step keeps the catch, index and composition data", {

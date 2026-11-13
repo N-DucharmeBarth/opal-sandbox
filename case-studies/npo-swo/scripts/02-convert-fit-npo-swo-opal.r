@@ -27,11 +27,26 @@
 # Diagnostics: O1-noLF (O1 without the compositions) and O1-noS6 (O1 without
 # the recruitment index; the report's sensitivity 15).
 #
-# The fits are cached; NPO_SWO_REFIT=true refits.
+# Phase D: the same opal models with four seasons (quarters) per year and
+# each fleet's catch by quarter (from the quarterly SS3 model B3 of the same
+# chain, whose catch is B7's before the quarters were summed). opal then
+# removes a quarter of the year's M and that quarter's catch in each season.
+# Everything else is B7's: spawning and recruitment at the start of season 1,
+# the indices observed in season 1, compositions predicted from the year's
+# catch-at-age, one weight-at-age for the year (SS3's mid-year weights, see
+# below).
+#   D0       O0 with quarterly catch (SS3's values)
+#   D0-even  O0 with each year's catch split evenly over the quarters
+#   D        O2b (the final opal configuration) with quarterly catch,
+#            refitted
 #
-# OUTPUTS:
-#   case-studies/npo-swo/vignettes/data/npo-swo-opal-cache.rds
-#   case-studies/npo-swo/vignettes/data/npo-swo-opal-fits.rds  (fitted opal_obj's)
+# Two variants (NPO_SWO_VARIANT): "female" (default; B7, female biology) and
+# "sexavg" (B7s, sex-averaged biology). The fits are cached; NPO_SWO_REFIT=true
+# refits.
+#
+# OUTPUTS (<sfx> is "" for female, "-sexavg" for sexavg):
+#   case-studies/npo-swo/vignettes/data/npo-swo-opal-cache<sfx>.rds
+#   case-studies/npo-swo/vignettes/data/npo-swo-opal-fits<sfx>.rds  (fitted opal_obj's)
 #
 # Copyright (c) 2026 Nicholas Ducharme-Barth
 # GPL-3.0
@@ -54,8 +69,17 @@
     invisible(sapply(list.files(dir_fns, pattern = "\\.[Rr]$", full.names = TRUE), source))
 
 #_____________________________________________________________________________
+# Variant
+    variant = Sys.getenv("NPO_SWO_VARIANT", "female")
+    stopifnot(variant %in% c("female", "sexavg"))
+    sfx  = if (variant == "female") "" else "-sexavg"
+    ssfx = if (variant == "female") "" else "s"       # SS3 step suffix
+    ss3_label = paste0("SS3 B7", ssfx)
+    quarterly_step = paste0("03", ssfx, "-spawn-month-1")
+
+#_____________________________________________________________________________
 # Convert
-    cfg = ss3_read_config(file.path(dir_cfg, "npo-swo-b7.yaml"))
+    cfg = ss3_read_config(file.path(dir_cfg, paste0("npo-swo-b7", ssfx, ".yaml")))
     if (nzchar(Sys.getenv("NPO_SWO_SS3_DIR"))) {
         # development only: convert a copy of the SS3 model held elsewhere
         cfg$absolute_paths = TRUE
@@ -375,7 +399,7 @@
         fit
     }
 
-    fits_file = file.path(dir_cache, "npo-swo-opal-fits.rds")
+    fits_file = file.path(dir_cache, paste0("npo-swo-opal-fits", sfx, ".rds"))
     refit = !file.exists(fits_file) || identical(Sys.getenv("NPO_SWO_REFIT"), "true")
     saved = if (refit) list() else readRDS(fits_file)
     get_fit = function(id, x) {
@@ -486,15 +510,147 @@
     o1_nos6 = opal_update(o1_nos6, map = m_nos6) %>% build_with_bounds()
     fit_o1_nos6 = get_fit("O1-noS6", o1_nos6)
 
+
+#_____________________________________________________________________________
+# Phase D: four seasons per year
+    # each fleet's catch by quarter, from the quarterly SS3 model of this chain
+    dat_q = SS_read(file.path(proj_dir, "case-studies", "npo-swo", "model-files", "ss3",
+                              quarterly_step), ss_new = TRUE, verbose = FALSE)$dat
+    cq = as.data.table(dat_q$catch)[year %in% yrs]
+    cq[, f := match(fleet, fish$extract_fleets)]
+    cq = cq[!is.na(f) & catch > 0]
+    catch_q = array(0, dim = c(n_year, 4L, n_f))
+    for (r in seq_len(nrow(cq))) catch_q[cq$year[r] - yrs[1] + 1L, cq$seas[r], cq$f[r]] = cq$catch[r]
+    # quarterly shares applied to B7's annual catch, so the annual totals are
+    # B7's exactly (SS3's echoed data file rounds catches to six digits)
+    tot_q = apply(catch_q, c(1, 3), sum)
+    stopifnot(max(abs(tot_q - d$catch_obs_ysf[, 1, ]) / pmax(d$catch_obs_ysf[, 1, ], 1)) < 1e-5)
+    for (s in 1:4) catch_q[, s, ] = ifelse(tot_q > 0, catch_q[, s, ] / tot_q, 0) * d$catch_obs_ysf[, 1, ]
+    catch_even = array(rep(d$catch_obs_ysf[, 1, ] / 4, each = 1), dim = c(n_year, n_f))
+    catch_even = aperm(array(rep(catch_even, 4), dim = c(n_year, n_f, 4L)), c(1, 3, 2))
+    # opal has one weight-at-age for the whole year. The annual models use
+    # SS3's start-of-year weights, consistent with removing the catch at the
+    # start of the year. With the catch taken through the year those weights
+    # turn each tonne into far too many fish (age 0 weighs 0.03 kg at the
+    # start of the year and 9 kg at mid-year), and at SS3's values the
+    # quarterly population collapses; the quarterly models use SS3's
+    # mid-year weight-at-age instead (the spawning output is unchanged).
+    quarterly = function(x, catch) {
+        dd = x$data
+        dd$n_season = 4L
+        dd$catch_obs_ysf = catch
+        dd$weight = eg_mid$weight
+        # indices in season 1 of their year (as B7: month 1); the compositions
+        # stay indexed by year (opal predicts them from the year's catch)
+        cp = dd$cpue_data
+        cp$ts = (cp$ts - 1L) * 4L + 1L
+        dd$cpue_data = cp
+        opal_update(x, data = dd)
+    }
+    # SS3's dynamics replayed with each quarter's catch removed at the start of
+    # the quarter (as quarterly opal), by catch weight-at-age
+    replay_quarterly = function(catch, W) {
+        sp = d$spawning_potential
+        S4 = exp(-d$M / 4)
+        num = d$catch_units_f != 1
+        N = n_ss3(yrs[1])
+        ssb = numeric(n_year)
+        for (y in seq_len(n_year)) {
+            N[1] = recruits_ss3[y]
+            ssb[y] = sum(N * sp)
+            for (s in 1:4) {
+                cy = catch[y, s, ]
+                hr = numeric(n_age)
+                for (f in which(cy > 0)) hr = hr + cy[f] / sum(N * sel_ss3[f, ] * (if (num[f]) 1 else W[f, ])) * sel_ss3[f, ]
+                N = N * (1 - pmin(hr, 0.999)) * S4
+            }
+            N_next = c(0, N[-n_age])
+            N_next[n_age] = N_next[n_age] + N[n_age]
+            N = N_next
+        }
+        ssb
+    }
+    timing_q = rbindlist(lapply(list(
+        list(catch_q, W_beg, "by quarter", "start of year"),
+        list(catch_q, W_mid, "by quarter", "mid-year"),
+        list(catch_q, W_fleet, "by quarter", "SS3 fleet catch weight"),
+        list(catch_even, W_beg, "even", "start of year"),
+        list(catch_even, W_mid, "even", "mid-year")),
+        function(a) data.table(year = yrs, catch = a[[3]], weight = a[[4]],
+                               ssb = replay_quarterly(a[[1]], a[[2]]), ss3 = ssb_ss3)))
+    timing_q[, rel := ssb / ss3 - 1]
+    print(timing_q[, .(rel_end = rel[.N], rel_max = max(abs(rel))), by = .(catch, weight)])
+
+    d0 = quarterly(o0, catch_q) %>% build_with_bounds()
+    d0_even = quarterly(o0, catch_even) %>% build_with_bounds()
+    # D: O2b's configuration (map, bounds) and estimates as the start
+    o2b_obj = refit_fixing(fixed_lvl)$x
+    fl_free = refit_fixing(fixed_lvl)$free_lvl
+    sb = sel_bounds()
+    # O2b's estimates describe a stock too small for quarterly removals (with
+    # the catch taken through the year, M acts on fish before they are
+    # caught, so the same catch costs more fish): at O2b's values the
+    # quarterly population collapses after 2010. D therefore starts from
+    # O2b's estimates with B0 raised in steps of 0.1 on the log scale until
+    # the objective and its gradient are finite.
+    p_d = fit_o2b$fit$parameters
+    d_obj = NULL
+    for (k in 0:30) {
+        p_try = p_d
+        p_try$log_B0 = p_d$log_B0 + 0.1 * k
+        d_obj = tryCatch(quarterly(opal_update(o2b_obj, parameters = p_try), catch_q) %>%
+                             build_with_bounds(sel = list(lower = sb$lower[fl_free], upper = sb$upper[fl_free])),
+                         error = function(e) NULL)
+        if (!is.null(d_obj)) break
+    }
+    stopifnot(!is.null(d_obj))
+    d_start_log_B0_step = 0.1 * k
+    fit_d = get_fit("D", d_obj)
+    # D refitted, as O2b, with any further selectivity parameters it cannot
+    # determine fixed at its estimates: those on a bound, then those that
+    # dominate a flat direction of the Hessian (the sex-averaged D has a
+    # descending width just inside its lower bound with a slightly negative
+    # Hessian eigenvalue)
+    d_fixed_lvl = fixed_lvl
+    if (!isTRUE(fit_d$validation$fit$passes) && is.null(attr(fit_d, "fixed_levels"))) {
+        for (pass in 1:4) {
+            i = which(names(fit_d$fit$opt$par) == "par_sel")
+            b = fit_d$bounds
+            free_now = refit_fixing(d_fixed_lvl)$free_lvl
+            at_b = free_now[abs(fit_d$fit$opt$par[i] - b$lower[i]) < 1e-2 |
+                            abs(fit_d$fit$opt$par[i] - b$upper[i]) < 1e-2]
+            new_lvl = unique(c(at_b, sel_lvl_flat(fit_d, free_now)))
+            if (!length(new_lvl)) break
+            d_fixed_lvl = c(d_fixed_lvl, new_lvl)
+            r = refit_fixing(d_fixed_lvl)
+            x = quarterly(opal_update(r$x, parameters = fit_d$fit$parameters), catch_q) %>%
+                build_with_bounds(sel = list(lower = sb$lower[r$free_lvl], upper = sb$upper[r$free_lvl]))
+            message("refitting D with selectivity levels ", paste(new_lvl, collapse = ", "), " fixed")
+            fit_d = fit_opal(x)
+            if (isTRUE(fit_d$validation$fit$passes)) break
+        }
+        attr(fit_d, "fixed_levels") = d_fixed_lvl
+        saved$D = fit_d
+        saveRDS(saved, fits_file, compress = "xz")
+    } else if (!is.null(attr(fit_d, "fixed_levels"))) {
+        d_fixed_lvl = attr(fit_d, "fixed_levels")
+    }
+    d_sel_fixed = rbindlist(lapply(setdiff(d_fixed_lvl, fixed_lvl), function(k) {
+        rc = which(lvl_matrix == k, arr.ind = TRUE)[1, ]
+        data.table(fishery = rc[[1]], column = rc[[2]],
+                   name = converted$meta$dims$.fleet_names[ss3_fleet_f[rc[[1]]]])
+    }))
+    catch_season = data.table(season = 1:4, share = apply(catch_q, 2, sum) / sum(catch_q))
+
 #_____________________________________________________________________________
 # Results
     ts_ss3 = as.data.table(rep_ss3$timeseries)[Era == "TIME" & Yr %in% yrs]
     ssb0_ss3 = ss3_derived_value(rep_ss3, c("SSB_Virgin", "SSB_Unfished"))
 
     models = list(O0 = o0, O1 = fit_o1, O2 = fit_o2, O2b = fit_o2b, `O1-noLF` = fit_o1_nolf,
-                  `O1-noS6` = fit_o1_nos6)
+                  `O1-noS6` = fit_o1_nos6, D0 = d0, `D0-even` = d0_even, D = fit_d)
     trajectory = rbind(
-        data.table(model = "SS3 B7", year = yrs, ssb = ts_ss3$SpawnBio,
+        data.table(model = ss3_label, year = yrs, ssb = ts_ss3$SpawnBio,
                    depletion = ts_ss3$SpawnBio / ssb0_ss3, recruits = recruits_ss3),
         rbindlist(lapply(names(models), function(id) {
             r = opal_report(models[[id]])
@@ -525,7 +681,7 @@
         )
     }))
     init_f_ss3 = pars_ss3[grepl("^InitF_", Label), Value]
-    summary_dt = rbind(data.table(model = "SS3 B7", n_par = rep_ss3$N_estimated_parameters,
+    summary_dt = rbind(data.table(model = ss3_label, n_par = rep_ss3$N_estimated_parameters,
                                   B0 = ssb0_ss3, init_F6 = init_f_ss3,
                                   ssb_2021 = last(ts_ss3$SpawnBio),
                                   depletion_2021 = last(ts_ss3$SpawnBio) / ssb0_ss3),
@@ -534,12 +690,12 @@
 
     # Index fits
     keep_idx = cfg$index$keep_ss3_fleets
-    cpue = rbindlist(lapply(c("O1", "O2b", "O1-noS6"), function(id) {
+    cpue = rbindlist(lapply(c("O1", "O2b", "O1-noS6", "D"), function(id) {
         dd = as.data.table(models[[id]]$data$cpue_data)
         dd[, .(model = id, year, index, obs = value, se, pred = opal_report(models[[id]])$cpue_pred)]
     }))
     cpue_ss3 = as.data.table(rep_ss3$cpue)[Fleet %in% keep_idx,
-                                           .(model = "SS3 B7", year = Yr,
+                                           .(model = ss3_label, year = Yr,
                                              index = match(Fleet, keep_idx),
                                              obs = Obs, se = SE, pred = Exp)]
     cpue = rbind(cpue_ss3, cpue)
@@ -551,7 +707,7 @@
     sel_o2_start = opal_report(o2_start)$sel_fya[, n_year, ]
     long_sel = function(m, id) data.table(model = id, fishery = rep(seq_len(nrow(m)), times = ncol(m)),
                                           age = rep(d$age_a, each = nrow(m)), sel = as.vector(m))
-    selectivity = rbind(long_sel(sel_ss3, "SS3 B7"), long_sel(sel_o2, "O2b"))
+    selectivity = rbind(long_sel(sel_ss3, ss3_label), long_sel(sel_o2, "O2b"))
     sel_start_diff = data.table(fishery = seq_len(n_f),
                                 name = converted$meta$dims$.fleet_names[ss3_fleet_f],
                                 max_abs_diff = apply(abs(sel_o2_start - sel_ss3), 1, max))
@@ -586,6 +742,11 @@
         summary     = summary_dt,
         trajectory  = trajectory,
         cpue        = cpue,
-        selectivity = selectivity
+        selectivity = selectivity,
+        catch_season = catch_season,
+        timing_q    = timing_q,
+        d_sel_fixed = d_sel_fixed,
+        d_start_log_B0_step = d_start_log_B0_step,
+        variant     = variant
     )
-    saveRDS(cache, file.path(dir_cache, "npo-swo-opal-cache.rds"), compress = "xz")
+    saveRDS(cache, file.path(dir_cache, paste0("npo-swo-opal-cache", sfx, ".rds")), compress = "xz")

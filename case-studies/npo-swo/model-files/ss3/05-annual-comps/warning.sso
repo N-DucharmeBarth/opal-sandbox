@@ -1,0 +1,5 @@
+Warning 1 : Main recdev biasadj is >2 times ratio of rmse to sigmaR
+Warning 2 : Final gradient: 0.0019477 is larger than final_conv: 0.0001
+Note 1 Information: A revised protocol for the Fcast_yr specification is available and recommended.
+Warning 3 : Reminder: Number of lamdas !=0.0 and !=1.0:  10
+ 3 warnings  and 1 note 

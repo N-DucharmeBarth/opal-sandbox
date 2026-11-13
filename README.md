@@ -24,6 +24,7 @@ case-studies/          one folder per stock; nothing in it is used by another ca
   npo-bsh/             North Pacific blue shark: two-sex SS3 -> single-sex SS3 bridge -> opal
   epo-bet/             eastern Pacific bigeye tuna: quarterly SS3 (growth cessation) -> opal
   swpo-alb/            south-west Pacific albacore: two-region MFCL -> region 1 MFCL bridge -> opal
+  npo-swo/             North Pacific swordfish: two-sex, quarterly SS3 -> single-sex annual SS3 bridge -> opal
 shared/                code used by more than one case study
   ss3-to-opal/         SS3-to-opal converter, validation and fit helpers
   mfcl-to-opal/        MFCL par/plot-report readers and MFCL-to-opal converter
@@ -55,6 +56,7 @@ Each case study is laid out the same way, with only the folders it needs:
 | [`npo-bsh`](case-studies/npo-bsh) | 2022 ISC North Pacific blue shark assessment (SS3 3.30, two sexes; S6_base, one of the three ensemble models) | SS3 bridge to a single-sex model; converted to opal, tested and fitted; vignette documents opal's limitations against SS3 |
 | [`epo-bet`](case-studies/epo-bet) | IATTC SAC-14 (2023) exploratory SS3 model of eastern Pacific bigeye tuna (SS3 3.30, quarterly, growth cessation) | One-step SS3 bridge (no initial regime offset); converted to opal, tested and fitted; vignette documents the catch-timing difference that dominates in a quarterly model |
 | [`swpo-alb`](case-studies/swpo-alb) | 2024 WCPFC south Pacific albacore diagnostic model (MFCL 2.2.7.0, two regions, annual ages with quarterly/monthly fishing) | MFCL bridge to region 1 (no movement, region 1 only, growth fixed without age-at-length); converted to opal and replayed; opal fit with MFCL's selectivity is unbounded in scale until opal's growth matches MFCL's within-year lengths; quarterly-age set-up; vignette documents what opal would need |
+| [`npo-swo`](case-studies/npo-swo) | 2023 ISC North Pacific swordfish base case (SS3 3.30.20, two sexes, four seasons with annual ages, selectivity blocks, a recruitment index) | SS3 bridge to a single-sex, annual model (blocks as fleets, spawning and settlement in month 1); converted to opal, tested and fitted; vignette documents catch timing, the initial equilibrium and the recruitment-index workaround |
 
 ### Adding a case study
 

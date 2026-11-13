@@ -75,6 +75,7 @@
 !case-studies/npo-bsh/vignettes/npo-bsh-ss3-to-opal.html
 !case-studies/epo-bet/vignettes/epo-bet-ss3-to-opal.html
 !case-studies/swpo-alb/vignettes/swpo-alb-mfcl-to-opal.html
+!case-studies/npo-swo/vignettes/npo-swo-ss3-to-opal.html
 # stock synthesis
 !control.ss
 !data.ss
@@ -92,6 +93,11 @@
 !case-studies/epo-bet/model-files/ss3/00-base/ss3-supplied.par
 # composition fits for the NPO blue shark SS3 bridge models (read by r4ss for the vignette)
 !case-studies/npo-bsh/model-files/ss3/*/CompReport.sso
+# the supplied par file of the NPO swordfish base case (00-base re-runs from it),
+# and the composition fits of its base case and of the converted bridge model
+!case-studies/npo-swo/model-files/ss3/00-base/ss-supplied.par
+!case-studies/npo-swo/model-files/ss3/00-base/CompReport.sso
+!case-studies/npo-swo/model-files/ss3/07-index-month-1/CompReport.sso
 !warning.sso
 !Report.sso
 # devcontainer

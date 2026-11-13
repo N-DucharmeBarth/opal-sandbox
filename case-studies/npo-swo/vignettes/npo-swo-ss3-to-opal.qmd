@@ -77,12 +77,16 @@ case therefore cannot be converted directly.
 This case study bridges in two stages:
 
 1. **Within SS3** (@sec-bridge), from the base case to a single-sex, annual
-   SS3 model (B7) whose structure opal can represent. Each step makes one
-   change, so its effect is measured on its own.
+   SS3 model whose structure opal can represent. Each step makes one change,
+   so its effect is measured on its own. Collapsing two sexes into one
+   requires choosing one biology. The bridge is therefore built twice: with
+   female growth and M (ending in B7) and with growth and M averaged over the
+   sexes (ending in B7s).
 2. **SS3 to opal** (@sec-conversion), converting B7 with the shared converter
    in `shared/ss3-to-opal/`. The conversion is checked and SS3's dynamics are
    replayed with opal's catch timing (@sec-o0). opal is then fitted
-   (@sec-fits).
+   (@sec-fits). @sec-sexavg repeats the conversion and fits for B7s, and
+   @sec-quarterly runs the opal models with four seasons per year (phase D).
 
 @sec-limitations lists where opal falls short of SS3 or differs from it,
 and what opal would need to model the base case itself. The case study
@@ -117,7 +121,7 @@ In brief:
   ages, have much lower M than males (0.22 against 0.36). SSB~0~ falls from
   `r fmt(b0$ssb0, 0)` t to `r fmt(b1$ssb0, 0)` t, and terminal depletion
   from `r fmt(b0$depletion, 3)` to `r fmt(b1$depletion, 3)`. With
-  sex-averaged M and growth instead (sensitivity B1s), depletion is
+  sex-averaged M and growth instead (B1s), depletion is
   `r fmt(b1s$depletion, 3)`, close to the base case.
 * **The other steps** each move terminal depletion by at most
   `r fmt(max(abs(diff(B[grepl("^0[1-7]-", step)]$depletion))), 3)`.
@@ -180,9 +184,9 @@ indices, of which S5 (Chinese Taipei longline) and S8 (US shallow-set
 longline, late period) have lambda 0. S6, the US deep-set longline index,
 is a **recruitment index**: SS3 compares it with the year's age-0
 recruitment (units code 33), so its selectivity plays no part. Length
-compositions (sex-combined) are entered by quarter. Those of eight fleets
-are fitted with lambda 0.5. F5's have lambda 0, and every F9 observation is
-excluded (negative year).
+compositions (sex-combined) are entered by quarter for nine fleets. Eight
+have lambda 0.5 (F1-F4 and F6-F9), but every F9 observation is excluded
+(negative year), so seven fleets' compositions are fitted. F5's have lambda 0.
 
 ## Biology and structure
 
@@ -209,7 +213,7 @@ knitr::kable(data.table(
         "length-based double normal (F1, F3, F6, F7, F8) or logistic (F2, F4); other fleets mirror; blocks on F1 (1994-97) and F2 (2004-09)",
         "initial F for F6 (initial-catch lambda 0)",
         "floated q for every index",
-        "length compositions lambda 0.5; S5, S8 and F5 compositions lambda 0")),
+        "length compositions lambda 0.5; lambda 0 for the indices S5 and S8 and for F5's compositions")),
     format = "pipe")
 ```
 
@@ -231,7 +235,7 @@ sex, but the model files have two sexes.
   single sex times the female fraction 0.5). Female growth, M and
   weight-length are used, and the sex-combined compositions keep one copy of
   their vector.
-* **B1s** (sensitivity, built from B0): as B1, with sex-averaged biology. M
+* **B1s** (built from B0): as B1, with sex-averaged biology. M
   at age is the rate that takes the unfished numbers of both sexes from one
   age to the next. L1, L2 and K are fitted to the mean length-at-age of the
   two sexes, weighted by their unfished numbers.
@@ -313,9 +317,13 @@ than 5 removes four months of mortality before spawning. SSB~0~ rises to
 quarters (B4) changes the timing of the catch, which is now removed through
 the year rather than quarter by quarter. It also changes the fishery
 compositions' expected lengths, which become catch-weighted over the year.
-Depletion moves to `r fmt(b4$depletion, 3)`, but the initial F falls from
-`r fmt(b3$init_f, 2)` to `r fmt(b4$init_f, 2)`: in an annual model the
-initial equilibrium needs a much smaller F to give the same 1975 stock.
+Depletion moves to `r fmt(b4$depletion, 3)`. The estimated initial F falls
+from `r fmt(b3$init_f, 2)` to `r fmt(b4$init_f, 2)`, yet the 1975 stock is
+about as depleted
+(`r fmt(bridge$timeseries[step == "03-spawn-month-1" & year == 1975]$depletion, 3)`
+and `r fmt(bridge$timeseries[step == "04-annual" & year == 1975]$depletion, 3)`).
+The quarterly and annual initial equilibria apply F6's selectivity
+differently, so the two values are not comparable.
 Combining the quarterly compositions (B5) leaves every estimate unchanged.
 Within a year they share one expected composition, so the multinomial kernel
 is unchanged. SS3's NLL falls from `r fmt(b4$nll, 1)` to `r fmt(b5$nll, 1)`
@@ -351,9 +359,9 @@ B1s start from the control file plus the previous step's deviations, read
 through the control file's `read_recdevs` option. Each step is then re-run
 from its own par file until its maximum gradient is below 1e-3, because the
 control file's INIT values are rounded to six digits. B4 starts from B3's
-estimates with the initial F at 0.6 and ln(R~0~) raised by 0.5. From B3's
-initial F of 1.59 the annual model's initial stock is a few percent of
-SSB~0~ and cannot support the catch.
+estimates with the initial F at 0.6 and ln(R~0~) raised by 0.5, and B4s
+starts from B3s's estimates in the same way. From B3's initial F of 1.59 the annual model's
+initial stock is a few percent of SSB~0~ and cannot support the catch.
 
 # Converting B7 to opal {#sec-conversion}
 
@@ -364,7 +372,8 @@ spawning biomass, as in B7. The 25 fishing fleets become opal fisheries 1-25
 in SS3 order, and the seven indices with lambda 1 become fisheries 26-32.
 The biology (weight, maturity, spawning output and M at age) is SS3's
 start-of-year endgrowth table. Spawning output is mature female biomass
-times the female fraction 0.5.
+times the female fraction 0.5. Sections 4-6 describe B7; B7s is converted
+and fitted in the same way (@sec-sexavg).
 
 ## Reconciliation
 
@@ -556,7 +565,7 @@ knitr::kable(opal_c$sel_fixed[, .(Fishery = fishery, Name = name, Column = colum
 ```{r}
 #| label: fig-fits
 #| fig-height: 7
-#| fig-cap: "Spawning biomass, depletion and age-0 recruitment: SS3 B7 and the opal models (O2, not converged, is not shown; O2b has the same estimates)."
+#| fig-cap: "Spawning biomass, depletion and age-0 recruitment: SS3 B7 and the opal models (O2, not converged, is not shown; O2b has O2's estimates)."
 tr = copy(opal_c$trajectory)[!model %in% c("O2", "D0", "D0-even", "D")]
 tr[, model := factor(model, levels = names(model_col))]
 long = melt(tr, id.vars = c("model", "year"),
@@ -670,8 +679,10 @@ and opal's models relate to SS3 B7s much as they relate to B7:
   O2b, with `r nrow(opal_s$sel_fixed)` parameters fixed, converges at
   depletion `r fmt(os("O2b")$depletion_2021, 3)`.
 * **Without the compositions (O1-noLF)**, the sex-averaged variant moves
-  much further than the female one: B~0~ `r fmt(os("O1-noLF")$B0, 0)` t and
-  depletion `r fmt(os("O1-noLF")$depletion_2021, 3)`.
+  much further than the female one, to a smaller and more depleted stock
+  than SS3's: B~0~ `r fmt(os("O1-noLF")$B0, 0)` t and depletion
+  `r fmt(os("O1-noLF")$depletion_2021, 3)`. Here the compositions, not only
+  the indices, determine the stock's scale.
 
 # Phase D: quarterly opal {#sec-quarterly}
 
@@ -690,10 +701,9 @@ shares of the catch are close to even
 **Weight-at-age.** opal has one weight-at-age vector for the year. The annual
 models use SS3's start-of-year weights, which suit a start-of-year removal.
 With catch in tonnes taken in later quarters, those weights convert each
-tonne into far too many fish. Age-0 fish weigh
-0.03 kg at the start of the year and
-about 9 kg at mid-year. At SS3's values the quarterly opal population
-collapses after 2010. @tbl-timing-q replays SS3's dynamics (SS3's 1975
+tonne into far too many fish. Age-0 fish weigh 0.03 kg at the start of the
+year and about 9 kg at mid-year. With start-of-year weights, the quarterly
+opal population at SS3's values collapses after 2010. @tbl-timing-q replays SS3's dynamics (SS3's 1975
 numbers and recruits, SS3's selectivity) with each quarter's catch removed at
 the start of the quarter. With start-of-year weights, spawning biomass ends
 `r pct(-tq[catch == "by quarter" & weight == "start of year"]$end)` below
@@ -716,15 +726,15 @@ Three models are run for each variant:
 * **D0**: O0 with quarterly catch (SS3's values, nothing estimated).
 * **D0-even**: O0 with each year's catch split evenly over the quarters.
 * **D**: O2b, the final annual opal configuration (opal's own selectivity,
-  with the same parameters fixed), refitted with quarterly catch. O2b's
-  estimates describe a stock too small for quarterly removals, because M now
-  acts on fish before they are caught. The fit therefore starts from O2b's
-  estimates with ln(B~0~) raised until the population stays positive
-  (`r fmt(opal_c$d_start_log_B0_step, 1)` for the female variant,
-  `r fmt(opal_s$d_start_log_B0_step, 1)` for the sex-averaged one). In the
-  sex-averaged D, `r nrow(opal_s$d_sel_fixed)` further selectivity parameter
-  (F8's descending width, close to its lower bound) dominates a flat direction
-  of the Hessian and is fixed as in O2b.
+  with the same parameters fixed), refitted with quarterly catch. With the
+  catch taken through the year, M acts on fish before they are caught, so
+  the same catch costs more fish. For the female variant, O2b's estimates
+  describe a stock too small for that, and the fit starts from them with
+  ln(B~0~) raised by `r fmt(opal_c$d_start_log_B0_step, 1)`, the smallest
+  step (of 0.1) at which the population stays positive. The sex-averaged fit
+  starts at O2b's estimates. In the sex-averaged D, one further selectivity
+  parameter (F8's descending width, close to its lower bound) dominates a
+  flat direction of the Hessian and is fixed as in O2b.
 
 ```{r}
 #| label: tbl-phased
@@ -850,8 +860,9 @@ from catch timing.
   is `r pct(br$rel_opal[1], 1)` above SS3's. A Baranov or mid-year removal in
   `get_initial_numbers()` would match SS3.
 * **Catch weight.** opal converts catch in weight to numbers with one
-  weight-at-age (start of year here). SS3 uses each fleet's catch
-  weight-at-age (selectivity-weighted, mid-season).
+  weight-at-age (start of year in the annual models, mid-year in phase D).
+  SS3 uses each fleet's catch weight-at-age (selectivity-weighted,
+  mid-season).
 * **Length-at-age for selectivity and compositions.** SS3 forms a fishery's
   selectivity-at-age and expected compositions from mid-year lengths. opal
   uses one length-at-age, here fitted to SS3's mid-year lengths. The
@@ -868,8 +879,8 @@ from catch timing.
 The single-sex step is not neutral. B1 applies female M and growth to
 every fish. Males live longer and grow larger than they do in the base case,
 and the stock is smaller and more depleted. B1s, with sex-averaged biology,
-is closer to the base case. Either choice is an approximation that opal's
-lack of sexes forces. With the sex-combined compositions here, a two-sex
+is closer to the base case, but merging its quarters costs more fit (B4s).
+Either choice is an approximation that opal's lack of sexes forces. With the sex-combined compositions here, a two-sex
 opal would need no new data. The timing steps (B3, B6) move spawning and
 settlement to the start of the year. B3 is required for SS3 itself to merge
 the seasons, and both change the stock's scale and productivity

@@ -67,7 +67,7 @@ os = function(m) Ss[model == m]
 # second cue: SS3 black (the two-sex base case grey); O0 (opal at SS3's
 # values) amber; fits with SS3's selectivity (O1 family) blue; opal's own
 # selectivity (O2, O2b) red; quarterly opal (phase D) green. Within a family
-# the diagnostic variants are dashed or dotted, and the best model, D, is
+# the diagnostic variants are dashed or dotted, and the final model, D, is
 # drawn thicker. The bridge steps take a light-to-dark ramp in step order.
 model_col = c(`SS3 base case` = "#8c8c8c", SS3 = "black", O0 = "#eda100",
               O1 = "#2a78d6", `O1-noLF` = "#2a78d6", `O1-noS6` = "#2a78d6",
@@ -155,16 +155,24 @@ explorations and are not advice on the stock.
   (@sec-o0). opal removes each year's catch at the start of the year and
   builds its initial equilibrium the same way, whereas SS3 removes catch
   through the year.
-* **The best opal model is D** (@sec-quarterly, @sec-progression). It uses
+* **The final opal model is D** (@sec-quarterly, @sec-final). It uses
   opal's own selectivity curves, with the parameters the data cannot
   determine fixed (O2b), and four seasons per year with the observed
-  quarterly catch. It converges with a positive-definite Hessian and
-  estimates terminal depletion `r fmt(D_f$depletion_2021, 3)` against SS3
-  B7's `r fmt(ss3_f$depletion_2021, 3)`. The sex-averaged values are
-  `r fmt(D_s$depletion_2021, 3)` against `r fmt(ss3_s$depletion_2021, 3)`.
-  Its early years remain well above SS3's (by
-  `r pct(rel_ss3_v("female", "D")[1])` in 1975), a difference that comes
-  from opal's selectivity fit, not from catch timing.
+  quarterly catch. It is the most complete converged opal configuration:
+  - it estimates its own selectivity;
+  - it converges with a positive-definite Hessian;
+  - it fits the data better than O2b, the other converged model with opal's
+    own selectivity;
+  - it removes the start-of-year catch timing.
+
+  Its terminal depletion is `r fmt(D_f$depletion_2021, 3)` against SS3 B7's
+  `r fmt(ss3_f$depletion_2021, 3)` (sex-averaged:
+  `r fmt(D_s$depletion_2021, 3)` against `r fmt(ss3_s$depletion_2021, 3)`).
+  It is not, however, the opal model that tracks SS3 most closely. Its early
+  years are well above SS3's (by `r pct(rel_ss3_v("female", "D")[1])` in
+  1975), and over the whole series O1, with SS3's selectivity, stays closer.
+  D also rests on approximations (mid-year weights in every quarter, some
+  selectivity parameters fixed at bounds) listed in @sec-final.
 * **What opal would need** to model the base case directly (@sec-limitations):
   - two sexes;
   - spawning and settlement within the year;
@@ -177,7 +185,7 @@ explorations and are not advice on the stock.
 ```{r}
 #| label: fig-headline
 #| fig-height: 4.2
-#| fig-cap: "Spawning biomass relative to unfished: the two-sex SS3 base case (grey), the single-sex, annual SS3 model opal is converted from (black; B7 left, B7s right) and the best opal model, D (green)."
+#| fig-cap: "Spawning biomass relative to unfished: the two-sex SS3 base case (grey), the single-sex, annual SS3 model opal is converted from (black; B7 left, B7s right) and the final opal model, D (green)."
 hd = ALL[model %in% c("SS3 base case", "SS3", "D")]
 hd[, model := factor(model, levels = c("SS3 base case", "SS3", "D"))]
 ggplot(hd, aes(year, depletion, colour = model, linetype = model, linewidth = model)) +
@@ -213,7 +221,8 @@ This case study bridges in two stages:
    replayed with opal's catch timing (@sec-o0). opal is then fitted
    (@sec-fits). @sec-sexavg repeats the conversion and fits for B7s, and
    @sec-quarterly runs the opal models with four seasons per year (phase D).
-   @sec-progression traces the steps from SS3 to the best opal model.
+   @sec-progression traces the steps from SS3 to the final opal model, and
+   @sec-final sets out how that model was chosen and its limitations.
 
 @sec-limitations lists where opal falls short of SS3 or differs from it,
 and what opal would need to model the base case itself. The case study
@@ -734,7 +743,7 @@ knitr::kable(tab, format = "pipe", align = "lrrrrrrc")
 ```{r}
 #| label: fig-sexavg
 #| fig-height: 5
-#| fig-cap: "Depletion for both variants: SS3 B7 or B7s (black) against the opal models O0, O1, O2b and the best model, D."
+#| fig-cap: "Depletion for both variants: SS3 B7 or B7s (black) against the opal models O0, O1, O2b and the final model, D."
 sx_models = c("SS3", "O0", "O1", "O2b", "D")
 tr = ALL[model %in% sx_models]
 tr[, model := factor(model, levels = sx_models)]
@@ -894,10 +903,11 @@ Like O2b, however, D starts the series well above SS3 (by
 therefore comes from opal's own selectivity fit, which O2b and D share, not
 from catch timing.
 
-# From SS3 to the best opal model {#sec-progression}
+# From SS3 to the final opal model {#sec-progression}
 
 @tbl-progression and @fig-progression trace the steps from the two-sex SS3
-base case to D, the best opal model here. Each row changes one thing from
+base case to D, the final opal model here (@sec-final sets out how it was
+chosen). Each row changes one thing from
 the row named in "from", in SS3 (B1-B7) or through opal's inputs (O0-D).
 opal is never changed. Every step is run for both biologies: female (left
 columns) and sex-averaged (right columns, B1s-B7s and the same opal
@@ -907,7 +917,7 @@ in @sec-fits and @sec-quarterly.
 ```{r}
 #| label: tbl-progression
 #| results: asis
-#| tbl-cap: "Steps from the SS3 base case to the best opal model, D, with female (f) and sex-averaged (s) biology. Depl.: SSB2021/SSB0 (SS3) or SSB2021/B0 (opal). Diff.: the largest relative difference in spawning biomass over 1975-2021 from SS3 B7 (f) or B7s (s). Status: SS3 runs converged with positive-definite Hessians; opal fits as reported in @sec-fits."
+#| tbl-cap: "Steps from the SS3 base case to the final opal model, D, with female (f) and sex-averaged (s) biology. Depl.: SSB2021/SSB0 (SS3) or SSB2021/B0 (opal). Diff.: the largest relative difference in spawning biomass over 1975-2021 from SS3 B7 (f) or B7s (s). Status: SS3 runs converged with positive-definite Hessians; opal fits as reported in @sec-fits."
 PG = data.table(
     Step   = c("B0", "B1 / B1s", "B7 / B7s", "O0", "O1", "O2", "O2b", "D"),
     From   = c("", "B0", "B1 / B1s", "B7 / B7s", "O0", "O1", "O2", "O2b"),
@@ -920,7 +930,7 @@ PG = data.table(
                "undetermined selectivity parameters fixed at O2's values",
                "four seasons with the observed quarterly catch; mid-year weights"),
     Status = c("converged", "converged", "converged", "not fitted", "converged",
-               "not converged", "converged", "converged (best)"))
+               "not converged", "converged", "converged (final)"))
 dep_ss3 = function(st) fmt(b(st)$depletion, 3)
 PG[, `Depl. (f)` := c(dep_ss3("00-base"), dep_ss3("01-single-sex"), dep_ss3("07-index-month-1"),
                           sapply(c("O0", "O1", "O2", "O2b", "D"), function(m) fmt(o(m)$depletion_2021, 3)))]
@@ -976,13 +986,106 @@ enters and leaves:
   `r pct(max(abs(rel_ss3_v("female", "D0"))))` of SS3, against
   `r pct(max(abs(rel_ss3_v("female", "O0"))))` for O0 (@sec-quarterly).
   Fitted, D ends at depletion `r fmt(o("D")$depletion_2021, 3)` against SS3
-  B7's `r fmt(o("SS3 B7")$depletion_2021, 3)`, the closest of the fitted
-  models. The early-year difference from O2b remains, so it comes from
-  opal's selectivity fit, not from catch timing.
+  B7's `r fmt(o("SS3 B7")$depletion_2021, 3)`, the closest terminal state of
+  the progression. The early-year difference from O2b remains, so it comes
+  from opal's selectivity fit, not from catch timing.
 
 With sex-averaged biology the same pattern holds around a less depleted
 stock: D ends at `r fmt(os("D")$depletion_2021, 3)` against SS3 B7s's
 `r fmt(os("SS3 B7s")$depletion_2021, 3)`.
+
+## Choosing the final model, and its limitations {#sec-final}
+
+No formal model selection was done. D was chosen as the final model on four
+criteria, applied in order:
+
+1. **A standalone opal model.** O1 fits well, but its selectivity is SS3's
+   estimated selectivity-at-age, imposed from outside opal. O2, O2b and D
+   estimate selectivity with opal's own curves.
+2. **Convergence.** Of these, O2 does not converge. O2b and D converge with
+   maximum gradients near 1e-11 and positive-definite Hessians.
+3. **Fit to the data.** @tbl-final compares the objectives, which share the
+   same data and likelihood. D fits slightly better than O2b with the same
+   number of estimated parameters.
+4. **Structure.** D removes a known bias, the start-of-year catch removal
+   (@sec-quarterly).
+
+How close a model comes to SS3 was not a selection criterion, because
+matching SS3 is not the same as fitting the data. On that measure D is mixed
+(@tbl-final). With female biology it ends closest to SS3 in 2021. With
+sex-averaged biology O2b ends slightly closer in spawning biomass (D's
+depletion is closer). Over the whole series, O1 stays closer than either.
+
+```{r}
+#| label: tbl-final
+#| results: asis
+#| tbl-cap: "Candidates for the final model, by variant. Obj.: opal's objective (negative log-likelihood) (same data and likelihood in every row); Conv.: converged; k: estimated parameters; dAIC: 2 x (objective difference) + 2 x (k difference), relative to D. Diff. 2021: relative difference in spawning biomass from SS3 B7 (female) or B7s (sex-averaged) in 2021; Mean and Max. diff.: mean and largest absolute relative difference over 1975-2021."
+fin = rbindlist(lapply(c("female", "sexavg"), function(v) {
+    Sv = if (v == "female") S else Ss
+    rbindlist(lapply(c("O1", "O2b", "D"), function(m) {
+        x = Sv[model == m]
+        xd = Sv[model == "D"]
+        r = rel_ss3_v(v, m)
+        data.table(Variant = c(female = "female", sexavg = "sex-averaged")[[v]], Model = m,
+                   Selectivity = if (m == "O1") "SS3, fixed" else "opal, estimated",
+                   Seasons = if (m == "D") 4L else 1L,
+                   Conv. = if (isTRUE(x$check_passes)) "yes" else "no",
+                   Obj. = fmt(x$objective, 2), k = x$n_par,
+                   dAIC = fmt(2 * (x$objective - xd$objective) + 2 * (x$n_par - xd$n_par), 1),
+                   `Depl. 2021` = fmt(x$depletion_2021, 3),
+                   `Diff. 2021` = pct(last(r)), `Mean diff.` = pct(mean(abs(r))),
+                   `Max. diff.` = pct(max(abs(r))))
+    }))
+}))
+pipe_table(fin, c(8, 5, 12, 4, 4, 8, 3, 5, 6, 6, 6, 6))
+```
+
+Caveats and limitations of D:
+
+* **It does not track SS3 most closely.** Over 1975-2021, O1 stays closer
+  to SS3: its mean difference is `r pct(mean(abs(rel_ss3_v("female", "O1"))))`
+  against D's `r pct(mean(abs(rel_ss3_v("female", "D"))))`, and its largest
+  `r pct(max(abs(rel_ss3_v("female", "O1"))))` against D's
+  `r pct(max(abs(rel_ss3_v("female", "D"))))`. D comes closest only at the
+  end of the series, and only with female biology. Its early years are `r pct(rel_ss3_v("female", "D")[1])`
+  above SS3's in 1975, a difference that comes from opal's selectivity fit
+  (O2b shows the same), not from catch timing.
+* **The objective comparison is only partly fair.** D against O2b is
+  like-for-like (same estimated parameters, same data), but D's advantage is
+  small (`r fmt(o("O2b")$objective - o("D")$objective, 1)` objective units,
+  female). O1's parameter count leaves out its selectivity, which SS3
+  estimated from the same data, so its AIC penalty is understated and the
+  comparison with O1 is indicative only.
+* **Selectivity parameters are fixed at values chosen from the fit.**
+  `r nrow(opal_c$sel_fixed)` (female) and
+  `r nrow(opal_s$sel_fixed) + nrow(opal_s$d_sel_fixed)` (sex-averaged)
+  selectivity parameters are fixed because they are on a bound or the
+  likelihood is flat along them (@tbl-selfixed). The fixed sets differ
+  between the variants, so the two D models are not quite the same model.
+  The standard errors treat the fixed values as known, so D's uncertainty is
+  understated.
+* **D rests on approximations of the quarterly structure.**
+  - Mid-year weight-at-age is used in every quarter (opal has one weight
+    vector), which converts first-quarter catch into too few fish and
+    fourth-quarter catch into too many.
+  - Compositions are predicted from the year's catch with one length-at-age.
+  - Spawning and recruitment are at the start of the year, not in months 5
+    and 7 as in the base case.
+* **Its reference is an annual SS3 model.** SS3 B7 removes catch at a
+  constant F through the year, and the bridge has no quarterly SS3 model
+  with B7's timing. The comparison of D with SS3 therefore mixes catch
+  timing with the quarterly catch pattern.
+* **Its starting point was adjusted, and it was fitted from one start.** The
+  female D starts from O2b's estimates with ln(B~0~) raised by
+  `r fmt(opal_c$d_start_log_B0_step, 1)`, so that the population stays
+  positive. Unlike the SS3 annual steps, D was not checked from several
+  starting points.
+* **The biology matters more than the opal configuration.** Terminal
+  depletion differs more between the female and sex-averaged variants
+  (`r fmt(o("D")$depletion_2021, 3)` against `r fmt(os("D")$depletion_2021, 3)`)
+  than between any two converged opal models of one variant. Neither
+  single-sex biology is the base case's two-sex model.
+* **These are preliminary explorations,** not advice on the stock.
 
 # Limitations and differences from SS3 {#sec-limitations}
 

@@ -2216,6 +2216,7 @@ vertical-align: -.125em;
   <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
   <li><a href="#controls" id="toc-controls" class="nav-link" data-scroll-target="#controls">Controls</a></li>
   <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a></li>
+  <li><a href="#same-compiler-test" id="toc-same-compiler-test" class="nav-link" data-scroll-target="#same-compiler-test">Same-compiler test</a></li>
   <li><a href="#interpretation" id="toc-interpretation" class="nav-link" data-scroll-target="#interpretation">Interpretation</a></li>
   <li><a href="#limitations" id="toc-limitations" class="nav-link" data-scroll-target="#limitations">Limitations</a></li>
   <li><a href="#reproduce" id="toc-reproduce" class="nav-link" data-scroll-target="#reproduce">Reproduce</a></li>
@@ -2255,7 +2256,7 @@ vertical-align: -.125em;
 <blockquote class="blockquote">
 <p>Fix long standing (Fortran compiler optimization related) bug in nlminb with constraints, thanks to Kasper Kristensen’s PR#19086 report and patch.</p>
 </blockquote>
-<p>The entry does not mention speed. This note checks whether opal fits with bounds run faster, take a different path, or reach different optima under R 4.6.2 than under R 4.5.2, the version in opal’s <code>renv.lock</code>.</p>
+<p>The entry does not mention speed. This note checks whether opal fits with bounds run faster, take a different path, or reach different optima under R 4.6.2 than under R 4.5.2, the version in opal’s <code>renv.lock</code>, and whether any difference comes from the fix or from the compiler used to build R.</p>
 </section>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
@@ -3090,19 +3091,293 @@ Figure 3: Final objective minus the stored estimate’s objective, per start. V
 </div>
 </div>
 </section>
+<section id="same-compiler-test" class="level2">
+<h2 class="anchored" data-anchor-id="same-compiler-test">Same-compiler test</h2>
+<p>The two R builds differ in both the PORT code and the compiler. To separate the two, R’s PORT source (<code>src/library/stats/src/port.c</code> and <code>portsrc.f</code>) was taken from the R 4.5.2 and R 4.6.2 tags of the R source mirror on GitHub and compiled into five standalone libraries (<code>same-compiler/build-port-variants.sh</code>). The only change to <code>portsrc.f</code> between the two tags is the fix:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode fortran code-with-copy"><code class="sourceCode fortranfixed"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span>         <span class="kw">CALL</span> DL7TVM(N, V(X01), V(L), V(X01))</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span>         <span class="kw">CALL</span> DL7VML(N, V(X01), V(L), V(X01))</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">+</span>         TEMP1 <span class="kw">=</span> IV(STLSTG)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">+</span>         <span class="kw">CALL</span> DL7TVM(N, V(TEMP1), V(L), V(X01))</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">+</span>         <span class="kw">CALL</span> DL7VML(N, V(X01), V(L), V(TEMP1))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>In the old code the same array is passed as both input and output of <code>DL7TVM</code> and <code>DL7VML</code>. Fortran does not allow this, so an optimising compiler may produce code whose result differs from the one the authors intended. The fix passes a separate work vector.</p>
+<p><code>portsrc.f</code> was compiled with the same flags as R’s builds (<code>SAFE_FFLAGS</code>), by the same conda-forge compilers that built each R version’s <code>stats</code> library; <code>port.c</code> (C glue, no change of substance between the tags) was compiled with GCC 15.3 in every variant. Each library was loaded into R 4.6.2 behind a copy of R 4.6.2’s <code>nlminb()</code>, so R, BLAS, the model and the starts are the same for every variant.</p>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Fits (start 0 and the jittered starts) whose objective and gradient call counts and final objective are identical to those of stats::nlminb in R 4.5.2 or R 4.6.2 (main benchmark).</caption>
+<colgroup>
+<col style="width: 22%">
+<col style="width: 29%">
+<col style="width: 5%">
+<col style="width: 21%">
+<col style="width: 21%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Model</th>
+<th style="text-align: left;">Variant</th>
+<th style="text-align: right;">Fits</th>
+<th style="text-align: right;">Identical to R 4.5.2</th>
+<th style="text-align: right;">Identical to R 4.6.2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">A: old code, GCC 10.4, -O2</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">B: old code, GCC 15.3, -O2</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">C: fixed code, GCC 10.4, -O2</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">11</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">D: fixed code, GCC 15.3, -O2</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">11</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">E: old code, GCC 10.4, -O0</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">11</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">A: old code, GCC 10.4, -O2</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">B: old code, GCC 15.3, -O2</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">C: fixed code, GCC 10.4, -O2</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">21</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">D: fixed code, GCC 15.3, -O2</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">21</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">E: old code, GCC 10.4, -O0</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">21</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Bounded Rosenbrock problem (plain R) with each variant. Without bounds all variants take the same path (730 iterations).</caption>
+<colgroup>
+<col style="width: 42%">
+<col style="width: 16%">
+<col style="width: 13%">
+<col style="width: 13%">
+<col style="width: 14%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Variant</th>
+<th style="text-align: right;">Iterations</th>
+<th style="text-align: right;">fn calls</th>
+<th style="text-align: right;">gr calls</th>
+<th style="text-align: right;">Objective</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">stats::nlminb (R 4.6.2)</td>
+<td style="text-align: right;">209</td>
+<td style="text-align: right;">271</td>
+<td style="text-align: right;">209</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">A: old code, GCC 10.4, -O2</td>
+<td style="text-align: right;">165</td>
+<td style="text-align: right;">191</td>
+<td style="text-align: right;">165</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">B: old code, GCC 15.3, -O2</td>
+<td style="text-align: right;">165</td>
+<td style="text-align: right;">191</td>
+<td style="text-align: right;">165</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">C: fixed code, GCC 10.4, -O2</td>
+<td style="text-align: right;">209</td>
+<td style="text-align: right;">271</td>
+<td style="text-align: right;">209</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D: fixed code, GCC 15.3, -O2</td>
+<td style="text-align: right;">209</td>
+<td style="text-align: right;">271</td>
+<td style="text-align: right;">209</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E: old code, GCC 10.4, -O0</td>
+<td style="text-align: right;">209</td>
+<td style="text-align: right;">271</td>
+<td style="text-align: right;">209</td>
+<td style="text-align: right;">4</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Jittered starts by variant, all run in R 4.6.2 (times: median of 3 repeats for Opakapaka, 1 run for IO yellowfin).</caption>
+<colgroup>
+<col style="width: 22%">
+<col style="width: 29%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 15%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Model</th>
+<th style="text-align: left;">Variant</th>
+<th style="text-align: right;">Median gr calls</th>
+<th style="text-align: right;">Median time (s)</th>
+<th style="text-align: right;">Total time (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">A: old code, GCC 10.4, -O2</td>
+<td style="text-align: right;">542.5</td>
+<td style="text-align: right;">14.58</td>
+<td style="text-align: right;">660.45</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">B: old code, GCC 15.3, -O2</td>
+<td style="text-align: right;">542.5</td>
+<td style="text-align: right;">14.23</td>
+<td style="text-align: right;">620.25</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">C: fixed code, GCC 10.4, -O2</td>
+<td style="text-align: right;">330.5</td>
+<td style="text-align: right;">10.06</td>
+<td style="text-align: right;">134.83</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">D: fixed code, GCC 15.3, -O2</td>
+<td style="text-align: right;">330.5</td>
+<td style="text-align: right;">10.36</td>
+<td style="text-align: right;">136.96</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IO yellowfin (AGE-SF)</td>
+<td style="text-align: left;">E: old code, GCC 10.4, -O0</td>
+<td style="text-align: right;">330.5</td>
+<td style="text-align: right;">10.34</td>
+<td style="text-align: right;">147.31</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">A: old code, GCC 10.4, -O2</td>
+<td style="text-align: right;">497.5</td>
+<td style="text-align: right;">0.64</td>
+<td style="text-align: right;">15.69</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">B: old code, GCC 15.3, -O2</td>
+<td style="text-align: right;">497.5</td>
+<td style="text-align: right;">0.73</td>
+<td style="text-align: right;">16.51</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">C: fixed code, GCC 10.4, -O2</td>
+<td style="text-align: right;">138.0</td>
+<td style="text-align: right;">0.21</td>
+<td style="text-align: right;">4.29</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">D: fixed code, GCC 15.3, -O2</td>
+<td style="text-align: right;">138.0</td>
+<td style="text-align: right;">0.22</td>
+<td style="text-align: right;">4.51</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Opakapaka</td>
+<td style="text-align: left;">E: old code, GCC 10.4, -O0</td>
+<td style="text-align: right;">138.0</td>
+<td style="text-align: right;">0.24</td>
+<td style="text-align: right;">4.87</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Results:</p>
+<ul>
+<li><strong>The compiler version had no effect</strong> between GCC 10.4 and 15.3. A and B (old code) give identical results to each other and to R 4.5.2 at every fit; C and D (fixed code) give identical results to each other and to R 4.6.2.</li>
+<li><strong>The code change accounts for every difference</strong> between R 4.5.2 and R 4.6.2 in this benchmark, including the evaluation counts, the end points and the plain-R problem.</li>
+<li><strong>Optimisation is what triggers the bug.</strong> The old code compiled without optimisation (E, <code>-O0</code>) gives results identical to the fixed code at every fit. Compiled at <code>-O2</code> by either compiler, the old code computes a different result. The agreement of E with the fixed code indicates that the fixed code computes what the old code was written to compute, and that the optimised builds of the old code (R 4.5.2 here) did not.</li>
+</ul>
+</section>
 <section id="interpretation" class="level2">
 <h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
 <p><strong>Model arithmetic.</strong> Both builds return identical objective and gradient values in the trajectory replay and at every start. The cost per call differs by 13% or less between versions, and not consistently in one direction. The differences below therefore come from the path <code>nlminb</code> takes, not from the model.</p>
 <p><strong>Opakapaka.</strong> R 4.6.2 used fewer gradient calls at all 20 jittered starts (median 138 against 497.5) and took a median 0.28 of R 4.5.2’s time. The fits ended at one of two minima, 1831.669 and 1832.412; the stored quickstart estimate is the higher one. R 4.5.2 reached the lower minimum from 11 starts and R 4.6.2 from 8; the 3 starts where the versions disagree all ended lower under R 4.5.2. Fewer evaluations did not mean a better end point here.</p>
 <p><strong>IO yellowfin.</strong> R 4.6.2 used fewer gradient calls at 9 of 10 starts; the median time ratio was 0.67 (range 0.07 to 3.34). The total time is dominated by start 5, where R 4.5.2 reached the evaluation limit (19741 gradient calls) and R 4.6.2 stopped after 1083 with false convergence. Only 1 jittered start returned to the stored estimate under either version; with a jitter fraction of 0.1 this 319-parameter model mostly ends in worse local minima. The two versions ended at different points from 7 starts (R 4.6.2 lower at 5, higher at 2), so for this model most time comparisons are between fits that did not reach the same result. At the 3 starts where they did, R 4.6.2 was faster (table above).</p>
 <p><strong>Plain-R problem.</strong> Without bounds, both versions took the same path (730 iterations). With bounds, R 4.6.2 needed more iterations (209 against 165) and more time, for the same solution. In this example only the bounded run changed, in line with the NEWS entry, and R 4.6.2 did more work, not less.</p>
-<p><strong>Inference.</strong> For these two opal models, on these builds, bounded <code>nlminb</code> in R 4.6.2 took a different path that needed fewer evaluations and less time at most starts. The samples are small, the end points are not always the same, and the plain-R example shows the effect is problem-dependent. The comparison also cannot separate R’s patch from the change of compiler (see below).</p>
+<p><strong>Inference.</strong> The same-compiler test shows that the differences between R 4.5.2 and R 4.6.2 come from the <code>nlminb</code> fix, not from the compiler. Whenever the old <code>portsrc.f</code> was compiled with optimisation (<code>-O2</code>, either GCC), it took a different path from the unoptimised old code and the fixed code. For these two opal models, the intended path (R 4.6.2) needed fewer evaluations and less time at most jittered starts; for the plain-R problem it needed more. Neither version reached better end points consistently. The samples are small, so the size of the speed-up for other models cannot be inferred from these results.</p>
 </section>
 <section id="limitations" class="level2">
 <h2 class="anchored" data-anchor-id="limitations">Limitations</h2>
 <ul>
-<li>The two R versions were not built with the same compiler: conda-forge built R 4.5.2’s <code>stats</code> library (which holds <code>nlminb</code>’s PORT code) with GCC: (conda-forge gcc 10.4.0-19) 10.4.0 and R 4.6.2’s with GCC: (conda-forge gcc 15.3.0-7) 15.3.0. A difference between the versions is therefore the R patch and the compiler change together; this benchmark cannot separate them.</li>
-<li>The NEWS entry says the bug depends on Fortran compiler optimisation, so whether R 4.5.2 shows it depends on how R was built. CRAN’s Windows and macOS builds, or a Linux distribution’s R, may behave differently from the conda-forge builds tested here. One machine was used.</li>
+<li>conda-forge built R 4.5.2’s <code>stats</code> library (which holds <code>nlminb</code>’s PORT code) with GCC: (conda-forge gcc 10.4.0-19) 10.4.0 and R 4.6.2’s with GCC: (conda-forge gcc 15.3.0-7) 15.3.0. The same-compiler test separates the code change from this compiler change for these two GCC versions at <code>-O0</code> and <code>-O2</code> only. Other compilers and flags (e.g. the gfortran builds used for CRAN’s Windows and macOS R, or <code>-O3</code>) were not tested, so whether a given R &lt; 4.6.2 installation shows the old behaviour has to be checked on that installation. One machine was used.</li>
+<li>In the same-compiler test, <code>port.c</code> was compiled with GCC 15.3 in every variant (R 4.6’s headers need C23 support that GCC 10 lacks). Variants A and B still reproduce R 4.5.2’s results exactly, so this did not affect them.</li>
 <li>Small samples: 20 and 10 jittered starts. The jitter draws were limited to starts with a finite objective and gradient.</li>
 <li>Timings come from a shared cloud container. Alternating the order of the versions and repeating each fit reduce, but do not remove, drift and noise.</li>
 <li>Packages in the 4.5.2 library are conda-forge binaries; in the 4.6.2 library they were compiled here from the same versions. The controls above check that the model’s arithmetic agrees; they cannot rule out differences in code paths that the controls do not exercise.</li>
@@ -3112,10 +3387,11 @@ Figure 3: Final objective minus the stored estimate’s objective, per start. V
 </section>
 <section id="reproduce" class="level2">
 <h2 class="anchored" data-anchor-id="reproduce">Reproduce</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="va">OPAL_SOURCE</span><span class="op">=</span>/path/to/opal <span class="fu">bash</span> benchmarks/nlminb-r46/setup-r452.sh</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> benchmarks/nlminb-r46/setup-r462.sh /opt/r452 <span class="va">$HOME</span>/r-setup-r452/src</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="va">OPAL_SOURCE</span><span class="op">=</span>/path/to/opal <span class="fu">bash</span> benchmarks/nlminb-r46/run-benchmark.sh</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render benchmarks/nlminb-r46/nlminb-r46.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="va">OPAL_SOURCE</span><span class="op">=</span>/path/to/opal <span class="fu">bash</span> benchmarks/nlminb-r46/setup-r452.sh</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> benchmarks/nlminb-r46/setup-r462.sh /opt/r452 <span class="va">$HOME</span>/r-setup-r452/src</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="va">OPAL_SOURCE</span><span class="op">=</span>/path/to/opal <span class="fu">bash</span> benchmarks/nlminb-r46/run-benchmark.sh</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> benchmarks/nlminb-r46/same-compiler/run-same-compiler.sh</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render benchmarks/nlminb-r46/nlminb-r46.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 
 </main>

@@ -2,7 +2,7 @@
 #   same-compiler/results/variants.csv  one row per case, start and variant
 #   same-compiler/results/match.csv     per case and variant: starts whose fn
 #       and gr counts and final objective are identical to the R 4.5.2 and the
-#       R 4.6.2 stats::nlminb fits of the main benchmark (results/fits.csv)
+#       R 4.6.2 stats::nlminb fits of the main benchmark (results/raw)
 dir <- Sys.getenv("NLMINB_BENCH_DIR")
 res <- file.path(dir, "same-compiler", "results")
 raw <- lapply(dir(file.path(res, "raw"), full.names = TRUE), readRDS)
@@ -10,7 +10,10 @@ v <- do.call(rbind, lapply(raw, `[[`, "rows"))
 v <- v[order(v$case, v$start_id, v$variant), ]
 write.csv(v, file.path(res, "variants.csv"), row.names = FALSE)
 
-main <- read.csv(file.path(dir, "results", "fits.csv"))
+# Full-precision rows of the main benchmark (fits.csv rounds to 15 digits)
+main <- do.call(rbind, lapply(dir(file.path(dir, "results", "raw"),
+                                  pattern = "^(opaka|io_yft)-", full.names = TRUE),
+                              function(f) readRDS(f)$row))
 key <- function(d) paste(d$case, d$start_id)
 same_as <- function(d, rv) {
   m <- main[main$r_version == rv, ]

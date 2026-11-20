@@ -39,7 +39,8 @@ R 4.6.2's NEWS lists one change to `nlminb()`:
 
 The entry does not mention speed. This note checks whether opal fits with
 bounds run faster, take a different path, or reach different optima under
-R 4.6.2 than under R 4.5.2, the version in opal's `renv.lock`.
+R 4.6.2 than under R 4.5.2, the version in opal's `renv.lock`, and whether
+any difference comes from the fix or from the compiler used to build R.
 
 ## Setup
 
@@ -194,6 +195,89 @@ knitr::kable(show, digits = c(0, 0, 2, 2, 0, 0, 0, 0, 3, 3, 6), row.names = FALS
              caption = "Every fit. Time in seconds; dObj is the final objective minus the stored estimate's objective; the last column compares the two versions' final parameters.")
 ```
 
+## Same-compiler test
+
+```{r sc-load}
+sc <- file.path(dirname(knitr::current_input(dir = TRUE)), "same-compiler", "results")
+vr <- read.csv(file.path(sc, "variants.csv"))
+mt <- read.csv(file.path(sc, "match.csv"))
+ro <- read.csv(file.path(sc, "rosen.csv"))
+vlab <- c(A = "A: old code, GCC 10.4, -O2", B = "B: old code, GCC 15.3, -O2",
+          C = "C: fixed code, GCC 10.4, -O2", D = "D: fixed code, GCC 15.3, -O2",
+          E = "E: old code, GCC 10.4, -O0")
+```
+
+The two R builds differ in both the PORT code and the compiler. To separate
+the two, R's PORT source (`src/library/stats/src/port.c` and `portsrc.f`) was
+taken from the R 4.5.2 and R 4.6.2 tags of the R source mirror on GitHub and
+compiled into five standalone libraries (`same-compiler/build-port-variants.sh`).
+The only change to `portsrc.f` between the two tags is the fix:
+
+```fortran
+-         CALL DL7TVM(N, V(X01), V(L), V(X01))
+-         CALL DL7VML(N, V(X01), V(L), V(X01))
++         TEMP1 = IV(STLSTG)
++         CALL DL7TVM(N, V(TEMP1), V(L), V(X01))
++         CALL DL7VML(N, V(X01), V(L), V(TEMP1))
+```
+
+In the old code the same array is passed as both input and output of
+`DL7TVM` and `DL7VML`. Fortran does not allow this, so an optimising compiler
+may produce code whose result differs from the one the authors intended. The
+fix passes a separate work vector.
+
+`portsrc.f` was compiled with the same flags as R's builds (`SAFE_FFLAGS`), by
+the same conda-forge compilers that built each R version's `stats` library;
+`port.c` (C glue, no change of substance between the tags) was compiled with
+GCC 15.3 in every variant. Each library was loaded into R 4.6.2 behind a copy
+of R 4.6.2's `nlminb()`, so R, BLAS, the model and the starts are the same for
+every variant.
+
+```{r sc-match}
+mt$Variant <- vlab[mt$variant]
+mt$Model <- case_lab[mt$case]
+knitr::kable(mt[, c("Model", "Variant", "starts", "same_as_r452", "same_as_r462")],
+             col.names = c("Model", "Variant", "Fits",
+                           "Identical to R 4.5.2", "Identical to R 4.6.2"),
+             row.names = FALSE,
+             caption = "Fits (start 0 and the jittered starts) whose objective and gradient call counts and final objective are identical to those of stats::nlminb in R 4.5.2 or R 4.6.2 (main benchmark).")
+```
+
+```{r sc-rosen}
+rb <- ro[ro$problem == "bounded", ]
+rb$variant <- ifelse(rb$variant == "stats", "stats::nlminb (R 4.6.2)", vlab[rb$variant])
+knitr::kable(rb[, c("variant", "iterations", "fn_evals", "gr_evals", "objective")],
+             col.names = c("Variant", "Iterations", "fn calls", "gr calls", "Objective"),
+             row.names = FALSE, digits = 6,
+             caption = "Bounded Rosenbrock problem (plain R) with each variant. Without bounds all variants take the same path (730 iterations).")
+```
+
+```{r sc-summary}
+vs <- do.call(rbind, lapply(split(vr[vr$start_id > 0, ], list(vr$case[vr$start_id > 0], vr$variant[vr$start_id > 0])), function(d)
+  data.frame(Model = case_lab[d$case[1]], Variant = vlab[d$variant[1]],
+             `Median gr calls` = median(d$gr_evals),
+             `Median time (s)` = median(d$elapsed_s),
+             `Total time (s)` = sum(d$elapsed_s), check.names = FALSE)))
+vs <- vs[order(vs$Model, vs$Variant), ]
+knitr::kable(vs, digits = 2, row.names = FALSE,
+             caption = "Jittered starts by variant, all run in R 4.6.2 (times: median of 3 repeats for Opakapaka, 1 run for IO yellowfin).")
+```
+
+Results:
+
+* **The compiler version had no effect** between GCC 10.4 and 15.3. A and B (old code)
+  give identical results to each other and to R 4.5.2 at every fit; C and D
+  (fixed code) give identical results to each other and to R 4.6.2.
+* **The code change accounts for every difference** between R 4.5.2 and R 4.6.2
+  in this benchmark, including the evaluation counts, the end points and the
+  plain-R problem.
+* **Optimisation is what triggers the bug.** The old code compiled without
+  optimisation (E, `-O0`) gives results identical to the fixed code at every
+  fit. Compiled at `-O2` by either compiler, the old code computes a different
+  result. The agreement of E with the fixed code indicates that the fixed code
+  computes what the old code was written to compute, and that the optimised
+  builds of the old code (R 4.5.2 here) did not.
+
 ## Interpretation
 
 ```{r interp-numbers}
@@ -246,24 +330,28 @@ iterations (`r pr$iterations[pr$r_version == "R 4.6.2"]` against
 solution. In this example only the bounded run changed, in line with the NEWS
 entry, and R 4.6.2 did more work, not less.
 
-**Inference.** For these two opal models, on these builds, bounded `nlminb`
-in R 4.6.2 took a different path that needed fewer evaluations and less time
-at most starts. The samples are small, the end points are not always the same,
-and the plain-R example shows the effect is problem-dependent. The comparison
-also cannot separate R's patch from the change of compiler (see below).
+**Inference.** The same-compiler test shows that the differences between
+R 4.5.2 and R 4.6.2 come from the `nlminb` fix, not from the compiler. Whenever
+the old `portsrc.f` was compiled with optimisation (`-O2`, either GCC), it took
+a different path from the unoptimised old code and the fixed code. For these two opal models, the intended
+path (R 4.6.2) needed fewer evaluations and less time at most jittered starts;
+for the plain-R problem it needed more. Neither version reached better end
+points consistently. The samples are small, so the size of the speed-up for
+other models cannot be inferred from these results.
 
 ## Limitations
 
-* The two R versions were not built with the same compiler: conda-forge
-  built R 4.5.2's `stats` library (which holds `nlminb`'s PORT code) with
-  `r env$value_452[env$item == "stats.so built with"]` and R 4.6.2's with
-  `r env$value_462[env$item == "stats.so built with"]`. A difference between
-  the versions is therefore the R patch and the compiler change together;
-  this benchmark cannot separate them.
-* The NEWS entry says the bug depends on Fortran compiler optimisation, so
-  whether R 4.5.2 shows it depends on how R was built. CRAN's Windows and macOS
-  builds, or a Linux distribution's R, may behave differently from the
-  conda-forge builds tested here. One machine was used.
+* conda-forge built R 4.5.2's `stats` library (which holds `nlminb`'s PORT
+  code) with `r env$value_452[env$item == "stats.so built with"]` and
+  R 4.6.2's with `r env$value_462[env$item == "stats.so built with"]`. The
+  same-compiler test separates the code change from this compiler change for
+  these two GCC versions at `-O0` and `-O2` only. Other compilers and flags
+  (e.g. the gfortran builds used for CRAN's Windows and macOS R, or `-O3`)
+  were not tested, so whether a given R < 4.6.2 installation shows the old
+  behaviour has to be checked on that installation. One machine was used.
+* In the same-compiler test, `port.c` was compiled with GCC 15.3 in every
+  variant (R 4.6's headers need C23 support that GCC 10 lacks). Variants A and
+  B still reproduce R 4.5.2's results exactly, so this did not affect them.
 * Small samples: `r nrow(jit[jit$case == "opaka", ])` and
   `r nrow(jit[jit$case == "io_yft", ])` jittered starts. The jitter draws were
   limited to starts with a finite objective and gradient.
@@ -284,5 +372,6 @@ also cannot separate R's patch from the change of compiler (see below).
 OPAL_SOURCE=/path/to/opal bash benchmarks/nlminb-r46/setup-r452.sh
 bash benchmarks/nlminb-r46/setup-r462.sh /opt/r452 $HOME/r-setup-r452/src
 OPAL_SOURCE=/path/to/opal bash benchmarks/nlminb-r46/run-benchmark.sh
+bash benchmarks/nlminb-r46/same-compiler/run-same-compiler.sh
 quarto render benchmarks/nlminb-r46/nlminb-r46.qmd
 ```

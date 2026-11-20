@@ -25,6 +25,15 @@ GCC10=${GCC10:-/opt/gcc10}
 GCC15=${GCC15:-/opt/gcc15}
 R46=${R46:-/opt/r462}
 SRC=$HOME/rsrc
+
+# The two conda-forge toolchains that built R 4.5.2's and R 4.6.2's stats.so
+# (micromamba from setup-r452.sh / setup-r462.sh)
+MM=${MM:-$HOME/r-setup-r462/mm/bin/micromamba}
+export MAMBA_ROOT_PREFIX=${MAMBA_ROOT_PREFIX:-$HOME/r-setup-r462/mamba}
+[ -x "$GCC10/bin/x86_64-conda-linux-gnu-gfortran" ] || "$MM" create -y -q -p "$GCC10" \
+  -c conda-forge "gcc_linux-64=10.4" "gfortran_linux-64=10.4"
+[ -x "$GCC15/bin/x86_64-conda-linux-gnu-gfortran" ] || "$MM" create -y -q -p "$GCC15" \
+  -c conda-forge "gcc_linux-64=15.3" "gfortran_linux-64=15.3"
 OUT=$HERE/lib
 mkdir -p "$SRC" "$OUT"
 

@@ -58,7 +58,7 @@ jitter_start <- function(mle, lower, upper, jf = 0.1) {
 # Two bounded nlminb passes, as in opal_fit() and benchmark_fit(), counting
 # objective and gradient calls (wrapper adapted from opal's
 # tests/testthat/helper-benchmark.R). Only the nlminb calls are timed.
-counted_fit <- function(obj, start, lower, upper, control) {
+counted_fit <- function(obj, start, lower, upper, control, nlminb = stats::nlminb) {
   counts <- c(fn_evals = 0L, gr_evals = 0L)
   fn <- function(p) { counts[["fn_evals"]] <<- counts[["fn_evals"]] + 1L; obj$fn(p) }
   gr <- function(p) { counts[["gr_evals"]] <<- counts[["gr_evals"]] + 1L; obj$gr(p) }
@@ -69,8 +69,8 @@ counted_fit <- function(obj, start, lower, upper, control) {
   err <- NA_character_
   elapsed <- system.time(tryCatch({
     for (i in 1:2) {
-      passes[[i]] <- stats::nlminb(p, fn, gr, lower = lower, upper = upper,
-                                   control = control)
+      passes[[i]] <- nlminb(p, fn, gr, lower = lower, upper = upper,
+                            control = control)
       p <- passes[[i]]$par
     }
   }, error = function(e) err <<- conditionMessage(e)))[["elapsed"]]

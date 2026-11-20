@@ -1,0 +1,13 @@
+"problem","variant","iterations","fn_evals","gr_evals","objective","convergence","identical_to_stats"
+"unbounded","stats",730,1129,731,8.17772168363899e-19,0,TRUE
+"unbounded","A",730,1129,731,8.17772168363899e-19,0,TRUE
+"unbounded","B",730,1129,731,8.17772168363899e-19,0,TRUE
+"unbounded","C",730,1129,731,8.17772168363899e-19,0,TRUE
+"unbounded","D",730,1129,731,8.17772168363899e-19,0,TRUE
+"unbounded","E",730,1129,731,8.17772168363899e-19,0,TRUE
+"bounded","stats",209,271,209,4,0,TRUE
+"bounded","A",165,191,165,4,0,FALSE
+"bounded","B",165,191,165,4,0,FALSE
+"bounded","C",209,271,209,4,0,TRUE
+"bounded","D",209,271,209,4,0,TRUE
+"bounded","E",209,271,209,4,0,TRUE

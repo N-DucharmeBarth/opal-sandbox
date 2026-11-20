@@ -82,8 +82,8 @@ the same under both versions.
 knitr::kable(
   data.frame(Check = c(paste("Stored trajectory replay,", replay$model),
                        paste("Objective and gradient at the jittered starts,", case_lab[unique(paired$case)])),
-             `Calls compared` = c(replay$events,
-                                  as.vector(table(paired$case)[unique(paired$case)]) * 2),
+             `Compared` = c(paste(replay$events, "calls"),
+                            paste(as.vector(table(paired$case)[unique(paired$case)]), "starts (fn and gr)")),
              `Identical (fraction)` = c(replay$identical_between_versions,
                                         tapply(paired$same_start_fn & paired$same_start_gr,
                                                paired$case, mean)[unique(paired$case)]),
@@ -103,7 +103,7 @@ knitr::kable(data.frame(Model = case_lab[pc$case],
                         `fn, R 4.6.2 (ms)` = 1000 * pc$`fn_s.R 4.6.2`,
                         `gr, R 4.5.2 (ms)` = 1000 * pc$`gr_s.R 4.5.2`,
                         `gr, R 4.6.2 (ms)` = 1000 * pc$`gr_s.R 4.6.2`,
-                        check.names = FALSE), digits = 3,
+                        check.names = FALSE), digits = 3, row.names = FALSE,
              caption = "Time per objective and gradient call at the estimate (median of 5 blocks).")
 ```
 
@@ -125,18 +125,32 @@ summ <- do.call(rbind, lapply(split(jit, jit$case), function(d) data.frame(
   `Same fn/gr counts` = sum(d$fn_evals_452 == d$fn_evals_462 & d$gr_evals_452 == d$gr_evals_462),
   `Median gr calls 4.5.2` = median(d$gr_evals_452),
   `Median gr calls 4.6.2` = median(d$gr_evals_462),
-  `Same optimum (max abs par diff < 1e-6)` = sum(d$max_abs_par_diff < 1e-6, na.rm = TRUE),
+  `Same end point (|objective difference| < 1e-4)` = sum(abs(d$obj_462 - d$obj_452) < 1e-4, na.rm = TRUE),
+  `Total time 4.5.2 (s)` = sum(d$elapsed_452),
+  `Total time 4.6.2 (s)` = sum(d$elapsed_462),
   check.names = FALSE)))
 knitr::kable(summ, digits = 2, row.names = FALSE,
              caption = "Jittered starts (start 0 excluded).")
 ```
 
-```{r fig-time, fig.cap = "Time per fit (median of repeats) for each start, R 4.6.2 against R 4.5.2. The line is equal time."}
+```{r same-end}
+same <- jit[abs(jit$obj_462 - jit$obj_452) < 1e-4, ]
+knitr::kable(do.call(rbind, lapply(split(same, same$case), function(d) data.frame(
+  Model = case_lab[d$case[1]], Starts = nrow(d),
+  `Median time 4.5.2 (s)` = median(d$elapsed_452),
+  `Median time 4.6.2 (s)` = median(d$elapsed_462),
+  `Median gr calls 4.5.2` = median(d$gr_evals_452),
+  `Median gr calls 4.6.2` = median(d$gr_evals_462), check.names = FALSE))),
+  digits = 2, row.names = FALSE,
+  caption = "Jittered starts where both versions reached the same end point, so the work compared is for the same result.")
+```
+
+```{r fig-time, fig.cap = "Time per fit (median of repeats) for each start, R 4.6.2 against R 4.5.2, log scales. The line is equal time; grey is start 0."}
 op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
 for (cs in unique(paired$case)) {
   d <- paired[paired$case == cs, ]
   lim <- range(c(d$elapsed_452, d$elapsed_462))
-  plot(d$elapsed_452, d$elapsed_462, xlim = lim, ylim = lim, pch = 19,
+  plot(d$elapsed_452, d$elapsed_462, xlim = lim, ylim = lim, pch = 19, log = "xy",
        col = ifelse(d$start_id == 0, "grey50", "black"),
        xlab = "R 4.5.2 (s)", ylab = "R 4.6.2 (s)", main = case_lab[cs], cex.main = 0.9)
   abline(0, 1, lty = 2)
@@ -144,12 +158,12 @@ for (cs in unique(paired$case)) {
 par(op)
 ```
 
-```{r fig-evals, fig.cap = "Gradient calls per fit, R 4.6.2 against R 4.5.2."}
+```{r fig-evals, fig.cap = "Gradient calls per fit, R 4.6.2 against R 4.5.2, log scales."}
 op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
 for (cs in unique(paired$case)) {
   d <- paired[paired$case == cs, ]
   lim <- range(c(d$gr_evals_452, d$gr_evals_462))
-  plot(d$gr_evals_452, d$gr_evals_462, xlim = lim, ylim = lim, pch = 19,
+  plot(d$gr_evals_452, d$gr_evals_462, xlim = lim, ylim = lim, pch = 19, log = "xy",
        xlab = "R 4.5.2", ylab = "R 4.6.2", main = case_lab[cs], cex.main = 0.9)
   abline(0, 1, lty = 2)
 }
@@ -164,7 +178,7 @@ for (cs in unique(paired$case)) {
   matplot(d$start_id, y, pch = c(1, 4), col = 1, xlab = "Start", ylab = "Objective - stored",
           main = case_lab[cs], cex.main = 0.9)
   abline(h = 0, lty = 2)
-  legend("topleft", c("R 4.5.2", "R 4.6.2"), pch = c(1, 4), bty = "n", cex = 0.8)
+  legend("center", c("R 4.5.2", "R 4.6.2"), pch = c(1, 4), bty = "n", cex = 0.8)
 }
 par(op)
 ```
@@ -182,7 +196,61 @@ knitr::kable(show, digits = c(0, 0, 2, 2, 0, 0, 0, 0, 3, 3, 6), row.names = FALS
 
 ## Interpretation
 
-<!-- INTERPRETATION -->
+```{r interp-numbers}
+op <- jit[jit$case == "opaka", ]
+io <- jit[jit$case == "io_yft", ]
+mins <- sort(unique(round(c(op$obj_452, op$obj_462), 3)))
+low <- min(c(op$obj_452, op$obj_462))
+n_low <- c(sum(op$obj_452 - low < 1e-4), sum(op$obj_462 - low < 1e-4))
+io_diff <- abs(io$obj_462 - io$obj_452) >= 1e-4
+pr <- pure_r[pure_r$problem == "bounded", ]
+pu <- pure_r[pure_r$problem == "unbounded", ]
+```
+
+**Model arithmetic.** Both builds return identical objective and gradient
+values in the trajectory replay and at every start. The cost per call differs
+by 13% or less between versions, and not consistently in one direction. The
+differences below therefore come from the path `nlminb` takes, not from the
+model.
+
+**Opakapaka.** R 4.6.2 used fewer gradient calls at all
+`r nrow(op)` jittered starts (median `r median(op$gr_evals_462)` against
+`r median(op$gr_evals_452)`) and took a median `r f2(median(op$time_ratio))`
+of R 4.5.2's time. The fits ended at one of two minima,
+`r mins[1]` and `r mins[2]`; the stored quickstart estimate is the higher
+one. R 4.5.2 reached the lower minimum from `r n_low[1]` starts and R 4.6.2
+from `r n_low[2]`; the `r sum(abs(op$obj_462 - op$obj_452) >= 1e-4)` starts
+where the versions disagree all ended lower under R 4.5.2. Fewer evaluations
+did not mean a better end point here.
+
+**IO yellowfin.** R 4.6.2 used fewer gradient calls at
+`r sum(io$gr_evals_462 < io$gr_evals_452)` of `r nrow(io)` starts; the median
+time ratio was `r f2(median(io$time_ratio))` (range
+`r f2(min(io$time_ratio))` to `r f2(max(io$time_ratio))`). The total time is
+dominated by start 5, where R 4.5.2 reached the evaluation limit
+(`r io$gr_evals_452[io$start_id == 5]` gradient calls) and R 4.6.2 stopped
+after `r io$gr_evals_462[io$start_id == 5]` with false convergence. Only
+`r sum(io$dobj_mle_452 < 1e-3)` jittered start returned to the stored
+estimate under either version; with a jitter fraction of 0.1 this
+`r starts$io_yft$n_par`-parameter model mostly ends in worse local minima.
+The two versions ended at different points from `r sum(io_diff)` starts
+(R 4.6.2 lower at `r sum(io$obj_462 < io$obj_452 - 1e-4)`, higher at
+`r sum(io$obj_462 > io$obj_452 + 1e-4)`), so for this model most time
+comparisons are between fits that did not reach the same result. At the
+`r sum(!io_diff)` starts where they did, R 4.6.2 was faster (table above).
+
+**Plain-R problem.** Without bounds, both versions took the same path
+(`r pu$iterations[1]` iterations). With bounds, R 4.6.2 needed more
+iterations (`r pr$iterations[pr$r_version == "R 4.6.2"]` against
+`r pr$iterations[pr$r_version == "R 4.5.2"]`) and more time, for the same
+solution. In this example only the bounded run changed, in line with the NEWS
+entry, and R 4.6.2 did more work, not less.
+
+**Inference.** For these two opal models, on these builds, bounded `nlminb`
+in R 4.6.2 took a different path that needed fewer evaluations and less time
+at most starts. The samples are small, the end points are not always the same,
+and the plain-R example shows the effect is problem-dependent. The comparison
+also cannot separate R's patch from the change of compiler (see below).
 
 ## Limitations
 
@@ -205,6 +273,9 @@ knitr::kable(show, digits = c(0, 0, 2, 2, 0, 0, 0, 0, 3, 3, 6), row.names = FALS
   they were compiled here from the same versions. The controls above check
   that the model's arithmetic agrees; they cannot rule out differences in
   code paths that the controls do not exercise.
+* Two packages differ from the 4.5.2 library: checkmate is 2.3.4 in R 4.6.2
+  (2.3.3 does not compile against R 4.6) and bibtex is added (needed to build
+  mvtnorm). Neither is used in the model calculations.
 * Only `nlminb()` with opal's default control settings was tested.
 
 ## Reproduce

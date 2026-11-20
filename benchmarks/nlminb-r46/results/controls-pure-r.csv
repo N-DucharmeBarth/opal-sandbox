@@ -1,0 +1,5 @@
+"problem","r_version","seconds","iterations","fn_evals","gr_evals","objective","convergence"
+"unbounded","R 4.5.2",0.12315,730,1129,731,8.17772168363899e-19,0
+"bounded","R 4.5.2",0.0295500000000001,165,191,165,4,0
+"unbounded","R 4.6.2",0.1373,730,1129,731,8.17772168363899e-19,0
+"bounded","R 4.6.2",0.0371500000000001,209,271,209,4,0

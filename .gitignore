@@ -76,6 +76,7 @@
 !case-studies/epo-bet/vignettes/epo-bet-ss3-to-opal.html
 !case-studies/swpo-alb/vignettes/swpo-alb-mfcl-to-opal.html
 !case-studies/npo-swo/vignettes/npo-swo-ss3-to-opal.html
+!benchmarks/nlminb-r46/nlminb-r46.html
 # stock synthesis
 !control.ss
 !data.ss

@@ -23,15 +23,17 @@ export MAMBA_ROOT_PREFIX=$WORK/mamba
 export PATH=$PREFIX/bin:$PATH
 
 # CRAN packages at the versions in the R 4.5.2 library (dependency closure of
-# opal's Imports, RTMB, RTMBdist, StanEstimators, SparseNUTS; base packages
-# excluded, recommended packages such as Matrix included).
+# opal's Imports, RTMB, RTMBdist, StanEstimators, SparseNUTS, plus tidyr, which
+# opaka_quickstart_inputs() needs, and codetools; base packages excluded,
+# recommended packages such as Matrix included).
 "$R45/bin/Rscript" --vanilla -e '
 ip <- installed.packages()
 base <- rownames(ip)[ip[, "Priority"] %in% "base"]
-roots <- c("opal", "RTMB", "RTMBdist", "StanEstimators", "SparseNUTS", "TMB", "Matrix", "RcppEigen")
+roots <- c("opal", "RTMB", "RTMBdist", "StanEstimators", "SparseNUTS", "TMB", "Matrix", "RcppEigen",
+           "tidyr", "codetools")
 d <- unlist(tools::package_dependencies(roots, db = ip, which = c("Depends", "Imports", "LinkingTo"),
                                         recursive = TRUE))
-d <- setdiff(unique(d), c(base, roots[1:5], "movMF"))
+d <- setdiff(unique(c(d, "tidyr", "codetools")), c(base, roots[1:5], "movMF"))
 writeLines(paste(d, ip[d, "Version"]), "deps.txt")'
 # RcppParallel's bundled TBB fails under a parallel make: built on its own
 # below, from the R 4.5.2 install's clone (as in shared/setup/install-r-opal.sh).

@@ -1,0 +1,217 @@
+---
+title: "nlminb in R 4.5.2 and R 4.6.2: opal jitter benchmark"
+date: last-modified
+format:
+  html:
+    embed-resources: true
+    toc: true
+execute:
+  echo: false
+  warning: false
+knitr:
+  opts_chunk:
+    fig.width: 7
+    fig.height: 3.5
+---
+
+```{r setup}
+res <- file.path(dirname(knitr::current_input(dir = TRUE)), "results")
+fits <- read.csv(file.path(res, "fits.csv"))
+paired <- read.csv(file.path(res, "paired.csv"))
+per_call <- read.csv(file.path(res, "controls-per-call.csv"))
+pure_r <- read.csv(file.path(res, "controls-pure-r.csv"))
+replay <- read.csv(file.path(res, "controls-replay.csv"))
+starts <- readRDS(file.path(res, "starts.rds"))
+env <- readRDS(file.path(res, "environment.rds"))
+case_lab <- c(opaka = "Opakapaka", io_yft = "IO yellowfin (AGE-SF)")
+f1 <- function(x) formatC(x, format = "f", digits = 1)
+f2 <- function(x) formatC(x, format = "f", digits = 2)
+f3 <- function(x) formatC(x, format = "f", digits = 3)
+jit <- paired[paired$start_id > 0, ]
+```
+
+## Question
+
+R 4.6.2's NEWS lists one change to `nlminb()`:
+
+> Fix long standing (Fortran compiler optimization related) bug in nlminb with
+> constraints, thanks to Kasper Kristensen's PR#19086 report and patch.
+
+The entry does not mention speed. This note checks whether opal fits with
+bounds run faster, take a different path, or reach different optima under
+R 4.6.2 than under R 4.5.2, the version in opal's `renv.lock`.
+
+## Setup
+
+```{r env-table}
+knitr::kable(env, col.names = c("", "R 4.5.2", "R 4.6.2"))
+```
+
+* Both R versions are conda-forge builds, run on one cloud
+  container (`r env$value_452[env$item == "CPU"]`, 4 cores). conda-forge has no
+  R packages built for 4.6 yet, so every package in the 4.6.2 library was built
+  from source at the version in the 4.5.2 library (`setup-r462.sh`); RTMB,
+  RTMBdist, StanEstimators, SparseNUTS and opal (`dev` at `87c5494`) were
+  built from the same source in both.
+* Models: the Opakapaka quickstart fit
+  (`r starts$opaka$n_par` parameters) and the IO yellowfin article model
+  AGE-SF (`r starts$io_yft$n_par` parameters), rebuilt from the fits stored in
+  opal's `inst/extdata` with the stored bounds and `nlminb` control
+  (`eval.max = iter.max = 10000`). All parameters have finite bounds.
+* Fits: two `nlminb` passes with bounds, as in `opal_fit()`. Start 0 is the
+  stored model's initial values; starts 1 to N are jittered from the stored
+  estimate. Calls to `fn` and `gr` are counted with the wrapper from opal's
+  `helper-benchmark.R`.
+* Jitter: the SS3 3.30 scheme with a jitter fraction of
+  `r starts$opaka$jf` on every parameter. Draws whose objective or gradient
+  was not finite (nlminb stops at once on those) were redrawn:
+  `r starts$opaka$rejected` for Opakapaka and `r starts$io_yft$rejected` for
+  IO yellowfin. Both R versions used the same starts.
+* Timing: each fit runs in a fresh R process, one at a time, single-threaded
+  BLAS. The order of the two R versions alternates from start to start. Each
+  fit is repeated in its process (`r fits$reps[fits$case == "opaka"][1]`
+  times for Opakapaka, `r fits$reps[fits$case == "io_yft"][1]` for IO
+  yellowfin) and the median time of the `nlminb` calls is reported.
+
+## Controls
+
+Before attributing any difference to `nlminb`, the model's arithmetic must be
+the same under both versions.
+
+```{r replay}
+knitr::kable(
+  data.frame(Check = c(paste("Stored trajectory replay,", replay$model),
+                       paste("Objective and gradient at the jittered starts,", case_lab[unique(paired$case)])),
+             `Calls compared` = c(replay$events,
+                                  as.vector(table(paired$case)[unique(paired$case)]) * 2),
+             `Identical (fraction)` = c(replay$identical_between_versions,
+                                        tapply(paired$same_start_fn & paired$same_start_gr,
+                                               paired$case, mean)[unique(paired$case)]),
+             check.names = FALSE),
+  digits = 3)
+```
+
+The trajectory replay uses opal's stored benchmark trajectories
+(`tests/testthat/_benchmark/trajectories`; Opakapaka quickstart and the
+bundled IO yellowfin LEN inputs), sampled to at most 100 `fn` and 100 `gr`
+calls each.
+
+```{r per-call}
+pc <- reshape(per_call, idvar = "case", timevar = "r_version", direction = "wide")
+knitr::kable(data.frame(Model = case_lab[pc$case],
+                        `fn, R 4.5.2 (ms)` = 1000 * pc$`fn_s.R 4.5.2`,
+                        `fn, R 4.6.2 (ms)` = 1000 * pc$`fn_s.R 4.6.2`,
+                        `gr, R 4.5.2 (ms)` = 1000 * pc$`gr_s.R 4.5.2`,
+                        `gr, R 4.6.2 (ms)` = 1000 * pc$`gr_s.R 4.6.2`,
+                        check.names = FALSE), digits = 3,
+             caption = "Time per objective and gradient call at the estimate (median of 5 blocks).")
+```
+
+```{r pure-r}
+knitr::kable(pure_r[, c("problem", "r_version", "seconds", "iterations", "fn_evals",
+                        "gr_evals", "objective")],
+             digits = c(0, 0, 4, 0, 0, 0, 6),
+             caption = "nlminb on a 200-parameter extended Rosenbrock function in plain R (no opal); bounded: all parameters in [-1.5, 0.8]. Time is the mean of 20 runs.")
+```
+
+## Results
+
+```{r summary-table}
+summ <- do.call(rbind, lapply(split(jit, jit$case), function(d) data.frame(
+  Model = case_lab[d$case[1]], Starts = nrow(d),
+  `Median time 4.5.2 (s)` = median(d$elapsed_452),
+  `Median time 4.6.2 (s)` = median(d$elapsed_462),
+  `Median ratio 4.6.2/4.5.2` = median(d$time_ratio),
+  `Same fn/gr counts` = sum(d$fn_evals_452 == d$fn_evals_462 & d$gr_evals_452 == d$gr_evals_462),
+  `Median gr calls 4.5.2` = median(d$gr_evals_452),
+  `Median gr calls 4.6.2` = median(d$gr_evals_462),
+  `Same optimum (max abs par diff < 1e-6)` = sum(d$max_abs_par_diff < 1e-6, na.rm = TRUE),
+  check.names = FALSE)))
+knitr::kable(summ, digits = 2, row.names = FALSE,
+             caption = "Jittered starts (start 0 excluded).")
+```
+
+```{r fig-time, fig.cap = "Time per fit (median of repeats) for each start, R 4.6.2 against R 4.5.2. The line is equal time."}
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+for (cs in unique(paired$case)) {
+  d <- paired[paired$case == cs, ]
+  lim <- range(c(d$elapsed_452, d$elapsed_462))
+  plot(d$elapsed_452, d$elapsed_462, xlim = lim, ylim = lim, pch = 19,
+       col = ifelse(d$start_id == 0, "grey50", "black"),
+       xlab = "R 4.5.2 (s)", ylab = "R 4.6.2 (s)", main = case_lab[cs], cex.main = 0.9)
+  abline(0, 1, lty = 2)
+}
+par(op)
+```
+
+```{r fig-evals, fig.cap = "Gradient calls per fit, R 4.6.2 against R 4.5.2."}
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+for (cs in unique(paired$case)) {
+  d <- paired[paired$case == cs, ]
+  lim <- range(c(d$gr_evals_452, d$gr_evals_462))
+  plot(d$gr_evals_452, d$gr_evals_462, xlim = lim, ylim = lim, pch = 19,
+       xlab = "R 4.5.2", ylab = "R 4.6.2", main = case_lab[cs], cex.main = 0.9)
+  abline(0, 1, lty = 2)
+}
+par(op)
+```
+
+```{r fig-obj, fig.cap = "Final objective minus the stored estimate's objective, per start. Values below 0 are lower than the stored fit."}
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+for (cs in unique(paired$case)) {
+  d <- paired[paired$case == cs, ]
+  y <- cbind(d$dobj_mle_452, d$dobj_mle_462)
+  matplot(d$start_id, y, pch = c(1, 4), col = 1, xlab = "Start", ylab = "Objective - stored",
+          main = case_lab[cs], cex.main = 0.9)
+  abline(h = 0, lty = 2)
+  legend("topleft", c("R 4.5.2", "R 4.6.2"), pch = c(1, 4), bty = "n", cex = 0.8)
+}
+par(op)
+```
+
+```{r per-start}
+show <- paired[, c("case", "start_id", "elapsed_452", "elapsed_462", "gr_evals_452",
+                   "gr_evals_462", "conv_452", "conv_462", "dobj_mle_452", "dobj_mle_462",
+                   "max_abs_par_diff")]
+names(show) <- c("Model", "Start", "Time 4.5.2", "Time 4.6.2", "gr 4.5.2", "gr 4.6.2",
+                 "Conv 4.5.2", "Conv 4.6.2", "dObj 4.5.2", "dObj 4.6.2", "Max |par diff|")
+show$Model <- case_lab[show$Model]
+knitr::kable(show, digits = c(0, 0, 2, 2, 0, 0, 0, 0, 3, 3, 6), row.names = FALSE,
+             caption = "Every fit. Time in seconds; dObj is the final objective minus the stored estimate's objective; the last column compares the two versions' final parameters.")
+```
+
+## Interpretation
+
+<!-- INTERPRETATION -->
+
+## Limitations
+
+* The two R versions were not built with the same compiler: conda-forge
+  built R 4.5.2's `stats` library (which holds `nlminb`'s PORT code) with
+  `r env$value_452[env$item == "stats.so built with"]` and R 4.6.2's with
+  `r env$value_462[env$item == "stats.so built with"]`. A difference between
+  the versions is therefore the R patch and the compiler change together;
+  this benchmark cannot separate them.
+* The NEWS entry says the bug depends on Fortran compiler optimisation, so
+  whether R 4.5.2 shows it depends on how R was built. CRAN's Windows and macOS
+  builds, or a Linux distribution's R, may behave differently from the
+  conda-forge builds tested here. One machine was used.
+* Small samples: `r nrow(jit[jit$case == "opaka", ])` and
+  `r nrow(jit[jit$case == "io_yft", ])` jittered starts. The jitter draws were
+  limited to starts with a finite objective and gradient.
+* Timings come from a shared cloud container. Alternating the order of the
+  versions and repeating each fit reduce, but do not remove, drift and noise.
+* Packages in the 4.5.2 library are conda-forge binaries; in the 4.6.2 library
+  they were compiled here from the same versions. The controls above check
+  that the model's arithmetic agrees; they cannot rule out differences in
+  code paths that the controls do not exercise.
+* Only `nlminb()` with opal's default control settings was tested.
+
+## Reproduce
+
+```bash
+OPAL_SOURCE=/path/to/opal bash benchmarks/nlminb-r46/setup-r452.sh
+bash benchmarks/nlminb-r46/setup-r462.sh /opt/r452 $HOME/r-setup-r452/src
+OPAL_SOURCE=/path/to/opal bash benchmarks/nlminb-r46/run-benchmark.sh
+quarto render benchmarks/nlminb-r46/nlminb-r46.qmd
+```

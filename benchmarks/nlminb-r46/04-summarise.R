@@ -49,6 +49,10 @@ replay <- do.call(rbind, lapply(names(ctl[[1]]$replay), function(m) {
              identical_to_stored_452 = mean(r[[1]]$same_as_stored),
              identical_to_stored_462 = mean(r[[2]]$same_as_stored))
 }))
+env <- data.frame(item = names(ctl[[1]]$env), value_452 = unname(ctl[[1]]$env),
+                  value_462 = unname(ctl[[2]]$env))
+saveRDS(env, file.path(res, "environment.rds"))
+write.csv(env, file.path(res, "environment.csv"), row.names = FALSE)
 write.csv(per_call, file.path(res, "controls-per-call.csv"), row.names = FALSE)
 write.csv(pure_r, file.path(res, "controls-pure-r.csv"), row.names = FALSE)
 write.csv(replay, file.path(res, "controls-replay.csv"), row.names = FALSE)

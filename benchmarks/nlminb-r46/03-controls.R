@@ -10,6 +10,22 @@ source(file.path(Sys.getenv("NLMINB_BENCH_DIR"), "bench-helpers.R"))
 suppressPackageStartupMessages(library(opal))
 src <- Sys.getenv("OPAL_SOURCE")
 out <- list(r_version = r_label())
+cpu <- grep("^model name", readLines("/proc/cpuinfo"), value = TRUE)[1]
+out$env <- c(
+  R = R.version.string,
+  opal = as.character(packageVersion("opal")),
+  RTMB = as.character(packageVersion("RTMB")),
+  TMB = as.character(packageVersion("TMB")),
+  Matrix = as.character(packageVersion("Matrix")),
+  RcppEigen = as.character(packageVersion("RcppEigen")),
+  BLAS = basename(extSoftVersion()[["BLAS"]]),
+  LAPACK = basename(La_library()),
+  # Compiler recorded in the stats package's shared library (holds nlminb's
+  # PORT code); conda-forge builds each R version with a different GCC.
+  `stats.so built with` = tryCatch(trimws(sub(".*\\]", "", grep("GCC", system2("readelf",
+    c("-p", ".comment", file.path(R.home("library"), "stats", "libs", "stats.so")),
+    stdout = TRUE), value = TRUE)[1])), error = function(e) NA_character_),
+  CPU = trimws(sub("^model name\\s*:", "", cpu)))
 
 # 1. Trajectory replay (inputs as in opal's benchmark_inputs())
 traj_inputs <- function(model) {
@@ -43,12 +59,15 @@ per_call <- function(f, n, blocks = 5L) {
 }
 out$per_call <- do.call(rbind, lapply(c("opaka", "io_yft"), function(case) {
   m <- bench_model(case)
-  p <- m$mle
-  invisible(m$obj$fn(p)); invisible(m$obj$gr(p))
-  n_fn <- if (case == "opaka") 200L else 20L
+  # Alternate +-1e-10 around the estimate, as opal's benchmark_operation()
+  # does, so no call can reuse the previous one's result.
+  d <- -1
+  p <- function() { d <<- -d; m$mle + d * 1e-10 }
+  invisible(m$obj$fn(p())); invisible(m$obj$gr(p()))
+  n <- if (case == "opaka") 200L else 20L
   data.frame(case = case, r_version = r_label(),
-             fn_s = per_call(function() m$obj$fn(p), n_fn),
-             gr_s = per_call(function() m$obj$gr(p), n_fn))
+             fn_s = per_call(function() m$obj$fn(p()), n),
+             gr_s = per_call(function() m$obj$gr(p()), n))
 }))
 
 # 3. Pure-R test problem: extended Rosenbrock in 200 dimensions; the bounded
@@ -79,7 +98,6 @@ out$pure_r <- do.call(rbind, lapply(c("unbounded", "bounded"), function(type) {
              gr_evals = opt$evaluations[["gradient"]], objective = opt$objective,
              convergence = opt$convergence)
 }))
-out$pure_r_par <- NULL
 
 saveRDS(out, file.path(bench_dir(), "results", "raw",
                        sprintf("controls-%s.rds", gsub("[^0-9]", "", getRversion()))))

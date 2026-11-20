@@ -21,14 +21,21 @@ bench_model <- function(case) {
     opaka = system.file("extdata", "opaka_quickstart_fit.rds", package = "opal"),
     io_yft = system.file("extdata", "io_yft_age_sf_fit.rds", package = "opal"),
     stop("Unknown case: ", case))
-  x <- read_opal_fit(file, strict = FALSE, rebuild = TRUE)
-  obj <- opal_rtmb(x, fresh = TRUE)
-  b <- opal:::.opal_normalize_bounds(x$bounds, x$fit$opt$par)
+  # read_opal_fit() refused the Opakapaka file in this build ("runtime identity
+  # does not match its payload"), so the RTMB object is rebuilt from the stored
+  # payload and checked against the stored objective.
+  x <- readRDS(file)
+  if (identical(x$format, "opal_obj")) x <- x$object
+  obj <- RTMB::MakeADFun(cmb(opal_model, x$data), x$parameters, map = x$map,
+                         silent = TRUE)
+  mle <- x$fit$opt$par
+  stopifnot(identical(names(obj$par), names(mle)), length(x$random) == 0L,
+            abs(obj$fn(mle) - x$fit$opt$objective) < 1e-8)
   ctrl <- x$control
   if (is.null(ctrl)) ctrl <- list(eval.max = 10000L, iter.max = 10000L)
-  stopifnot(identical(names(obj$par), names(x$fit$opt$par)))
-  list(obj = obj, lower = b$lower, upper = b$upper, mle = x$fit$opt$par,
-       mle_objective = x$fit$opt$objective, control = ctrl)
+  list(obj = obj, lower = unname(x$bounds$lower), upper = unname(x$bounds$upper),
+       mle = mle, mle_objective = x$fit$opt$objective, start0 = obj$par,
+       control = ctrl)
 }
 
 # Jitter as described for SS3 3.30: a normal with Pr(lower) = 0.001 and
@@ -59,13 +66,22 @@ counted_fit <- function(obj, start, lower, upper, control) {
   counts[] <- 0L
   passes <- vector("list", 2L)
   p <- start
-  elapsed <- system.time({
+  err <- NA_character_
+  elapsed <- system.time(tryCatch({
     for (i in 1:2) {
       passes[[i]] <- stats::nlminb(p, fn, gr, lower = lower, upper = upper,
                                    control = control)
       p <- passes[[i]]$par
     }
-  })[["elapsed"]]
+  }, error = function(e) err <<- conditionMessage(e)))[["elapsed"]]
+  if (!is.na(err)) {
+    return(list(row = data.frame(
+      elapsed_s = elapsed, fn_evals = counts[["fn_evals"]], gr_evals = counts[["gr_evals"]],
+      iterations = NA_integer_, iter_pass1 = NA_integer_, iter_pass2 = NA_integer_,
+      conv_pass1 = NA_integer_, conv_pass2 = NA_integer_, message = paste("error:", err),
+      objective = NA_real_, max_abs_grad = NA_real_, n_at_bound = NA_integer_,
+      stringsAsFactors = FALSE), par = rep(NA_real_, length(start))))
+  }
   opt <- passes[[2]]
   g <- as.numeric(obj$gr(opt$par))
   list(

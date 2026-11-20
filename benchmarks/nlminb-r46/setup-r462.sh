@@ -35,17 +35,30 @@ d <- setdiff(unique(d), c(base, roots[1:5], "movMF"))
 writeLines(paste(d, ip[d, "Version"]), "deps.txt")'
 # RcppParallel's bundled TBB fails under a parallel make: built on its own
 # below, from the R 4.5.2 install's clone (as in shared/setup/install-r-opal.sh).
-grep -v '^RcppParallel ' deps.txt > deps-repo.txt
+# Two exceptions to "same version as R 4.5.2":
+#  * checkmate 2.3.3 calls ATTRIB(), no longer in R 4.6's C API: the current
+#    CRAN version (2.3.4) is built instead (argument checks only);
+#  * bibtex (not in the R 4.5.2 library) is added, as mvtnorm needs it to
+#    build its help pages.
+rm -f repo/src/contrib/checkmate_2.3.3.tar.gz
+grep -v '^RcppParallel ' deps.txt | sed 's/^checkmate .*/checkmate 2.3.4/' > deps-repo.txt
+echo "bibtex 0.5.3" >> deps-repo.txt
 while read -r pkg ver; do
   [ -d "cran/$pkg" ] || git clone -q --depth 1 -b "$ver" "https://github.com/cran/$pkg" "cran/$pkg"
   tar -czf "repo/src/contrib/${pkg}_${ver}.tar.gz" -C cran "$pkg"
 done < deps-repo.txt
 Rscript --vanilla -e 'tools::write_PACKAGES("repo/src/contrib", type = "source")'
-Rscript --vanilla -e 'install.packages(file.path("repo/src/contrib",
-  grep("^Rcpp_", dir("repo/src/contrib"), value = TRUE)), repos = NULL, type = "source")'
-env -u MAKEFLAGS R CMD INSTALL "$SRC45/RcppParallel"
+if ! Rscript --vanilla -e 'quit(status = !requireNamespace("RcppParallel", quietly = TRUE))'; then
+  Rscript --vanilla -e 'install.packages(file.path("repo/src/contrib",
+    grep("^Rcpp_", dir("repo/src/contrib"), value = TRUE)), repos = NULL, type = "source")'
+  env -u MAKEFLAGS R CMD INSTALL "$SRC45/RcppParallel"
+fi
+# bibtex first: mvtnorm only suggests it, so install.packages() would not order it.
+Rscript --vanilla -e 'if (!requireNamespace("bibtex", quietly = TRUE))
+  install.packages("bibtex", repos = paste0("file://", normalizePath("repo")), type = "source")'
 MAKEFLAGS=-j4 Rscript --vanilla -e '
 pk <- read.dcf("repo/src/contrib/PACKAGES")[, "Package"]
+pk <- setdiff(pk, rownames(installed.packages()))   # re-runs skip what is installed
 install.packages(pk, repos = paste0("file://", normalizePath("repo")), type = "source",
                  Ncpus = 2)'
 R CMD INSTALL "$SRC45/RTMB/RTMB"

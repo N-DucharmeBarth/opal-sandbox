@@ -80,6 +80,7 @@
 !benchmarks/optimizers/optimizers.html
 !benchmarks/gradient-refactor/gradient-refactor.html
 !benchmarks/gradient-refactor/issue-atomic-composition-products.md
+!benchmarks/nlminb-r46/issue-r462-renv-compresidual.md
 # stock synthesis
 !control.ss
 !data.ss

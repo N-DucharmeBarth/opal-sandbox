@@ -1,0 +1,262 @@
+---
+title: "Optimisers and gradient cost for opal fits"
+date: last-modified
+format:
+  html:
+    embed-resources: true
+    toc: true
+execute:
+  echo: false
+  warning: false
+knitr:
+  opts_chunk:
+    fig.width: 7
+    fig.height: 4
+---
+
+```{r setup}
+res <- file.path(dirname(knitr::current_input(dir = TRUE)), "results")
+fits <- read.csv(file.path(res, "fits.csv"))
+summ <- read.csv(file.path(res, "summary.csv"))
+prof <- read.csv(file.path(res, "profile.csv"), check.names = FALSE)
+names(prof)[4] <- "tape_ops"
+raw1 <- readRDS(dir(file.path(res, "raw"), full.names = TRUE)[1])
+starts <- readRDS(file.path(dirname(knitr::current_input(dir = TRUE)), "..", "nlminb-r46",
+                            "results", "starts.rds"))
+case_lab <- c(opaka = "Opakapaka", io_yft = "IO yellowfin (AGE-SF)")
+f1 <- function(x) formatC(x, format = "f", digits = 1)
+f2 <- function(x) formatC(x, format = "f", digits = 2)
+jit <- fits[fits$start_id > 0, ]
+s <- function(cs, m, col) summ[summ$case == cs & summ$method == m, col]
+mle <- tapply(fits$mle_objective, fits$case, `[`, 1)
+best_any <- tapply(jit$objective, paste(jit$case, jit$start_id), min, na.rm = TRUE)
+io_best <- best_any[grepl("^io_yft", names(best_any))]
+n_io_at_mle <- sum(io_best - mle[["io_yft"]] < 1e-3)
+```
+
+## Question
+
+Can opal fits be made faster by changing the optimiser or its settings, and
+where does a gradient call spend its time? This follows the comparison of
+`nlminb()` in R 4.5.2 and R 4.6.2 (`benchmarks/nlminb-r46`), and uses the same
+models and jittered starts.
+
+## Setup
+
+* `r raw1$r_version`, nloptr `r raw1$nloptr` (bundled NLopt), on one cloud
+  container (4 cores; OpenMP and BLAS threads set to 1). Each case and method
+  ran in a fresh R process, one at a time.
+* Models: the Opakapaka quickstart fit (`r starts$opaka$n_par` parameters) and
+  the IO yellowfin article model AGE-SF (`r starts$io_yft$n_par` parameters),
+  rebuilt from the fits stored in opal's `inst/extdata` with the stored bounds.
+* Starts: start 0 is the stored model's start;
+  `r nrow(starts$opaka$starts)` (Opakapaka) and
+  `r nrow(starts$io_yft$starts)` (IO yellowfin) starts are jittered around the
+  stored estimate as in SS3 (jitter fraction 0.1). Tables use the jittered
+  starts only.
+* Timing: median of 3 repeats per start for Opakapaka; one run per start for
+  IO yellowfin. Every method calls the same counted `fn`/`gr`/`he` wrappers,
+  so the counts include all work, including line searches and Newton steps.
+* "Reached best" means the final objective is within 1e-4 of the lowest
+  objective any method reached from that start. "Reached stored" means within
+  1e-3 of the stored estimate's objective or lower.
+
+| Method | Details |
+|---|---|
+| nlminb, 2 passes | opal's default: `nlminb` restarted once from its own end point; `eval.max = iter.max = 10000` |
+| nlminb, 1 pass | as above, without the restart |
+| nlminb, 1 pass + Newton | then up to 3 Newton steps with the analytic Hessian, each kept only if inside the bounds and the objective decreases |
+| nlminb with Hessian | `nlminb` given the analytic Hessian (`obj$he`); Opakapaka only (one IO yellowfin Hessian takes about 18 s) |
+| nlminb, `rel.tol = 1e-8` | 2 passes with a looser relative tolerance than the default 1e-10 |
+| nlminb, atomic tape | 2 passes with the model taped under `RTMB::TapeConfig(atomic = "enable")` |
+| optim L-BFGS-B | `maxit = 10000` |
+| optim L-BFGS-B, guarded | non-finite objective returned as 1e10, non-finite gradient elements as 0 |
+| nloptr LBFGS / truncated Newton | `NLOPT_LD_LBFGS`, `NLOPT_LD_TNEWTON_PRECOND_RESTART`; `ftol_rel = 1e-10`, `maxeval = 20000` |
+
+## Results
+
+```{r summary-table, results = "asis"}
+for (cs in c("opaka", "io_yft")) {
+  d <- summ[summ$case == cs, ]
+  tab <- data.frame(Method = d$label, Errors = d$errors,
+                    `Reported converged` = d$reported_converged,
+                    `Reached best` = d$reached_best, `Reached stored` = d$reached_mle,
+                    `Median time (s)` = d$median_time_s, `Total time (s)` = d$total_time_s,
+                    `Median gr calls` = d$median_gr, `Hessians` = d$total_he,
+                    `Median max abs gradient` = ifelse(is.na(d$median_max_grad), "", format(signif(d$median_max_grad, 2))),
+                    check.names = FALSE)
+  print(knitr::kable(tab, digits = c(0, 0, 0, 0, 0, 2, 1, 0, 0, 2), row.names = FALSE,
+                     caption = sprintf("%s: %d jittered starts, ordered by total time. Median time, calls and gradient exclude errors.",
+                                       case_lab[cs], d$starts[1])))
+  cat("\n\n")
+}
+```
+
+```{r fig-time, fig.height = 4.5, fig.cap = "Time per fit for each jittered start (log scale). Filled: reached the best objective from that start; open: did not. Plain L-BFGS-B is left out (it stopped with an error on most starts)."}
+ord <- c("nlminb2", "nlminb1", "nlminb2_reltol8", "nlminb2_atomic", "nlminb1_newton",
+         "nlminb_hessian", "lbfgsb_guard", "nloptr_lbfgs", "nloptr_tnewton")
+short <- c(nlminb2 = "nlminb x2", nlminb1 = "nlminb x1", nlminb2_reltol8 = "rel.tol 1e-8",
+           nlminb2_atomic = "atomic tape", nlminb1_newton = "x1 + Newton",
+           nlminb_hessian = "with Hessian", lbfgsb_guard = "L-BFGS-B guarded",
+           nloptr_lbfgs = "nloptr LBFGS", nloptr_tnewton = "nloptr TNewton")
+op <- par(mfrow = c(1, 2), mar = c(4, 8.5, 2, 1))
+for (cs in c("opaka", "io_yft")) {
+  d <- jit[jit$case == cs & jit$method %in% ord & !grepl("^error", jit$message), ]
+  m <- rev(ord[ord %in% d$method])
+  y <- match(d$method, m) + runif(nrow(d), -0.2, 0.2)
+  plot(d$elapsed_s, y, log = "x", yaxt = "n", pch = ifelse(d$reached_best, 19, 1),
+       xlab = "Time (s)", ylab = "", main = case_lab[cs], cex.main = 0.9, cex = 0.8)
+  axis(2, at = seq_along(m), labels = short[m], las = 1, cex.axis = 0.8)
+  abline(h = seq_along(m) + 0.5, col = "grey90")
+}
+par(op)
+```
+
+```{r fig-obj, fig.height = 3.8, fig.cap = "IO yellowfin: final objective minus the stored estimate's objective for each jittered start and method (log scale; values at or below 0.01 are drawn at 0.01). The grey line marks the best any method reached from that start."}
+d <- jit[jit$case == "io_yft" & !grepl("^error", jit$message), ]
+dd <- pmax(d$objective - d$mle_objective, 0.01)
+op <- par(mar = c(4, 4, 1, 1))
+plot(d$start_id + runif(nrow(d), -0.25, 0.25), dd, log = "y", pch = 1, cex = 0.8,
+     xlab = "Start", ylab = "Objective - stored", xaxt = "n")
+axis(1, at = 1:10)
+bb <- pmax(io_best[paste("io_yft", 1:10)] - mle[["io_yft"]], 0.01)
+segments(1:10 - 0.35, bb, 1:10 + 0.35, bb, col = "grey50", lwd = 2)
+par(op)
+```
+
+* Opakapaka has two minima within the bounds,
+  `r f2(min(jit$objective[jit$case == "opaka"], na.rm = TRUE))` and the stored
+  estimate's `r f2(mle[["opaka"]])`. The `nlminb` variants reached the lower
+  one from 9 or 10 of 20 starts; nloptr LBFGS reached it from `r s("opaka", "nloptr_lbfgs", "reached_best")`.
+  `nlminb` with the Hessian
+  ended above the stored objective from
+  `r 20 - s("opaka", "nlminb_hessian", "reached_mle")` starts.
+* For IO yellowfin, no method reached the stored estimate's objective from
+  more than `r max(summ$reached_mle[summ$case == "io_yft"])` of 10 jittered
+  starts, and the best of all methods reached it from `r n_io_at_mle`. From
+  the other starts every method stopped above it, many by more than 100
+  objective units. Start 5 ended in `nlminb`'s "false convergence" with every
+  `nlminb` variant.
+* Plain L-BFGS-B stopped with "L-BFGS-B needs finite values of 'fn'" on
+  `r s("opaka", "lbfgsb", "errors")` of 20 Opakapaka and
+  `r s("io_yft", "lbfgsb", "errors")` of 10 IO yellowfin starts: its line
+  search steps into regions where the model returns `NaN`, which `nlminb`
+  handles by shortening the step.
+
+## Gradient cost
+
+`opal_model()` was cut after each stage, and each cut returned the sum of
+every quantity computed so far, so its tape holds all stages up to the cut.
+The table gives the cost at each cut at the stored estimate; the increase from
+one row to the next is the cost of that stage.
+
+```{r profile-table, results = "asis"}
+for (cs in c("opaka", "io_yft")) {
+  a <- prof[prof$case == cs & prof$tape == "default", ]
+  b <- prof[prof$case == cs & prof$tape == "atomic", ]
+  a <- a[order(a$order), ]; b <- b[match(a$cut, b$cut), ]
+  tab <- data.frame(`Cut after` = gsub("_", " ", a$cut),
+                    `Tape ops` = a$tape_ops, `fn (ms)` = a$fn_ms, `gr (ms)` = a$gr_ms,
+                    `Tape ops, atomic` = b$tape_ops, `fn (ms), atomic` = b$fn_ms,
+                    `gr (ms), atomic` = b$gr_ms, check.names = FALSE)
+  print(knitr::kable(tab, digits = c(0, 0, 2, 2, 0, 2, 2), row.names = FALSE,
+                     format.args = list(big.mark = ","),
+                     caption = sprintf("%s: cumulative cost at each cut, default and atomic tape. Times are medians of 5 blocks of %d calls.",
+                                       case_lab[cs], if (cs == "opaka") 200L else 20L)))
+  cat("\n\n")
+}
+p <- function(cs, cut, col, tape = "default")
+  prof[prof$case == cs & prof$cut == cut & prof$tape == tape, col]
+```
+
+* IO yellowfin: the gradient costs `r f1(p("io_yft", "selectivity", "gr_ms"))` ms
+  up to selectivity, `r f1(p("io_yft", "dynamics", "gr_ms"))` ms up to the
+  population dynamics and `r f1(p("io_yft", "length_comp_likelihood", "gr_ms"))` ms
+  once the length composition likelihood is added. The length compositions
+  account for about
+  `r round(100 * (p("io_yft", "length_comp_likelihood", "gr_ms") - p("io_yft", "cpue_likelihood", "gr_ms")) / p("io_yft", "length_comp_likelihood", "gr_ms"))`%
+  of the gradient at that cut and the dynamics for most of the rest.
+* Opakapaka: the dynamics and the length compositions cost about the same
+  (`r f2(p("opaka", "dynamics", "gr_ms") - p("opaka", "initial_numbers", "gr_ms"))`
+  and
+  `r f2(p("opaka", "length_comp_likelihood", "gr_ms") - p("opaka", "cpue_likelihood", "gr_ms"))`
+  ms).
+* The atomic tape shrinks the length composition part most (IO yellowfin:
+  `r format(p("io_yft", "length_comp_likelihood", "tape_ops") - p("io_yft", "cpue_likelihood", "tape_ops"), big.mark = ",")`
+  to
+  `r format(p("io_yft", "length_comp_likelihood", "tape_ops", "atomic") - p("io_yft", "cpue_likelihood", "tape_ops", "atomic"), big.mark = ",")`
+  operations). For Opakapaka the full gradient halves
+  (`r f2(p("opaka", "full", "gr_ms"))` to `r f2(p("opaka", "full", "gr_ms", "atomic"))` ms).
+  For IO yellowfin the gradient at the length composition cut barely changes
+  (`r f1(p("io_yft", "length_comp_likelihood", "gr_ms"))` to
+  `r f1(p("io_yft", "length_comp_likelihood", "gr_ms", "atomic"))` ms), so there
+  the cost is not proportional to the number of tape operations.
+* The cuts keep quantities the full model drops (for example arrays it
+  computes but does not return), so the cut tapes are larger than the full
+  model's (IO yellowfin: `r format(p("io_yft", "weight_comp_likelihood", "tape_ops"), big.mark = ",")`
+  operations at the last cut against
+  `r format(p("io_yft", "full", "tape_ops"), big.mark = ",")` for the full
+  model). Stage costs are therefore upper bounds; their order is the
+  informative part.
+
+## Interpretation
+
+* `nlminb` with opal's settings was faster than every other optimiser tried
+  (L-BFGS-B, nloptr LBFGS and truncated Newton, `nlminb` with the Hessian) on
+  both models. For IO yellowfin it reached the best objective from as many
+  starts as any of them. For Opakapaka, nloptr LBFGS found the lower of the
+  two minima more often (`r s("opaka", "nloptr_lbfgs", "reached_best")`
+  against `r s("opaka", "nlminb2", "reached_best")` of 20 starts) and took
+  about `r f1(s("opaka", "nloptr_lbfgs", "total_time_s") / s("opaka", "nlminb2", "total_time_s"))`
+  times as long; with two minima this reflects where each method's steps
+  lead, and may not carry over to other models.
+* One pass instead of two was `r round(100 * (1 - s("opaka", "nlminb1", "total_time_s") / s("opaka", "nlminb2", "total_time_s")))`% (Opakapaka) and
+  `r round(100 * (1 - s("io_yft", "nlminb1", "total_time_s") / s("io_yft", "nlminb2", "total_time_s")))`% (IO yellowfin)
+  faster in total, reached the best objective from the same number of starts,
+  and left a larger final gradient (median
+  `r signif(s("io_yft", "nlminb1", "median_max_grad"), 2)` against
+  `r signif(s("io_yft", "nlminb2", "median_max_grad"), 2)` for IO yellowfin).
+  Whether that gradient is acceptable depends on what the fit is used for.
+* A looser `rel.tol` (1e-8) made no consistent difference: about 12% less
+  total time for Opakapaka, about 11% more for IO yellowfin.
+* Newton steps after `nlminb` bring the gradient to 1e-7 or below, at the cost
+  of one Hessian per step: about `r f1(s("io_yft", "nlminb1_newton", "median_time_s") - s("io_yft", "nlminb1", "median_time_s"))` s per IO yellowfin fit.
+* The atomic tape halves the Opakapaka fit time with the same end points. For
+  IO yellowfin it saves little per gradient call; three starts ended at
+  different points than with the default tape, in both directions, so a
+  timing or quality difference cannot be separated from the start sensitivity
+  below.
+* For IO yellowfin, the start matters more than the optimiser:
+  `r 10 - n_io_at_mle` of 10 jittered starts end above the stored estimate's objective whichever method
+  is used. Faster fits from such starts do not help; more starts, or starts
+  closer to the estimate, would.
+* To make the IO yellowfin gradient cheaper, the length composition
+  likelihood and the dynamics are where the time goes. This note does not
+  identify which operations within them are costly; that needs a profile
+  inside those functions.
+
+## Limitations
+
+* Two models, `r nrow(starts$opaka$starts)` and `r nrow(starts$io_yft$starts)`
+  jittered starts, one machine. IO yellowfin timings are single runs, so
+  differences of about 10% between `nlminb` variants are within run-to-run
+  noise.
+* The jittered starts are drawn around the stored estimate. Fits from a model's
+  own initial values (as in a first fit) are further from the optimum and were
+  not tested.
+* Each optimiser was run with one set of settings. Other settings (for example
+  L-BFGS-B's memory or tolerances, nloptr's stopping rules) could change its
+  ranking.
+* "Reached best" compares methods with each other. For IO yellowfin the best
+  any method reached from a start is often well above the stored objective,
+  so it is not evidence of a global minimum.
+* The gradient profile measures cumulative cuts of `opal_model()` at one
+  parameter vector; see the caveat above on cut tapes.
+
+## Reproduce
+
+```bash
+# needs the R 4.6.2 library from benchmarks/nlminb-r46 (setup-r462.sh) with nloptr
+bash benchmarks/optimizers/run-optimizers.sh
+quarto render benchmarks/optimizers/optimizers.qmd
+```

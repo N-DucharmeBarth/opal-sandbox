@@ -1,0 +1,298 @@
+---
+title: "Gradient cost inside opal's composition likelihoods and dynamics"
+date: last-modified
+format:
+  html:
+    embed-resources: true
+    toc: true
+execute:
+  echo: false
+  warning: false
+knitr:
+  opts_chunk:
+    fig.width: 7
+    fig.height: 3.5
+---
+
+```{r setup}
+res <- file.path(dirname(knitr::current_input(dir = TRUE)), "results")
+rd <- function(f) read.csv(file.path(res, f), check.names = FALSE)
+prof <- rd("profile-lf.csv"); names(prof)[5] <- "ops"
+cand <- rbind(rd("candidates-opaka.csv"), rd("candidates-io_yft.csv"))
+wf <- rbind(rd("candidates-wf-opaka.csv"), rd("candidates-wf-io_yft.csv"))
+dyn <- rbind(rd("candidates-dyn-opaka.csv"), rd("candidates-dyn-io_yft.csv"))
+ad <- rd("ad-safety.csv")
+fits <- rbind(rd("fits-opaka-lf.csv"), rd("fits-io_yft-lf.csv"))
+tim <- rd("timing.csv")
+tests <- list(original = rd("opal-tests-original.csv"),
+              `atomic product` = rd("opal-tests-lf-atomic_product.csv"),
+              `atomic product + block rebin + identity skip` = rd("opal-tests-lf-atomic_product_block_skip.csv"))
+case_lab <- c(opaka = "Opakapaka", io_yft = "IO yellowfin (AGE-SF)")
+sci <- function(x) ifelse(x == 0, "0", formatC(x, format = "e", digits = 1))
+med <- function(cs, kind, v, col) median(tim[tim$case == cs & tim$kind == kind & tim$version == v, col], na.rm = TRUE)
+pr <- function(cs, st, col, tp = "default") prof[prof$case == cs & prof$stage == st & prof$tape == tp, col]
+```
+
+## Question
+
+Where inside opal's length-composition likelihood and population dynamics
+does a gradient call spend its time, and can that time be reduced without
+changing the model's numeric output or the ability to estimate any parameter?
+Weight compositions share the length code's structure, so changes there are
+tested for both.
+
+## Setup
+
+* opal `dev` at `87c5494`, RTMB 2.0, R 4.6.2 (opal's tests: R 4.5.2, which
+  has testthat; same opal source). One cloud container, one thread.
+* Models: the Opakapaka quickstart fit (82 length rows, legacy bin pooling,
+  44 ages, 17 length bins) and the IO yellowfin article model AGE-SF (1,241
+  length rows in two composition schemes, 28 ages, 39 length bins, 20
+  fisheries, 256 quarterly steps), rebuilt from the fits stored in opal.
+* Candidate versions of `get_length_like()`, `get_weight_like()` and
+  `do_dynamics()` were swapped into the installed opal namespace; opal itself
+  was not modified.
+* Neither model has weight compositions. Each model's length data were also
+  supplied as weight-composition data (same observations, bins and schemes;
+  identity length-to-weight matrix for the legacy path), which reproduces the
+  length objective exactly (`r sum(wf$wf_equals_lf, na.rm = TRUE)` of 2).
+* Parameter vectors used in the checks: the stored estimate, the stored start
+  and the jittered starts of `benchmarks/nlminb-r46` (20 Opakapaka, 10 IO
+  yellowfin).
+
+## Profile
+
+`get_length_like()` was cut after each step, returning the sum of everything
+computed so far, with the rest of the model unchanged. "None" is the model
+without the length likelihood.
+
+```{r profile}
+p <- prof[prof$stage != 4, ]
+p$step[p$stage == 0] <- "none (rest of the model)"
+p$step[p$stage == 99] <- "full length likelihood"
+w <- reshape(p[, c("case", "tape", "stage", "step", "ops", "gr_ms")], idvar = c("case", "stage", "step"),
+             timevar = "tape", direction = "wide")
+w <- w[order(match(w$case, c("opaka", "io_yft")), w$stage), ]
+knitr::kable(data.frame(Model = case_lab[w$case], `Cumulative to` = w$step,
+                        `Tape ops` = w$ops.default, `gr (ms)` = w$gr_ms.default,
+                        `Tape ops, atomic matmul` = w$ops.atomic, `gr (ms), atomic matmul` = w$gr_ms.atomic,
+                        check.names = FALSE),
+             digits = 2, format.args = list(big.mark = ","), row.names = FALSE,
+             caption = "Cumulative cost at each step, at the stored estimate. Single measurements (medians of 5 blocks of calls); run-to-run variation in this container is about 10-20%.")
+```
+
+* With opal's default tape, almost all of the length likelihood's cost is
+  the product of predicted catch-at-age and the probability-of-length-at-age
+  matrix (`catch_ya %*% t(pla)`, one product per fishery). For IO yellowfin it
+  adds `r format(pr("io_yft", 1, "ops") - pr("io_yft", 0, "ops"), big.mark = ",")`
+  of `r format(pr("io_yft", 99, "ops"), big.mark = ",")` tape operations and
+  about `r round(pr("io_yft", 1, "gr_ms") - pr("io_yft", 0, "gr_ms"))` of
+  `r round(pr("io_yft", 99, "gr_ms"))` ms of the gradient. RTMB tapes it as
+  one multiply and one add per element. `pla` is an AD object on the tape
+  even when growth is fixed.
+* The per-row rebinning products add no operations with the default tape.
+  1,114 of the 1,241 IO yellowfin rows use a 39 × 39 identity matrix and the
+  other 127 a 0/1 pooling matrix.
+* `RTMB::TapeConfig(atomic = "enable")` (atomic matrix products everywhere)
+  makes the catch × PLA product cheap but turns the 1,241 rebinning products
+  into atomic operations whose cost replaces the saving, which is why the
+  atomic tape barely changed the IO yellowfin gradient in
+  `benchmarks/optimizers`.
+* Everything outside the length likelihood costs about
+  `r round(pr("io_yft", 0, "gr_ms"), 1)` ms of the IO yellowfin gradient.
+  The earlier profile in `benchmarks/optimizers` attributed most of the
+  non-composition cost to the dynamics; that came from cut tapes that keep
+  quantities the full model discards, and overstated it.
+
+## Candidates
+
+| Candidate | Change |
+|---|---|
+| refactor | length and weight likelihoods through one shared function; no other change |
+| atomic_product | the catch × PLA product taped as one atomic matrix product (`TapeConfig(list(matmul = "atomic"))` around that product only, previous setting restored) |
+| block_rebin | rebinning with one product per fishery and scheme instead of one per row |
+| skip_identity | no rebinning product when a scheme's matrix is the identity (decided from data) |
+| atomic_all | block rebinning also taped as atomic |
+| vec | add the constant and normalise a whole block at once |
+
+The density is evaluated row by row on the original observation vectors in
+every candidate, and the REPORT items keep their names and shapes.
+
+```{r candidates}
+show <- function(d, extra = NULL) {
+  d <- d[d$candidate != "original", ]
+  data.frame(Model = case_lab[d$case], Candidate = d$candidate,
+             `fn identical` = d$fn_identical, `fn max rel. diff` = sci(d$fn_max_rel),
+             `gr max scaled diff` = sci(d$gr_max_scaled), `REPORT max rel. diff` = sci(d$report_max_rel),
+             `Hessian max rel. diff` = sci(d$he_max_rel), `Tape ops` = format(d$tape, big.mark = ","),
+             `gr (ms)` = d$gr_ms, check.names = FALSE)
+}
+base_gr <- function(d) setNames(d$gr_ms[d$candidate == "original"], d$case[d$candidate == "original"])
+knitr::kable(show(cand), digits = 2, row.names = FALSE,
+             caption = sprintf("Length compositions. Differences over the stored estimate, start 0 and all jittered starts; Hessian at the stored estimate. Gradient differences are scaled by 1 + the gradient's largest element (the gradient is about 1e-11 at the stored estimate). Original gr: Opakapaka %.2f ms, IO yellowfin %.1f ms (single measurements).", base_gr(cand)[["opaka"]], base_gr(cand)[["io_yft"]]))
+```
+
+* The shared-function refactor reproduces the original exactly.
+* The atomic catch × PLA product alone gives almost all of the saving. The
+  objective is bit-identical for IO yellowfin and differs by one rounding unit
+  for Opakapaka; gradients, REPORT items and Hessians agree to rounding
+  (largest scaled gradient difference
+  `r sci(max(cand$gr_max_scaled))`; absolute
+  `r sci(max(cand$gr_max_abs))`). The Hessian stays positive definite.
+* Block rebinning, the identity skip, atomic rebinning and block
+  normalisation change times by up to about 10% on top of that, within the
+  run-to-run variation of single measurements.
+
+```{r wf}
+knitr::kable(show(wf), digits = 2, row.names = FALSE,
+             caption = sprintf("Weight compositions (the models' length data supplied as weight compositions), same checks. Original gr: Opakapaka %.2f ms, IO yellowfin %.1f ms.", base_gr(wf)[["opaka"]], base_gr(wf)[["io_yft"]]))
+```
+
+The weight-composition likelihood behaves the same way, on both its scheme
+path (IO yellowfin) and its legacy path (Opakapaka).
+
+## Dynamics
+
+The candidate replaces the per-fishery loops inside each year and season of
+`do_dynamics()` with matrix operations over the fisheries with catch in that
+step, with the sums over ages taped as scalar operations ("plain", same order
+of summation) or as atomic products.
+
+```{r dyn}
+knitr::kable(show(dyn), digits = 2, row.names = FALSE,
+             caption = sprintf("Dynamics candidate alone and with the length candidate 'lf_best' (atomic product + block rebinning + identity skip). Original gr: Opakapaka %.2f ms, IO yellowfin %.1f ms.", base_gr(dyn)[["opaka"]], base_gr(dyn)[["io_yft"]]))
+```
+
+The vectorised dynamics change the tape size by up to 9% (atomic sums with
+the length candidate) and less than 3% otherwise. The gradient times above
+are single measurements; their differences are of the size of the run-to-run
+variation (10-20%) and not consistent in direction across the two models, so
+no gain is shown. Everything outside the length likelihood is about 3 ms of
+the IO yellowfin gradient, which bounds what the dynamics could save.
+
+## Estimating every parameter
+
+Any fixed parameter could be estimated, so each candidate was also compared
+with the original with the map removed: growth, steepness, sigma_r, variance
+terms, initial F and the fixed selectivity elements are then estimated, and
+the PLA and weights are AD quantities (growth gradients non-zero:
+`r all(ad$growth_gr_nonzero)`).
+
+```{r ad}
+knitr::kable(data.frame(Model = case_lab[ad$case], Candidate = ad$candidate, Parameters = ad$n_par,
+                        `fn identical` = ad$fn_identical, `fn max rel. diff` = sci(ad$fn_max_rel),
+                        `gr max scaled diff` = sci(ad$gr_max_scaled), `gr max abs. diff` = sci(ad$gr_max_abs),
+                        check.names = FALSE), row.names = FALSE,
+             caption = "Objective and gradient with every parameter estimated, at the stored estimate (fixed values at their stored values), start 0 and the jittered starts. lf_atomic_product, lf_best and lf_atomic_all are the length candidates atomic_product, atomic_product_block_skip and atomic_all_block_skip.")
+```
+
+The first version of the dynamics candidate failed this check: `matrix()` on
+an AD vector drops RTMB's class. It passed after indexing was used instead,
+and the results above are from that version.
+
+## opal's tests
+
+```{r tests}
+tt <- do.call(rbind, lapply(names(tests), function(n) { d <- tests[[n]]
+  data.frame(Functions = n, Tests = nrow(d), Expectations = sum(d$nb), Failed = sum(d$failed),
+             Errors = sum(d$error), Skipped = sum(d$skipped)) }))
+knitr::kable(tt, row.names = FALSE,
+             caption = "opal's tests of the affected code (likelihoods, schemes, weight compositions, OSA residuals, simulation, dynamics, gradients, quickstart and regression tests; 18 files), with the length and weight candidates swapped in.")
+```
+
+* The one error occurs with the original functions as well: the stored
+  Opakapaka fit fails its runtime identity check in this container ("The saved
+  fit runtime identity does not match its payload").
+* The first run of the candidates failed 85 expectations in the simulation and
+  OSA tests, although every objective, gradient and Hessian check had passed.
+  RTMB's `OBS()` registers an observation under the text of its argument
+  (`deparse(substitute(x))`); the shared function called it on a renamed copy
+  (`obs_flat`), so `obj$simulate()` and `oneStepPredict()` could not find
+  `lf_obs_flat`. Calling `OBS()` on the original names in the exported
+  functions fixed it. Any refactor that moves the composition code into a
+  shared helper has to keep this.
+
+## Fits and timing
+
+```{r fits}
+o <- fits[fits$version == "original", ]; c1 <- fits[fits$version != "original", ]
+m <- merge(o, c1, by = c("case", "start_id"), suffixes = c(".o", ".c"))
+knitr::kable(do.call(rbind, lapply(split(m, m$case), function(d) data.frame(
+  Model = case_lab[d$case[1]], Starts = nrow(d),
+  `Same objective (< 1e-6)` = sum(abs(d$objective.c - d$objective.o) < 1e-6),
+  `Median time, original (s)` = median(d$elapsed_s.o), `Median time, atomic product (s)` = median(d$elapsed_s.c),
+  `Median gr calls, original` = median(d$gr_evals.o), `Median gr calls, atomic product` = median(d$gr_evals.c),
+  `Max abs. parameter difference` = sci(max(d$max_par_diff.o)), check.names = FALSE))),
+  digits = 2, row.names = FALSE,
+  caption = "nlminb fits (opal defaults, 2 passes) with the original and the atomic-product length likelihood from the same starts, run back to back. Opakapaka: start 0 and all 20 jittered starts; IO yellowfin: start 0 and jittered starts 1, 3, 7 and 10.")
+```
+
+```{r timing}
+tab <- do.call(rbind, lapply(c("opaka", "io_yft"), function(cs) do.call(rbind, lapply(c("lf", "wf"), function(k)
+  data.frame(Model = case_lab[cs], Compositions = c(lf = "length", wf = "weight")[k],
+             `fn original (ms)` = med(cs, k, "original", "fn_ms"), `fn candidate (ms)` = med(cs, k, "candidate", "fn_ms"),
+             `gr original (ms)` = med(cs, k, "original", "gr_ms"), `gr candidate (ms)` = med(cs, k, "candidate", "gr_ms"),
+             `Hessian original (ms)` = med(cs, k, "original", "he_ms"), `Hessian candidate (ms)` = med(cs, k, "candidate", "he_ms"),
+             check.names = FALSE)))))
+knitr::kable(tab, digits = 2, row.names = FALSE,
+             caption = "Paired timing at the stored estimate: medians of 6 alternating rounds (Hessian: 6 rounds for Opakapaka, 2 for IO yellowfin). Candidate: atomic catch x PLA product only.")
+```
+
+* Fits reached the same objective from every start, in
+  `r round(100 * median(m$elapsed_s.c[m$case == "opaka"] / m$elapsed_s.o[m$case == "opaka"]))`%
+  (Opakapaka) and
+  `r round(100 * median(m$elapsed_s.c[m$case == "io_yft"] / m$elapsed_s.o[m$case == "io_yft"]))`%
+  (IO yellowfin) of the original's time (median per start). Gradient counts
+  differ by a few percent either way because the objective and gradient
+  differ by rounding; parameter differences are at the scale where `nlminb`
+  stops along the flat directions of these models.
+* The gradient ranges of the 6 rounds do not overlap between versions for
+  any model.
+
+## Recommendation
+
+Tape the catch × PLA product in `get_length_like()` and `get_weight_like()`
+as an atomic matrix product, and change nothing else. In this study it cut
+the IO yellowfin gradient and Hessian times to 35-40% and the Opakapaka times
+to 45-55% of the original, kept the objective identical or within one
+rounding unit, kept gradients, Hessians and REPORT output equal to rounding
+in the stored models, kept objective and gradient equal to rounding with
+every parameter estimated, and passed opal's tests. The other candidates added
+little and are not needed now. The implementation plan is in
+`issue-atomic-composition-products.md`.
+
+## Limitations
+
+* Two models, one machine, RTMB 2.0. The gain depends on the share of the gradient
+  taken by the catch × PLA product (composition rows × ages × bins, relative
+  to the rest of the model); it was not measured on other models. The BET model in opal's benchmark was not tested.
+* "No change in numeric output" holds to rounding, not bit for bit: the
+  atomic product sums in a different order. On models whose fits are
+  sensitive to the start (IO yellowfin), rounding-level differences can send
+  `nlminb` along a different path; in these fits they did not change any end
+  point.
+* The candidates were swapped into the installed package. A change inside
+  opal still needs its own tests (listed in the implementation plan) and
+  opal's benchmark.
+* The switch uses RTMB's tape configuration, which is global state; it is
+  restored after each product, including on error. Its availability in older
+  RTMB versions was not checked.
+* Weight compositions were tested with the models' length data supplied as
+  weight compositions, not with real weight-composition data.
+
+## Reproduce
+
+```bash
+export REFACTOR_DIR=benchmarks/gradient-refactor NLMINB_BENCH_DIR=benchmarks/nlminb-r46
+R46=/opt/r462/bin/Rscript; R45=/opt/r452/bin/Rscript   # R 4.5.2 library has testthat
+$R46 --vanilla $REFACTOR_DIR/profile-lf.R
+$R46 --vanilla $REFACTOR_DIR/test-candidates.R
+$R46 --vanilla $REFACTOR_DIR/test-wf.R
+$R46 --vanilla $REFACTOR_DIR/test-dyn.R
+$R46 --vanilla $REFACTOR_DIR/test-ad-safety.R
+for s in original lf; do LF_BEST=atomic_product $R45 --vanilla $REFACTOR_DIR/run-opal-tests.R /path/to/opal $s; done
+LF_BEST=atomic_product $R46 --vanilla $REFACTOR_DIR/test-fits.R opaka lf
+LF_BEST=atomic_product $R46 --vanilla $REFACTOR_DIR/test-fits.R io_yft lf 0,1,3,7,10
+LF_BEST=atomic_product $R46 --vanilla $REFACTOR_DIR/timing.R 6
+quarto render benchmarks/gradient-refactor/gradient-refactor.qmd
+```

@@ -10,7 +10,7 @@
 "test-composition-schemes-reporting.R","auto density detects different equal-width schemes in a fishery-year",3,0,FALSE,FALSE,0
 "test-composition-schemes-reporting.R","uniform rows with different widths in separate panels use proportions",2,0,FALSE,FALSE,0
 "test-composition-schemes-reporting.R","native prepared schemes preserve historical aggregated bin indices",4,0,FALSE,FALSE,0
-"test-composition-schemes-reporting.R","the coarse-grid example fits and plots all scales",0,0,FALSE,TRUE,0
+"test-composition-schemes-reporting.R","the coarse-grid example fits and plots all scales",15,0,FALSE,FALSE,0
 "test-dynamic-depletion.R","Dynamic B0 equals fished B0 when catch is zero",3,0,FALSE,FALSE,0
 "test-dynamics-equilibrium.R","unfished zero-catch dynamics remain at equilibrium",24,0,FALSE,FALSE,0
 "test-dynamics-equilibrium.R","init_F_f equilibrium is stationary under matching catch (knife-edge selectivity)",4,0,FALSE,FALSE,0
@@ -87,7 +87,7 @@
 "test-likelihoods-length.R","multinomial uses fractional counts unrounded",1,0,FALSE,FALSE,0
 "test-likelihoods-length.R","multinomial numeric and AD kernels agree",13,0,FALSE,FALSE,0
 "test-likelihoods-length.R","fixed multinomial probabilities use an unrounded objective constant",1,0,FALSE,FALSE,0
-"test-likelihoods-length.R","multinomial composition simulation retains RTMB observation dispatch",3,1,FALSE,TRUE,0
+"test-likelihoods-length.R","multinomial composition simulation retains RTMB observation dispatch",10,0,FALSE,FALSE,0
 "test-likelihoods-length.R","multinomial simulation and latent OSA match RTMB directly",4,0,FALSE,FALSE,0
 "test-likelihoods-schemes.R","exact, coarse, and uneven schemes preserve all three likelihood formulas",36,0,FALSE,FALSE,0
 "test-likelihoods-schemes.R","scheme gradients include catch, concentration, and estimated growth",24,0,FALSE,FALSE,0
@@ -136,7 +136,7 @@
 "test-model-weight-integration.R","lp_lf is 0 when no LF data prepared (backward-compat default)",1,0,FALSE,FALSE,0
 "test-model-weight-integration.R","lp_cpue is 0 when cpue_switch absent (backward-compat default)",1,0,FALSE,FALSE,0
 "test-model-weight-integration.R","5 nlminb iterations complete without error",2,0,FALSE,FALSE,0
-"test-opaka-quickstart.R","opaka quickstart objective simulates active observations",91,84,FALSE,FALSE,0
+"test-opaka-quickstart.R","opaka quickstart objective simulates active observations",91,0,FALSE,FALSE,0
 "test-osa-residuals.R","conditional composition CDFs match independent analytical cases",6,0,FALSE,FALSE,0
 "test-osa-residuals.R","composition residuals calibrate for all three distributions",9,0,FALSE,FALSE,0
 "test-osa-residuals.R","fractional multinomial PIT rounding is reported once per OSA call",12,0,FALSE,FALSE,0
@@ -148,7 +148,7 @@
 "test-osa-residuals.R","OSA lambda warnings depend on whether residuals are tempered",3,0,FALSE,FALSE,0
 "test-osa-residuals.R","SDNR intervals, cache integrity, and CPUE residuals are explicit",5,0,FALSE,FALSE,0
 "test-osa-residuals.R","Dirichlet-multinomial OSA agrees with conditional beta-binomial probabilities",3,0,FALSE,FALSE,0
-"test-osa-residuals.R","marginal OSA returns residuals for every composition family",0,0,FALSE,TRUE,0
+"test-osa-residuals.R","marginal OSA returns residuals for every composition family",9,0,FALSE,FALSE,0
 "test-osa-residuals.R","OSA honours the model's omitted likelihood defaults",2,0,FALSE,FALSE,0
 "test-selectivity-integration.R","data includes all required selectivity elements",10,0,FALSE,FALSE,0
 "test-selectivity-integration.R","par_sel has correct structure and dimensions",3,0,FALSE,FALSE,0

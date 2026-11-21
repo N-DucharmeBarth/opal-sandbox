@@ -78,6 +78,8 @@
 !case-studies/npo-swo/vignettes/npo-swo-ss3-to-opal.html
 !benchmarks/nlminb-r46/nlminb-r46.html
 !benchmarks/optimizers/optimizers.html
+!benchmarks/gradient-refactor/gradient-refactor.html
+!benchmarks/gradient-refactor/issue-atomic-composition-products.md
 # stock synthesis
 !control.ss
 !data.ss

@@ -1,0 +1,11 @@
+"case","candidate","n_par","fn_identical","fn_max_rel","gr_identical","gr_max_abs","gr_max_scaled","growth_gr_nonzero"
+"opaka","lf_atomic_product",159,FALSE,1.89764757808851e-16,FALSE,1.2732925824821e-11,1.00370078511553e-15,TRUE
+"opaka","lf_best",159,FALSE,1.89764757808851e-16,FALSE,1.2732925824821e-11,1.00370078511553e-15,TRUE
+"opaka","lf_atomic_all",159,FALSE,1.89764757808851e-16,FALSE,1.2732925824821e-11,1.00370078511553e-15,TRUE
+"opaka","dyn_plain",159,TRUE,0,TRUE,0,0,TRUE
+"opaka","dyn_atomic",159,TRUE,0,TRUE,0,0,TRUE
+"io_yft","lf_atomic_product",477,TRUE,0,FALSE,1.81898940354586e-11,6.66753013108371e-16,TRUE
+"io_yft","lf_best",477,TRUE,0,FALSE,1.81898940354586e-11,6.66753013108371e-16,TRUE
+"io_yft","lf_atomic_all",477,TRUE,0,FALSE,1.81898940354586e-11,6.66753013108371e-16,TRUE
+"io_yft","dyn_plain",477,TRUE,0,FALSE,4.2632564145606e-14,5.69049596850611e-19,TRUE
+"io_yft","dyn_atomic",477,TRUE,0,FALSE,4.2632564145606e-14,5.69049596850611e-19,TRUE

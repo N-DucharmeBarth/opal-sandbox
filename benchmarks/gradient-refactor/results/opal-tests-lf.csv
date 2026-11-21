@@ -1,0 +1,159 @@
+"file","test","nb","failed","skipped","error","warning"
+"test-assessment-regressions.R","CPUE decodes every flattened seasonal time step",6,0,FALSE,FALSE,0
+"test-assessment-regressions.R","bounds diagnostics identify boundary rows and preserve indices",3,0,FALSE,FALSE,0
+"test-assessment-regressions.R","invalid priors cannot silently change the scientific target",6,0,FALSE,FALSE,0
+"test-assessment-regressions.R","prior labels cannot silently point at a different parameter block",1,0,FALSE,FALSE,0
+"test-composition-schemes-reporting.R","mixed-scheme rows retain input ordering and grouped observation offsets",14,0,FALSE,FALSE,0
+"test-composition-schemes-reporting.R","ragged OSA preserves row order and excludes each constrained last bin",36,0,FALSE,FALSE,0
+"test-composition-schemes-reporting.R","composition scales build at physical midpoints with visible extents",48,0,FALSE,FALSE,0
+"test-composition-schemes-reporting.R","legacy reports retain bin indices, probabilities and OSA results",18,0,FALSE,FALSE,0
+"test-composition-schemes-reporting.R","auto density detects different equal-width schemes in a fishery-year",3,0,FALSE,FALSE,0
+"test-composition-schemes-reporting.R","uniform rows with different widths in separate panels use proportions",2,0,FALSE,FALSE,0
+"test-composition-schemes-reporting.R","native prepared schemes preserve historical aggregated bin indices",4,0,FALSE,FALSE,0
+"test-composition-schemes-reporting.R","the coarse-grid example fits and plots all scales",0,0,FALSE,TRUE,0
+"test-dynamic-depletion.R","Dynamic B0 equals fished B0 when catch is zero",3,0,FALSE,FALSE,0
+"test-dynamics-equilibrium.R","unfished zero-catch dynamics remain at equilibrium",24,0,FALSE,FALSE,0
+"test-dynamics-equilibrium.R","init_F_f equilibrium is stationary under matching catch (knife-edge selectivity)",4,0,FALSE,FALSE,0
+"test-dynamics-equilibrium.R","init_F_f equilibrium with logistic selectivity is stationary",4,0,FALSE,FALSE,0
+"test-dynamics-equilibrium.R","the unfished trajectory ignores catch",2,0,FALSE,FALSE,0
+"test-dynamics.R","get_initial_numbers with spawning_potential_a recovers B0 at equilibrium",1,0,FALSE,FALSE,0
+"test-dynamics.R","get_initial_numbers returns correct list elements",6,0,FALSE,FALSE,0
+"test-dynamics.R","get_initial_numbers BH parameters are internally consistent",2,0,FALSE,FALSE,0
+"test-dynamics.R","do_dynamics returns expected dimensions with no fishing",4,0,FALSE,FALSE,0
+"test-dynamics.R","do_dynamics catch-at-age sums to observed catch in numbers",1,0,FALSE,FALSE,0
+"test-dynamics.R","get_harvest_rate reproduces observed catch in number and weight units",2,0,FALSE,FALSE,0
+"test-dynamics.R","init_F_f = NULL gives unfished equilibrium",1,0,FALSE,FALSE,0
+"test-dynamics.R","init_F_f > 0 produces depleted SSB relative to B0",1,0,FALSE,FALSE,0
+"test-dynamics.R","init_F_f near zero matches unfished result",1,0,FALSE,FALSE,0
+"test-dynamics.R","init_F_f recovers analytic depletion for single plus-group age",1,0,FALSE,FALSE,0
+"test-dynamics.R","init_F_f recovers analytic depletion for single plus-group age (h=1)",1,0,FALSE,FALSE,0
+"test-dynamics.R","init_F_f uses seasonal harvest survival for a single plus-group age",1,0,FALSE,FALSE,0
+"test-golden-opaka.R","opaka quickstart reference exists",1,0,FALSE,FALSE,0
+"test-golden-opaka.R","opaka quickstart reference matches the current scientific-model contract",1,0,FALSE,FALSE,0
+"test-golden-opaka.R","opaka quickstart active-parameter layout matches reference",1,0,FALSE,FALSE,0
+"test-golden-opaka.R","opaka quickstart objective and report match reference (start)",1,0,TRUE,FALSE,0
+"test-golden-opaka.R","opaka quickstart objective and report match reference (mle)",1,0,TRUE,FALSE,0
+"test-golden-opaka.R","bundled opaka quickstart fit is compatible and reproduces its objective",1,0,FALSE,TRUE,0
+"test-harvest-rate-consistency.R","get_harvest_rate reproduces do_dynamics in a mixed-unit case",18,0,FALSE,FALSE,0
+"test-harvest-rate-consistency.R","get_harvest_rate and do_dynamics agree when posfun is active",3,0,FALSE,FALSE,0
+"test-harvest-rate-consistency.R","get_harvest_rate reproduces opal_model harvest rates",76,0,FALSE,FALSE,0
+"test-harvest-rate-consistency.R","harvest-rate functions reject invalid catch unit codes",2,0,FALSE,FALSE,0
+"test-initial-harvest.R","overlapping initial fisheries cannot produce negative abundance",15,0,FALSE,FALSE,0
+"test-initial-harvest.R","infeasible equilibrium recruitment is positive and penalised",3,0,FALSE,FALSE,0
+"test-initial-harvest.R","feasible multi-fishery initialisation retains analytical equilibrium",4,0,FALSE,FALSE,0
+"test-initial-harvest.R","initialisation AD tape crosses the harvest constraint correctly",12,0,FALSE,FALSE,0
+"test-initial-harvest.R","the full model includes the initialisation penalty",5,0,FALSE,FALSE,0
+"test-lambdas.R","likelihood lambdas default to one and weighted terms sum to the objective",4,0,FALSE,FALSE,0
+"test-lambdas.R","fractional composition components account for the objective at start and MLE",54,0,FALSE,FALSE,0
+"test-lambdas.R","quickstart raw components account for start and stored MLE objectives",2,0,FALSE,FALSE,0
+"test-lambdas.R","a lambda of 2 adds exactly the raw term for each component",28,0,FALSE,FALSE,0
+"test-lambdas.R","all-one lambdas preserve bundled quickstart and IO yellowfin objectives",2,0,FALSE,FALSE,0
+"test-lambdas.R","composition lambdas align with fishery-grouped observation order",5,0,FALSE,FALSE,0
+"test-lambdas.R","CPUE lambdas map by index and default missing indices to one",2,0,FALSE,FALSE,0
+"test-lambdas.R","CPUE index checks match get_cpue_like() and only apply when CPUE is on",4,0,FALSE,FALSE,0
+"test-lambdas.R","lambda values are validated and scalar values expand",8,0,FALSE,FALSE,0
+"test-lambdas.R","lambda weighting refuses mismatched lengths",4,0,FALSE,FALSE,0
+"test-lambdas.R","switched-off components ignore per-observation lambdas",2,0,FALSE,FALSE,0
+"test-lambdas.R","mapped-only priors are resolved before staged runtime construction",3,0,FALSE,FALSE,0
+"test-lambdas.R","direct MakeADFun warns that prior_mapped_only was not applied",2,0,FALSE,FALSE,0
+"test-lambdas.R","legacy conversion refuses unresolved mapped-only priors",1,0,FALSE,FALSE,0
+"test-lambdas.R","MCMC joint sampling resolves mapped-only priors",3,0,FALSE,FALSE,0
+"test-lambdas.R","lambda updates invalidate staged fits and warn about unidentified parameters",3,0,FALSE,FALSE,0
+"test-lambdas.R","fit checks warn once and record parameters a zero lambda leaves unidentified",5,0,FALSE,FALSE,0
+"test-lambdas.R","prior lambda helper updates an opal object and penalty lambdas warn",9,0,FALSE,FALSE,0
+"test-likelihoods-length.R","predicted proportions at length sum to 1",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","multinomial NLL is finite and non-negative",2,0,FALSE,FALSE,0
+"test-likelihoods-length.R","perfect fit gives finite, non-negative NLL for multinomial",2,0,FALSE,FALSE,0
+"test-likelihoods-length.R","log_lf_tau affects NLL magnitude for lf_switch = 2 (Dirichlet)",5,0,FALSE,FALSE,0
+"test-likelihoods-length.R","zero catch-at-age does not produce NaN or Inf",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","lf_minbin aggregation is correct",4,0,FALSE,FALSE,0
+"test-likelihoods-length.R","removal_switch_f = 1 gives zero NLL contribution",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","lf_switch = 1 and lf_switch = 2 both produce finite results",4,0,FALSE,FALSE,0
+"test-likelihoods-length.R","lf_maxbin aggregation collapses upper-tail bins",3,0,FALSE,FALSE,0
+"test-likelihoods-length.R","lf_minbin and lf_maxbin work together",3,0,FALSE,FALSE,0
+"test-likelihoods-length.R","lf_maxbin = n_len gives finite result (no upper aggregation)",2,0,FALSE,FALSE,0
+"test-likelihoods-length.R","lf_maxbin = lf_minbin collapses to single bin and NLL is near zero",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","lf_switch = 3 (Dirichlet-multinomial) produces finite non-negative NLL",2,0,FALSE,FALSE,0
+"test-likelihoods-length.R","n_i = 0 observation is skipped and contributes zero NLL",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","multinomial NLL matches dmultinom reference value",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","lf_addtocomp argument changes multinomial NLL",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","multiple observations: obs_offset advances correctly across observations",2,0,FALSE,FALSE,0
+"test-likelihoods-length.R","get_length_like matches closed-form reference (lf_switch = 1)",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","get_length_like matches closed-form reference (lf_switch = 2)",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","get_length_like matches closed-form reference (lf_switch = 3)",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","length composition skips removal and zero-size observations",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","Dirichlet-multinomial rejects a mismatched count total",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","Dirichlet-multinomial approaches multinomial at high concentration",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","multinomial uses fractional counts unrounded",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","multinomial numeric and AD kernels agree",13,0,FALSE,FALSE,0
+"test-likelihoods-length.R","fixed multinomial probabilities use an unrounded objective constant",1,0,FALSE,FALSE,0
+"test-likelihoods-length.R","multinomial composition simulation retains RTMB observation dispatch",3,1,FALSE,TRUE,0
+"test-likelihoods-length.R","multinomial simulation and latent OSA match RTMB directly",4,0,FALSE,FALSE,0
+"test-likelihoods-schemes.R","exact, coarse, and uneven schemes preserve all three likelihood formulas",36,0,FALSE,FALSE,0
+"test-likelihoods-schemes.R","scheme gradients include catch, concentration, and estimated growth",24,0,FALSE,FALSE,0
+"test-likelihoods-schemes.R","scheme DM rows validate integer totals without mixing row offsets",2,0,FALSE,FALSE,0
+"test-likelihoods-schemes.R","single exact schemes retain legacy predictions and fishery matrices",18,0,FALSE,FALSE,0
+"test-likelihoods-schemes.R","opal_model forwards scheme inputs and supports data without them",18,0,FALSE,FALSE,0
+"test-likelihoods-schemes.R","opal_model routes mixed schemes to prediction-only aggregation",15,0,FALSE,FALSE,0
+"test-likelihoods-schemes.R","fleet lambdas zero every row across mixed LF and WF schemes",2,0,FALSE,FALSE,0
+"test-likelihoods-schemes.R","prepared mixed observations remain aligned across fisheries",26,0,FALSE,FALSE,0
+"test-likelihoods-schemes.R","prepared native min/max schemes retain the legacy two-stage mapping",24,0,FALSE,FALSE,3
+"test-likelihoods-weight.R","predicted weight proportions sum to 1",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","multinomial NLL is finite and non-negative",2,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","Dirichlet NLL is finite",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","Dirichlet-multinomial NLL is finite and non-negative",2,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","perfect fit gives finite NLL for multinomial",2,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","log_wf_tau affects NLL magnitude for wf_switch = 2 (Dirichlet)",3,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","log_wf_tau affects NLL magnitude for wf_switch = 3 (DM)",3,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","removal_switch_f = 1 gives zero NLL contribution",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","n_i = 0 observation is skipped and contributes zero NLL",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","wf_minbin and wf_maxbin aggregation works",3,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","mass conservation through rebin: sum(pred_at_weight) ~ sum(pred_at_length)",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","wf_addtocomp argument changes multinomial NLL",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","get_weight_like matches closed-form reference (wf_switch = 1)",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","get_weight_like matches closed-form reference (wf_switch = 2)",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","get_weight_like matches closed-form reference (wf_switch = 3)",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","weight composition skips removal and zero-size observations",1,0,FALSE,FALSE,0
+"test-likelihoods-weight.R","weight multinomial uses fractional counts unrounded",1,0,FALSE,FALSE,0
+"test-model-gradients.R","recorded tape matches a fresh tape at perturbed parameters",6,0,FALSE,FALSE,0
+"test-model-gradients.R","AD gradient matches finite differences (lf_switch = 1)",12,0,FALSE,FALSE,0
+"test-model-gradients.R","AD gradient matches finite differences (lf_switch = 2)",5,0,FALSE,FALSE,0
+"test-model-gradients.R","AD gradient matches finite differences (lf_switch = 3)",5,0,FALSE,FALSE,0
+"test-model-gradients.R","AD gradient matches finite differences for age-based selectivity",4,0,FALSE,FALSE,0
+"test-model-gradients.R","AD gradient matches finite differences with non-unit lambdas",5,0,FALSE,FALSE,0
+"test-model-weight-integration.R","opal_globals includes get_weight_like, rebin_counts, rebin_matrix",3,0,FALSE,FALSE,0
+"test-model-weight-integration.R","opal_model uses external selectivity-at-age when supplied",3,0,FALSE,FALSE,0
+"test-model-weight-integration.R","opal_model uses year-specific external selectivity array when supplied",1,0,FALSE,FALSE,0
+"test-model-weight-integration.R","obj$fn() is finite with LF and WF data active",1,0,FALSE,FALSE,0
+"test-model-weight-integration.R","opal_model objective includes all reported likelihood components",1,0,FALSE,FALSE,0
+"test-model-weight-integration.R","initial recruitment-deviation prior is omitted when init_rdev_a is absent",4,0,FALSE,FALSE,0
+"test-model-weight-integration.R","obj$gr() is finite with LF and WF data active",2,0,FALSE,FALSE,0
+"test-model-weight-integration.R","model runs with wf_switch = 1 and lf_switch = 0",2,0,FALSE,FALSE,0
+"test-model-weight-integration.R","lp_lf and lp_wf both contribute to NLL, and lp_wf is reported",5,0,FALSE,FALSE,0
+"test-model-weight-integration.R","WF compositions for no-catch fleets use selected abundance",3,0,FALSE,FALSE,0
+"test-model-weight-integration.R","lp_wf is 0 when wf_switch = 0 (data prepared with switch off)",1,0,FALSE,FALSE,0
+"test-model-weight-integration.R","lp_wf is 0 when no WF data prepared (backward-compat default)",1,0,FALSE,FALSE,0
+"test-model-weight-integration.R","lp_lf is 0 when no LF data prepared (backward-compat default)",1,0,FALSE,FALSE,0
+"test-model-weight-integration.R","lp_cpue is 0 when cpue_switch absent (backward-compat default)",1,0,FALSE,FALSE,0
+"test-model-weight-integration.R","5 nlminb iterations complete without error",2,0,FALSE,FALSE,0
+"test-opaka-quickstart.R","opaka quickstart objective simulates active observations",91,84,FALSE,FALSE,0
+"test-osa-residuals.R","conditional composition CDFs match independent analytical cases",6,0,FALSE,FALSE,0
+"test-osa-residuals.R","composition residuals calibrate for all three distributions",9,0,FALSE,FALSE,0
+"test-osa-residuals.R","fractional multinomial PIT rounding is reported once per OSA call",12,0,FALSE,FALSE,0
+"test-osa-residuals.R","OSA rounding notices exclude integer, other-family and inactive counts",7,0,FALSE,FALSE,0
+"test-osa-residuals.R","latent OSA does not announce fixed-effect multinomial rounding",5,0,FALSE,FALSE,0
+"test-osa-residuals.R","OSA covers both composition streams and all families with exclusions",30,0,FALSE,FALSE,0
+"test-osa-residuals.R","OSA marks zero-lambda composition rows as excluded",2,0,FALSE,FALSE,0
+"test-osa-residuals.R","OSA excludes CPUE rows with a zero lambda on fixed and latent paths",8,0,FALSE,FALSE,0
+"test-osa-residuals.R","OSA lambda warnings depend on whether residuals are tempered",3,0,FALSE,FALSE,0
+"test-osa-residuals.R","SDNR intervals, cache integrity, and CPUE residuals are explicit",5,0,FALSE,FALSE,0
+"test-osa-residuals.R","Dirichlet-multinomial OSA agrees with conditional beta-binomial probabilities",3,0,FALSE,FALSE,0
+"test-osa-residuals.R","marginal OSA returns residuals for every composition family",0,0,FALSE,TRUE,0
+"test-osa-residuals.R","OSA honours the model's omitted likelihood defaults",2,0,FALSE,FALSE,0
+"test-selectivity-integration.R","data includes all required selectivity elements",10,0,FALSE,FALSE,0
+"test-selectivity-integration.R","par_sel has correct structure and dimensions",3,0,FALSE,FALSE,0
+"test-selectivity-integration.R","get_priors includes selectivity parameters",6,0,FALSE,FALSE,0
+"test-selectivity-integration.R","opal_globals includes selectivity functions",4,0,FALSE,FALSE,0
+"test-sex-ratio.R","opakapaka selectivity types use opal codes",1,0,FALSE,FALSE,0
+"test-sex-ratio.R","sex_ratio directly scales SPR0 and R0 appropriately",3,0,FALSE,FALSE,0
+"test-sex-ratio.R","sex_ratio length-based inputs resolve to age-based equivalent via PLA",2,0,FALSE,FALSE,0
